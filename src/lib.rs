@@ -32,8 +32,8 @@ macro_rules! create_raw_string {
 
 /// Add a variable to the __main__ context.
 /// Gotta pass in a name, and a Variable value.
-#[no_mangle]
-pub unsafe extern "C" fn pixelmods_add_variable(name: *const c_char, varible: Var) {
+#[unsafe(no_mangle)]
+pub extern "C" fn pixelmods_add_variable(name: *const c_char, variable: Var) {
     // Get string as rust.
     let r_str = convert_borrowed_string!(name);
     if r_str.is_empty() {
@@ -46,8 +46,8 @@ pub unsafe extern "C" fn pixelmods_add_variable(name: *const c_char, varible: Va
 
 /// Add a callback to the __main__ context.
 /// Gotta pass in a name, Func, and a optionl *void opaque data type
-#[no_mangle]
-pub unsafe extern "C" fn pixelmods_add_callback(name: *const c_char, func: Func, opaque: *mut c_void) {
+#[unsafe(no_mangle)]
+pub extern "C" fn pixelmods_add_callback(name: *const c_char, func: Func, opaque: *mut c_void) {
     // Get rust name
     let name_str = convert_borrowed_string!(name);
     if name_str.is_empty() {
@@ -62,8 +62,8 @@ pub unsafe extern "C" fn pixelmods_add_callback(name: *const c_char, func: Func,
 /// code executed succesffuly
 /// 
 /// The result needs to be freed by calling `pixelmods_free_str` 
-#[no_mangle]
-pub unsafe extern "C" fn pixelmods_exec_lua(code: *const c_char, file_name: *const c_char) -> *const c_char {
+#[unsafe(no_mangle)]
+pub extern "C" fn pixelmods_exec_lua(code: *const c_char, file_name: *const c_char) -> *const c_char {
     // First convert code and file_name to rust strs
     let code_str = convert_borrowed_string!(code);
     if code_str.is_empty() {
@@ -81,8 +81,8 @@ pub unsafe extern "C" fn pixelmods_exec_lua(code: *const c_char, file_name: *con
 }
 
 /// Free the string created by the pixelmods library
-#[no_mangle]
-pub unsafe extern "C" fn pixelmods_free_str(string: *mut c_char) {
+#[unsafe(no_mangle)]
+pub extern "C" fn pixelmods_free_str(string: *mut c_char) {
     if !string.is_null() {
         unsafe {
             // Let the string go out of scope to be dropped

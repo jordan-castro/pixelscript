@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-mlua = { version = "0.11", features = ["lua54"], optional = true }
+mlua = { version = "0.11", features = ["lua54", "vendored", "send"], optional = true }
 anyhow = "1.0.100"
 
 [features]

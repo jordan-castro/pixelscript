@@ -10,19 +10,22 @@ use crate::shared::func::Func;
 struct State {
     /// The lua engine.
     engine: Lua,
-    /// The function hash for lua callbacks.
-    function_hash: HashMap<u32, Func>
 }
 
 /// The State static variable for Lua.
-static STATE: OnceLock<State> = OnceLock::new();
+static STATE: OnceLock<Mutex<State>> = OnceLock::new();
 
 /// Get the state of LUA.
-fn get_state() -> &mut State {
-    let mutex = STATE.get_mut().unwrap();
-    mutex
+fn get_state() -> std::sync::MutexGuard<'static, State> {
+    let mutex = STATE.get_or_init(|| {
+        Mutex::new(State {
+            engine: Lua::new(),
+        })
+    });
+    
+    // This will block the C thread if another thread is currently using Lua
+    mutex.lock().expect("Failed to lock Lua State")
 }
-
 /// Execute some orbituary lua code.
 /// Returns a String. Empty means no error happened and was successful!
 pub fn execute(code: &str, file_name: &str) -> String {
