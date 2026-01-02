@@ -165,3 +165,20 @@ pub extern "C" fn pixelmods_module_add_variable(module_ptr: *mut Module, name: *
     // Now add variable
     module.add_variable(&name_owned, variable);
 }
+
+/// Add the module finally to the runtime.
+/// 
+/// After this you can forget about the ptr since PM handles it.
+#[unsafe(no_mangle)]
+pub extern "C" fn pixelmods_add_module(module_ptr: *mut Module) {
+    if module_ptr.is_null() {
+        return;
+    }
+
+    let module = Module::from_raw(module_ptr);
+
+    // LUA
+    lua::module::add_module(module);
+
+    // Module gets dropped here, and that is good!
+}
