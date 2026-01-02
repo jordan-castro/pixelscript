@@ -109,25 +109,21 @@ pub extern "C" fn pixelmods_free_str(string: *mut c_char) {
 }
 
 /// Create a new pixelmods Module.
-/// 
-/// Just pass in a name, PM will handle it's memory from here on out.
 #[unsafe(no_mangle)]
-pub extern "C" fn pixelmods_new_module(name: *mut c_char) -> *mut Module {
+pub extern "C" fn pixelmods_new_module(name: *const c_char) -> *mut Module {
     if name.is_null() {
         return ptr::null_mut();
     }
-    let name_string = convert_owned_string!(name);
+    let name_str = convert_borrowed_string!(name);
 
-    Module::new(name_string).into_raw()
+    Module::new(name_str.to_owned()).into_raw()
 }
 
 /// Add a callback to a module.
 /// 
 /// Pass in the modules pointer and callback paramaters.
-/// 
-/// PM will handle the string memory from here on out.
 #[unsafe(no_mangle)]
-pub extern "C" fn pixelmods_module_add_callback(module_ptr: *mut Module, name: *mut c_char, func: Func, opaque: *mut c_void) {
+pub extern "C" fn pixelmods_module_add_callback(module_ptr: *mut Module, name: *const c_char, func: Func, opaque: *mut c_void) {
     if module_ptr.is_null() {
         return;
     }
@@ -138,19 +134,17 @@ pub extern "C" fn pixelmods_module_add_callback(module_ptr: *mut Module, name: *
 
     // Get actual data
     let module = unsafe {Module::from_borrow(module_ptr)};
-    let name_owned = convert_owned_string!(name);
+    let name_str = convert_borrowed_string!(name);
 
     // Now add callback
-    module.add_callback(name_owned.as_str(), func, opaque);
+    module.add_callback(name_str, func, opaque);
 }
 
 /// Add a Varible to a module.
 /// 
 /// Pass in the module pointer and variable params.
-/// 
-/// PM will handle the string memory from here on out.
 #[unsafe(no_mangle)]
-pub extern "C" fn pixelmods_module_add_variable(module_ptr: *mut Module, name: *mut c_char, variable: Var) {
+pub extern "C" fn pixelmods_module_add_variable(module_ptr: *mut Module, name: *const c_char, variable: Var) {
     if module_ptr.is_null() {
         return;
     }
@@ -160,10 +154,10 @@ pub extern "C" fn pixelmods_module_add_variable(module_ptr: *mut Module, name: *
     }
 
     let module = unsafe {Module::from_borrow(module_ptr)};
-    let name_owned = convert_owned_string!(name);
+    let name_str = convert_borrowed_string!(name);
 
     // Now add variable
-    module.add_variable(&name_owned, variable);
+    module.add_variable(name_str, variable);
 }
 
 /// Add the module finally to the runtime.
