@@ -67,8 +67,7 @@ impl PixelScript for LuaScripting {
 
     fn add_object_variable(name: &str, source: Arc<PixelObject>) {
         // Get new IDX.
-        let mut object_lookup = get_object_lookup();
-        let idx = object_lookup.add_object(Arc::clone(&source));
+        let idx = Self::save_object(source);
         // Pass just the idx into the variable... This is a interesting one....
         LuaScripting::add_variable(name, &&Var::new_host_object(idx));
     }
@@ -86,10 +85,15 @@ impl PixelScript for LuaScripting {
         state.engine.gc_collect().unwrap();
     }
     
-    fn add_object(source: Arc<PixelObject>) -> i32 {
+    fn save_object(source: Arc<crate::shared::object::PixelObject>) -> i32 {
         let mut object_lookup = get_object_lookup();
         let idx = object_lookup.add_object(Arc::clone(&source));
         idx
+    }
+    
+    fn add_object(name: &str, callback: crate::shared::func::Func, opaque: *mut std::ffi::c_void) {
+        // In LUA it's just a regular callback.
+        LuaScripting::add_callback(name, callback, opaque);
     }
 }
 

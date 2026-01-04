@@ -2,20 +2,22 @@
 mod tests {
     use std::{ffi::c_void, ptr, sync::Arc};
 
-    use pixel_script::{lua::LuaScripting, shared::{PixelScript, PtrMagic, object::PixelObject, var::Var}, *};
+    use pixel_script::{
+        lua::LuaScripting,
+        shared::{PixelScript, PtrMagic, object::PixelObject, var::Var},
+        *,
+    };
 
     struct Person {
-        name: String
+        name: String,
     }
 
     impl Person {
-        pub fn new(n_name:String) -> Self {
-            Person {
-                name: n_name
-            }
+        pub fn new(n_name: String) -> Self {
+            Person { name: n_name }
         }
 
-        pub fn set_name(&mut self, n_name:String) {
+        pub fn set_name(&mut self, n_name: String) {
             self.name = n_name;
         }
 
@@ -30,7 +32,7 @@ mod tests {
         let _ = unsafe { Person::from_borrow(ptr as *mut Person) };
     }
 
-    pub extern "C" fn set_name(argc: usize, argv: *mut *mut Var, opaque: *mut c_void) -> *mut Var {
+    pub extern "C" fn set_name(argc: usize, argv: *mut *mut Var, _opaque: *mut c_void) -> *mut Var {
         unsafe {
             let args = Var::slice_raw(argv, argc);
             // Get ptr
@@ -45,7 +47,7 @@ mod tests {
         }
     }
 
-    pub extern "C" fn get_name(argc: usize, argv: *mut *mut Var, opaque: *mut c_void) -> *mut Var {
+    pub extern "C" fn get_name(argc: usize, argv: *mut *mut Var, _opaque: *mut c_void) -> *mut Var {
         unsafe {
             let args = Var::slice_raw(argv, argc);
             // Get ptr
@@ -57,7 +59,11 @@ mod tests {
         }
     }
 
-    pub extern "C" fn new_person(argc: usize, argv: *mut *mut Var, opaque: *mut c_void) -> *mut Var {
+    pub extern "C" fn new_person(
+        argc: usize,
+        argv: *mut *mut Var,
+        opaque: *mut c_void,
+    ) -> *mut Var {
         unsafe {
             let args = std::slice::from_raw_parts(argv, argc);
             let p_name = Var::from_borrow(args[0]);
@@ -72,7 +78,7 @@ mod tests {
             let pixel_arc = Arc::new(pixel_object);
 
             // Save...
-            let idx = LuaScripting::add_object(Arc::clone(&pixel_arc));
+            let idx = LuaScripting::save_object(Arc::clone(&pixel_arc));
 
             Var::into_raw(Var::new_host_object(idx))
         }
@@ -82,7 +88,7 @@ mod tests {
     pub extern "C" fn print_wrapper(
         argc: usize,
         argv: *mut *mut Var,
-        opaque: *mut c_void,
+        _opaque: *mut c_void,
     ) -> *mut Var {
         unsafe {
             let args = std::slice::from_raw_parts(argv, argc);
@@ -100,7 +106,7 @@ mod tests {
     pub extern "C" fn add_wrapper(
         argc: usize,
         argv: *mut *mut Var,
-        opaque: *mut c_void
+        _opaque: *mut c_void,
     ) -> *mut Var {
         // Assumes n1 and n2
         unsafe {
@@ -136,7 +142,7 @@ mod tests {
 
     #[test]
     fn test_add_object() {
-        LuaScripting::add_callback("Person", new_person, ptr::null_mut());
+        LuaScripting::add_object("Person", new_person, ptr::null_mut());
     }
 
     #[test]
@@ -161,7 +167,7 @@ mod tests {
             local person = Person("Jordan")
             println(person.get_name())
             person.set_name("Jordan Castro")
-            println(person.get_name())
+            println(person:get_name())
         "#;
         let err = LuaScripting::execute(lua_code, "<test>");
 

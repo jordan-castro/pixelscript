@@ -10,6 +10,7 @@
 - module level execution with: module_execute.
 
 - Make better use of anyhow
+- C tests
 
 ## Functions
 - Use a Vector for lookup.
@@ -18,7 +19,6 @@
 
 ## Objects
 - Use a Vector for lookup.
-- Add a method to add a object to global. Tree in Lua, Class in Python/JS/easyjs
 
 ## Vars
 - Expose methods to C
