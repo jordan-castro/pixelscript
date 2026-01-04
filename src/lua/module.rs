@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     lua::{func::internal_add_callback, get_state},
-    shared::module::Module,
+    shared::{module::Module},
 };
 use mlua::prelude::*;
 
@@ -31,10 +31,21 @@ fn create_module(context: &Lua, module: &Module) -> LuaTable {
         let opaque = callback.func.opaque;
 
         // Create lua function
-        let lua_function = internal_add_callback(context, func, opaque);
+        let lua_function = internal_add_callback(context, func, opaque, None);
         module_table
             .set(callback.name.as_str(), lua_function)
             .expect("Could not set callback to module");
+    }
+
+    // Add object constructors too
+    for inner_object in module.objects.iter() {
+        // get internals
+        let func = inner_object.func.func;
+        let opaque = inner_object.func.opaque;
+
+        let object_function = internal_add_callback(context, func, opaque, None);
+        module_table
+            .set(inner_object.name.clone(), object_function).expect("Could not set object to Table.");
     }
 
     // Add internal modules

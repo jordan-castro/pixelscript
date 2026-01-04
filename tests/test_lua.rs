@@ -4,6 +4,35 @@ mod tests {
 
     use pixel_script::{lua::LuaScripting, shared::{PixelScript, PtrMagic, var::Var}, *};
 
+    struct Person {
+        name: String
+    }
+
+    impl Person {
+        pub fn new(n_name:String) -> Self {
+            Person {
+                name: n_name
+            }
+        }
+
+        pub fn set_name(&mut self, n_name:String) {
+            self.name = n_name;
+        }
+
+        pub fn get_name(&self) -> String {
+            self.name.clone()
+        }
+    }
+
+    pub extern "C" fn free_person(ptr: *mut c_void) {}
+
+    pub extern "C" fn new_person(argc: usize, argv: *mut *mut Var, opaque: *mut c_void) -> *mut Var {
+        unsafe {
+            // let p = Person::new();
+            pixelscript_new_object(ptr, free_person)
+        }
+    }
+
     // Testing callbacks
     pub extern "C" fn print_wrapper(
         argc: usize,

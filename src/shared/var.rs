@@ -85,9 +85,6 @@ pub enum VarType {
     // Array,
 }
 
-/// Method type for Freeing the ObjectOwned in the Pixel runtime.
-pub type FreeMethod = unsafe extern "C" fn(val: *mut c_void);
-
 /// The Variables actual value union.
 #[repr(C)]
 pub union VarValue {
@@ -101,6 +98,7 @@ pub union VarValue {
     pub f64_val: f64,
     pub null_val: *const c_void,
     pub object_val: *mut c_void,
+    pub host_object_val: i32
 }
 
 /// A PixelScript Var(iable).
@@ -193,12 +191,22 @@ impl Var {
     }
 
     /// Create a new HostObject var.
-    pub fn new_host_object(ptr: *const c_void) -> Self {
+    pub fn new_host_object(ptr: i32) -> Self {
         Var {
             tag: VarType::HostObject,
             value: VarValue { 
-                object_val: ptr 
+                host_object_val: ptr 
             },
+        }
+    }
+
+    /// Create a new Object var.
+    pub fn new_object(ptr: *mut c_void) -> Self {
+        Var {
+            tag: VarType::Object,
+            value: VarValue {
+                object_val: ptr
+            }
         }
     }
 
@@ -242,8 +250,36 @@ impl Var {
         }
     }
 
+    /// Get the ptr of the object if Host, i32, i64, u32, u64
+    pub fn get_object_ptr(&self) -> i32 {
+        match self.tag {
+            VarType::Int32 => self.get().unwrap(),
+            VarType::Int64 => self.get().unwrap(),
+            VarType::UInt32 => self.get().unwrap(),
+            VarType::UInt64 => self.get().unwrap(),
+            VarType::HostObject => unsafe {
+                self.value.host_object_val
+            },
+            _ => -1
+        }
+    }
+
     /// Do object.call
-    pub fn call_method<P: ObjectMethods>(&self, provider: &P, ) {}
+    pub fn call_method<P: ObjectMethods>(&self, provider: &P, method: &str, args: Vec<Var>) -> Result<Var, Error> {
+        let tags = vec![
+            VarType::Object,
+            VarType::HostObject,
+            VarType::Int32,
+            VarType::Int64,
+            VarType::UInt64,
+            VarType::UInt32,
+        ];
+        if !tags.contains(&self.tag) {
+            return Err(anyhow!("variable is not a Object."));
+        }
+
+        provider.object_call(self, method, args)
+    }
 
     write_func!(
         (get_i32, i32_val, i32, VarType::Int32),
@@ -275,7 +311,9 @@ impl Var {
         is_f64, VarType::Float64;
         is_bool, VarType::Bool;
         is_string, VarType::String;
-        is_null, VarType::Null
+        is_null, VarType::Null;
+        is_object, VarType::Object;
+        is_host_object, VarType::HostObject
     }
 }
 
@@ -333,12 +371,7 @@ impl Clone for Var {
                         object_val: self.value.object_val,
                     },
                 },
-                VarType::HostObject => Var {
-                    tag: VarType::HostObject,
-                    value: VarValue {
-                        object_val: self.value.object_val
-                    }
-                }
+                VarType::HostObject => Var::new_host_object(self.value.host_object_val)
             }
         }
     }
@@ -347,8 +380,4 @@ impl Clone for Var {
 pub trait ObjectMethods {
     /// Call a method on a object.
     fn object_call(&self, var: &Var, method: &str, args: Vec<Var>) -> Result<Var, Error>;
-    /// Get a value from a object.
-    fn object_get(&self, var: &Var, key: &str) -> Result<Var, Error>;
-    /// Set a value on a object.
-    fn object_set(&self, var: &Var, key: &str, value: &Var);
 }

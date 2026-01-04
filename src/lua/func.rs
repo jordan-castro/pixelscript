@@ -6,7 +6,7 @@ use mlua::prelude::*;
 use crate::{lua::get_state, shared::{func::{Func, get_function_lookup}, var::Var}};
 
 /// For internal use since modules also need to use the same logic for adding a Lua callback.
-pub(crate) fn internal_add_callback(lua: &Lua, func: Func, opaque: *mut c_void) -> LuaFunction {
+pub(super) fn internal_add_callback(lua: &Lua, func: Func, opaque: *mut c_void, obj: Option<i32>) -> LuaFunction {
     // Save the function
     let mut function_lookup = get_function_lookup();
     let idx = function_lookup.add_function(func, opaque);
@@ -22,36 +22,43 @@ pub(crate) fn internal_add_callback(lua: &Lua, func: Func, opaque: *mut c_void) 
             (data.func, data.opaque)
         };
 
+        // If a obj is passed
+        if let Some(obj) = obj {
+            // Add the pointer.
+            argv.push(Var::new_i64(obj as i64));
+        }
+
         for arg in args {
-            match arg {
-                mlua::Value::Boolean(b) => {
-                    argv.push(Var::new_bool(b));
-                },
-                mlua::Value::Integer(i) => {
-                    // TODO: accept u32, u64, or i32
-                    argv.push(Var::new_i64(i));
-                },
-                mlua::Value::Number(f) => {
-                    // TODO: accept f32 too
-                    argv.push(Var::new_f64(f));
-                },
-                mlua::Value::String(s) => {
-                    argv.push(Var::new_string(s.to_string_lossy()));  
-                },
-                _ => {
-                    // For now default all other values to null.
-                    // TODO: Wrap values correctly.
-                    argv.push(Var::new_null());
-                }
-                // mlua::Value::LightUserData(light_user_data) => todo!(),
-                // mlua::Value::Nil => todo!(),
-                // mlua::Value::Table(table) => todo!(),
-                // mlua::Value::Function(function) => todo!(),
-                // mlua::Value::Thread(thread) => todo!(),
-                // mlua::Value::UserData(any_user_data) => todo!(),
-                // mlua::Value::Error(error) => todo!(),
-                // mlua::Value::Other(value_ref) => todo!(),
-            }
+            argv.push(Var::from_lua(arg, lua).expect("Could not convert value into Var from Lua."));
+            // match arg {
+            //     mlua::Value::Boolean(b) => {
+            //         argv.push(Var::new_bool(b));
+            //     },
+            //     mlua::Value::Integer(i) => {
+            //         // TODO: accept u32, u64, or i32
+            //         argv.push(Var::new_i64(i));
+            //     },
+            //     mlua::Value::Number(f) => {
+            //         // TODO: accept f32 too
+            //         argv.push(Var::new_f64(f));
+            //     },
+            //     mlua::Value::String(s) => {
+            //         argv.push(Var::new_string(s.to_string_lossy()));  
+            //     },
+            //     _ => {
+            //         // For now default all other values to null.
+            //         // TODO: Wrap values correctly.
+            //         argv.push(Var::new_null());
+            //     }
+            //     // mlua::Value::LightUserData(light_user_data) => todo!(),
+            //     // mlua::Value::Nil => todo!(),
+            //     // mlua::Value::Table(table) => todo!(),
+            //     // mlua::Value::Function(function) => todo!(),
+            //     // mlua::Value::Thread(thread) => todo!(),
+            //     // mlua::Value::UserData(any_user_data) => todo!(),
+            //     // mlua::Value::Error(error) => todo!(),
+            //     // mlua::Value::Other(value_ref) => todo!(),
+            // }
         }        
 
         let argc = argv.len();
@@ -84,8 +91,8 @@ pub(crate) fn internal_add_callback(lua: &Lua, func: Func, opaque: *mut c_void) 
 }
 
 /// Add a callback to lua __main__ context.
-pub fn add_callback(name: &str, func: Func, opaque: *mut c_void) {
+pub(super) fn add_callback(name: &str, func: Func, opaque: *mut c_void) {
     let state = get_state();
-    let lua_func = internal_add_callback(&state.engine, func, opaque);
+    let lua_func = internal_add_callback(&state.engine, func, opaque, None);
     state.engine.globals().set(name, lua_func).expect("Could not add callback to Lua.");
 }

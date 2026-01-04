@@ -2,7 +2,6 @@ use std::{ffi::c_void, sync::Arc};
 
 pub mod var;
 pub mod func;
-pub mod class;
 pub mod module;
 pub mod object;
 
@@ -32,14 +31,19 @@ pub trait PtrMagic: Sized {
 
 /// The trait to use for PixelScrpipting
 pub trait PixelScript {
+    /// Start the runtime.
+    fn start();
+    /// Stop the runtime.
+    fn stop();
+
     /// Add a global variable to the runtime.
     fn add_variable(name: &str, variable: &var::Var);
+    /// Add a object variable to the runtime.
+    fn add_object_variable(name: &str, source: Arc<object::PixelObject>);
     /// Add a global callback to the runtime.
     fn add_callback(name: &str, callback: func::Func, opaque: *mut c_void);
     /// Add a global module to the runtime.
     fn add_module(source: Arc<module::Module>);
-    /// Add a global class to the runtime.
-    fn add_class(source: Arc<class::PixelClass>);
     /// Execute a script in this runtime.
     fn execute(code: &str, file_name: &str) -> String;
 }

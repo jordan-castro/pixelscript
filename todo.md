@@ -1,8 +1,5 @@
 # TODO
 
-- add_class
-
-- module_add_class
 - module_add_module
 
 - variable helper methods
@@ -13,13 +10,10 @@
 - module level execution with: module_execute.
 
 - Make better use of anyhow
-
+- TOMORROW: For objects, instead of passing in a Poiter when calling _new. Pass in a constructor() which returns a *void.
 
 ## Lua
-- add_class
 - module_execute
-- module_add_class
-- module_add_module
 
 ## Python
 - add_variable

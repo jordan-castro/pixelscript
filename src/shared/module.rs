@@ -1,7 +1,9 @@
 use std::ffi::c_void;
 
 use crate::shared::{
-    PtrMagic, func::{Func, Function}, var::Var
+    PtrMagic,
+    func::{Func, Function},
+    var::Var,
 };
 
 /// A Module is a C representation of data that needs to be (imported,required, etc)
@@ -36,7 +38,9 @@ pub struct Module {
     /// Variables that need to be added.
     pub variables: Vec<ModuleVariable>,
     /// Internal modules
-    pub modules: Vec<Module>
+    pub modules: Vec<Module>,
+    /// Objects assigned to this Module
+    pub objects: Vec<ModuleCallback>,
 }
 
 /// Wraps a Func with a name.
@@ -58,7 +62,8 @@ impl Module {
             name: name,
             callbacks: vec![],
             variables: vec![],
-            modules: vec![]
+            modules: vec![],
+            objects: vec![],
         }
     }
 
@@ -81,6 +86,17 @@ impl Module {
     /// Add a internal module.
     pub fn add_module(&mut self, child: Module) {
         self.modules.push(child);
+    }
+
+    /// Add a internal object.
+    pub fn add_object(&mut self, name: &str, constructor: Func, opaque: *mut c_void) {
+        self.objects.push(ModuleCallback {
+            name: name.to_owned(),
+            func: Function {
+                func: constructor,
+                opaque,
+            },
+        });
     }
 }
 
