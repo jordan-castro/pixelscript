@@ -21,8 +21,8 @@
 - Use a Vector for lookup.
 
 ## Vars
-- Expose methods to C
-- pixelscript_var_ methods
+- pixelscript_var_geti32()
+- ...
 
 ## Lua
 - module_execute

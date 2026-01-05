@@ -271,6 +271,81 @@ impl Var {
         }
     }
 
+    /// Get Big Integer value
+    pub fn get_bigint(&self) -> i64 {
+        match self.tag {
+            VarType::Int32 => self.get_i32().unwrap() as i64,
+            VarType::Int64 => self.get_i64().unwrap() as i64,
+            VarType::UInt32 => self.get_u32().unwrap() as i64,
+            VarType::UInt64 => self.get_u64().unwrap() as i64,
+            VarType::Float32 => self.get_f32().unwrap() as i64,
+            VarType::Float64 => self.get_f64().unwrap() as i64,
+            _ => {
+                -1
+            }
+        }
+    }
+
+    /// Get Int32 value
+    pub fn get_int(&self) -> i32 {
+        match self.tag {
+            VarType::Int32 => self.get_i32().unwrap(),
+            VarType::UInt32 => self.get_u32().unwrap() as i32,
+            VarType::Float32 => self.get_f32().unwrap() as i32,
+            _ => {
+                -1
+            }
+        }
+    }
+
+    /// Get UInt value
+    pub fn get_uint(&self) -> u32 {
+        match self.tag {
+            VarType::UInt32 => self.get_u32().unwrap(),
+            _ => {
+                0
+            }
+        }
+    }
+
+    /// Get BigUint value
+    pub fn get_biguint(&self) -> u64 {
+        match self.tag {
+            VarType::UInt32 => self.get_u32().unwrap() as u64,
+            VarType::UInt64 => self.get_u64().unwrap(),
+            _ => {
+                0
+            }
+        }
+    }
+
+    /// Get BigFloat value
+    pub fn get_bigfloat(&self) -> f64 {
+        match self.tag {
+            VarType::Int32 => self.get_i32().unwrap() as f64,
+            VarType::Int64 => self.get_i64().unwrap() as f64,
+            VarType::UInt32 => self.get_u32().unwrap() as f64,
+            VarType::UInt64 => self.get_u64().unwrap() as f64,
+            VarType::Float32 => self.get_f32().unwrap() as f64,
+            VarType::Float64 => self.get_f64().unwrap(),
+            _ => {
+                -1.0
+            }
+        }
+    }
+
+    /// Get Float value
+    pub fn get_float(&self) -> f32 {
+        match self.tag {
+            VarType::Int32 => self.get_i32().unwrap() as f32,
+            VarType::UInt32 => self.get_u32().unwrap() as f32,
+            VarType::Float32 => self.get_f32().unwrap(),
+            _ => {
+                -1.0
+            }
+        }
+    }
+
     write_func!(
         (get_i32, i32_val, i32, VarType::Int32),
         (get_u32, u32_val, u32, VarType::UInt32),

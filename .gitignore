@@ -1,1 +1,4 @@
 /target
+/build
+*.lib
+/pixel_script

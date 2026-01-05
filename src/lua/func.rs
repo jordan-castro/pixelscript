@@ -1,15 +1,13 @@
-use std::ffi::c_void;
-
 use mlua::prelude::*;
 // use mlua::{Integer, IntoLua, Lua, MultiValue, Value::Nil, Variadic};
 
-use crate::{lua::get_state, shared::{PixelScriptRuntime, func::{Func, get_function_lookup}, var::Var}};
+use crate::{lua::get_state, shared::{PixelScriptRuntime, func::get_function_lookup, var::Var}};
 
 /// For internal use since modules also need to use the same logic for adding a Lua callback.
-pub(super) fn internal_add_callback(lua: &Lua, func: Func, opaque: *mut c_void, obj: Option<i32>) -> LuaFunction {
-    // Save the function
-    let mut function_lookup = get_function_lookup();
-    let idx = function_lookup.add_function(func, opaque);
+pub(super) fn internal_add_callback(lua: &Lua, fn_idx: i32, obj: Option<i32>) -> LuaFunction {
+    let idx = fn_idx;
+    // let mut function_lookup = get_function_lookup();
+    // let idx = function_lookup.add_function(func, opaque);
 
     lua.create_function(move |lua, args: LuaMultiValue| {
         // Convert args -> argv for pixelmods
@@ -94,8 +92,8 @@ pub(super) fn internal_add_callback(lua: &Lua, func: Func, opaque: *mut c_void, 
 }
 
 /// Add a callback to lua __main__ context.
-pub(super) fn add_callback(name: &str, func: Func, opaque: *mut c_void) {
+pub(super) fn add_callback(name: &str, fn_idx: i32) {
     let state = get_state();
-    let lua_func = internal_add_callback(&state.engine, func, opaque, None);
+    let lua_func = internal_add_callback(&state.engine, fn_idx, None);
     state.engine.globals().set(name, lua_func).expect("Could not add callback to Lua.");
 }

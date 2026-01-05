@@ -302,6 +302,15 @@ void pixelscript_object_add_callback(struct PixelObject *object_ptr,
 void pixelscript_add_object_variable(const char *name, struct PixelObject *object_ptr);
 
 /**
+ * Add a object globally.
+ *
+ * This works as a Tree/Class/Prototype depending on the language.
+ *
+ * This is essentially just a callback but with special linking process.
+ */
+void pixelscript_add_object(const char *name, Func callback, void *opaque);
+
+/**
  * Add a object to a Module.
  *
  * This essentially makes it so that when constructing this Module, this object is instanced.
@@ -335,12 +344,12 @@ void pixelscript_module_add_object(struct Module *module_ptr,
  *
  * Does take ownership
  */
-struct Var pixelscript_var_newstring(char *str);
+struct Var *pixelscript_var_newstring(char *str);
 
 /**
  * Make a new Null var.
  */
-struct Var pixelscript_var_newnull(void);
+struct Var *pixelscript_var_newnull(void);
 
 /**
  * Make a new HostObject var.
@@ -349,32 +358,42 @@ struct Var pixelscript_var_newnull(void);
  *
  * Transfers ownership
  */
-struct Var pixelscript_var_newhost_object(struct PixelObject *pixel_object);
+struct Var *pixelscript_var_newhost_object(struct PixelObject *pixel_object);
 
 /**
  * Create a new variable i32.
  */
-struct Var pixelscript_var_newi32(int32_t val);
+struct Var *pixelscript_var_newi32(int32_t val);
 
 /**
  * Create a new variable u32.
  */
-struct Var pixelscript_var_newu32(uint32_t val);
+struct Var *pixelscript_var_newu32(uint32_t val);
 
 /**
  * Create a new variable i64.
  */
-struct Var pixelscript_var_newi64(int64_t val);
+struct Var *pixelscript_var_newi64(int64_t val);
 
 /**
  * Create a new variable u64.
  */
-struct Var pixelscript_var_newu64(uint64_t val);
+struct Var *pixelscript_var_newu64(uint64_t val);
 
 /**
  * Create a new variable bool.
  */
-struct Var pixelscript_var_newbool(bool val);
+struct Var *pixelscript_var_newbool(bool val);
+
+/**
+ * Create a new variable f32.
+ */
+struct Var *pixelscript_var_newf32(float val);
+
+/**
+ * Create a new variable f64
+ */
+struct Var *pixelscript_var_newf64(double val);
 
 /**
  * Object call.
@@ -390,8 +409,64 @@ struct Var pixelscript_var_newbool(bool val);
  *     Var name = pixelscript_object_call()
  * ```
  */
-struct Var pixelscript_object_call(struct Var *runtime,
-                                   struct Var *var,
-                                   const char *method,
-                                   uintptr_t argc,
-                                   struct Var **argv);
+struct Var *pixelscript_object_call(struct Var *runtime,
+                                    struct Var *var,
+                                    const char *method,
+                                    uintptr_t argc,
+                                    struct Var **argv);
+
+/**
+ * Get a I32 from a var.
+ */
+int32_t pixelscript_var_get_i32(struct Var *var);
+
+/**
+ * Get a I64 from a var.
+ */
+int64_t pixelscript_var_get_i64(struct Var *var);
+
+/**
+ * Get a U32 from a var.
+ */
+uint32_t pixelscript_var_get_u32(struct Var *var);
+
+/**
+ * Get a U64
+ */
+uint64_t pixelscript_var_get_u64(struct Var *var);
+
+/**
+ * Get a F32
+ */
+float pixelscript_var_get_f32(struct Var *var);
+
+/**
+ * Get a F64
+ */
+double pixelscript_var_get_f64(struct Var *var);
+
+/**
+ * Get a Bool
+ */
+bool pixelscript_var_get_bool(struct Var *var);
+
+/**
+ * Get a String
+ *
+ * DANGEROUS
+ *
+ * You have to free this memory by calling `pixelscript_free_str`
+ */
+const char *pixelscript_var_get_string(struct Var *var);
+
+/**
+ * Get the pointer of the Host Object
+ *
+ * This is "potentially" dangerous.
+ */
+void *pixelscript_var_get_host_object(struct Var *var);
+
+/**
+ * Get the IDX of the PixelObject
+ */
+int32_t pixelscript_var_get_object_idx(struct Var *var);

@@ -2,13 +2,15 @@ use std::sync::Arc;
 
 use crate::{
     lua::{func::internal_add_callback, get_state},
-    shared::{module::Module},
+    shared::{func::get_function_lookup, module::Module},
 };
 use mlua::prelude::*;
 
 /// Create the module table.
 fn create_module(context: &Lua, module: &Module) -> LuaTable {
     let module_table = context.create_table().expect("Could not create LUA table.");
+    // For functions within modules they are created per language
+    let mut function_lookup = get_function_lookup();
 
     // Add variables
     for variable in module.variables.iter() {
@@ -30,8 +32,10 @@ fn create_module(context: &Lua, module: &Module) -> LuaTable {
         let func = callback.func.func;
         let opaque = callback.func.opaque;
 
+        let idx = function_lookup.add_function(func, opaque);
+
         // Create lua function
-        let lua_function = internal_add_callback(context, func, opaque, None);
+        let lua_function = internal_add_callback(context, idx, None);
         module_table
             .set(callback.name.as_str(), lua_function)
             .expect("Could not set callback to module");
@@ -43,7 +47,9 @@ fn create_module(context: &Lua, module: &Module) -> LuaTable {
         let func = inner_object.func.func;
         let opaque = inner_object.func.opaque;
 
-        let object_function = internal_add_callback(context, func, opaque, None);
+        let idx = function_lookup.add_function(func, opaque);
+
+        let object_function = internal_add_callback(context, idx, None);
         module_table
             .set(inner_object.name.clone(), object_function).expect("Could not set object to Table.");
     }

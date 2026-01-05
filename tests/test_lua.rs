@@ -4,7 +4,7 @@ mod tests {
 
     use pixel_script::{
         lua::LuaScripting,
-        shared::{PixelScript, PtrMagic, object::PixelObject, var::Var},
+        shared::{PixelScript, PtrMagic, func::get_function_lookup, object::PixelObject, var::Var},
         *,
     };
 
@@ -36,17 +36,17 @@ mod tests {
         unsafe {
             let args = Var::slice_raw(argv, argc);
             // Get ptr
-            let pixel_object_var = Var::from_borrow(args[0]);
+            let pixel_object_var = Var::from_borrow(args[1]);
             let host_ptr = pixel_object_var.get_host_ptr();
             let p = Person::from_borrow(host_ptr as *mut Person);
 
             // Check if first arg is self or nme
             let name = {
-            let first_arg = Var::from_borrow(args[1]);
+            let first_arg = Var::from_borrow(args[2]);
             if first_arg.is_string() {
                 first_arg
             } else {
-                Var::from_borrow(args[2])
+                Var::from_borrow(args[3])
             }
             };
 
@@ -60,7 +60,7 @@ mod tests {
         unsafe {
             let args = Var::slice_raw(argv, argc);
             // Get ptr
-            let pixel_object_var = Var::from_borrow(args[0]);
+            let pixel_object_var = Var::from_borrow(args[1]);
             let host_ptr = pixel_object_var.get_host_ptr();
             let p = Person::from_borrow(host_ptr as *mut Person);
 
@@ -75,7 +75,7 @@ mod tests {
     ) -> *mut Var {
         unsafe {
             let args = std::slice::from_raw_parts(argv, argc);
-            let p_name = Var::from_borrow(args[0]);
+            let p_name = Var::from_borrow(args[1]);
             let p_name = p_name.get_string().unwrap();
             let p = Person::new(p_name.clone());
 
@@ -87,7 +87,7 @@ mod tests {
             // Save...
             let var = pixelscript_var_newhost_object(pixel_object.into_raw());
 
-            var.into_raw()
+            var
         }
     }
 
@@ -134,7 +134,10 @@ mod tests {
 
     #[test]
     fn test_add_callback() {
-        LuaScripting::add_callback("println", print_wrapper, ptr::null_mut());
+        // Create fn idx
+        let mut function_lookup = get_function_lookup();
+        let idx = function_lookup.add_function(print_wrapper, ptr::null_mut());
+        LuaScripting::add_callback("println", idx);
     }
 
     #[test]

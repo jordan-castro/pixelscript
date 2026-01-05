@@ -49,7 +49,7 @@ impl FunctionLookup {
 static FUNCTION_LOOKUP: OnceLock<Mutex<FunctionLookup>> = OnceLock::new();
 
 /// Get the function lookup global state. Shared between all runtimes.
-pub(crate) fn get_function_lookup() -> std::sync::MutexGuard<'static, FunctionLookup> {
+pub fn get_function_lookup() -> std::sync::MutexGuard<'static, FunctionLookup> {
     FUNCTION_LOOKUP.get_or_init(|| {
         Mutex::new(FunctionLookup {
             function_hash: HashMap::new(),

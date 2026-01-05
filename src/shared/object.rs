@@ -163,7 +163,7 @@ impl ObjectLookup {
 static OBJECT_LOOKUP: OnceLock<Mutex<ObjectLookup>> = OnceLock::new();
 
 /// Get the Object lookup global state. Shared between all runtimes.
-pub(crate) fn get_object_lookup() -> std::sync::MutexGuard<'static, ObjectLookup> {
+pub fn get_object_lookup() -> std::sync::MutexGuard<'static, ObjectLookup> {
     OBJECT_LOOKUP.get_or_init(|| {
         Mutex::new(ObjectLookup {
             object_hash: HashMap::new(),

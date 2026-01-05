@@ -12,6 +12,7 @@ use crate::{
     },
 };
 
+// TODO: use LuaUnsigned for u32 and u64 maybe.
 impl IntoLua for Var {
     fn into_lua(self, lua: &mlua::Lua) -> mlua::Result<mlua::Value> {
         // Convert the Rust/C type into Lua. Once it's in LUA we can free our memory, lua copies it and handles it from here on out.

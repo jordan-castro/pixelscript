@@ -39,7 +39,7 @@ pub trait PixelScript {
     /// Add a object variable to the runtime.
     fn add_object_variable(name: &str, idx: i32);
     /// Add a global callback to the runtime.
-    fn add_callback(name: &str, callback: func::Func, opaque: *mut c_void);
+    fn add_callback(name: &str, idx: i32);
     /// Add a global module to the runtime.
     fn add_module(source: Arc<module::Module>);
     /// Add a Object constructor globally to the runtime.
