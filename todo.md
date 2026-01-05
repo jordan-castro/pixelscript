@@ -7,7 +7,11 @@
 
 - add rust first functions? (i.e. in lib add rust specific functions.)
 
-- module level execution with: module_execute.
+- code as module
+    - add_code_module
+- file io
+    - add_loader_callbacks (file_loader, dir_loader)
+        - Each are optional.
 
 - Make better use of anyhow
 - C tests
