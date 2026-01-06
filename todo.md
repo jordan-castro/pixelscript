@@ -10,11 +10,13 @@
 - code as module
     - add_code_module
 - file io
-    - add_loader_callbacks (file_loader, dir_loader)
+    - add_loader_callbacks (file_loader)
         - Each are optional.
 
 - Make better use of anyhow
 - C tests
+
+- Add a LSP
 
 ## Functions
 - Use a Vector for lookup.
