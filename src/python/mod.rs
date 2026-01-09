@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, sync::{Arc, OnceLock}};
 
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
-use rustpython::vm::{self, Interpreter, PyObjectRef, Settings, builtins::PyDict, convert::ToPyObject, scope::Scope};
+use rustpython::vm::{Interpreter, PyObjectRef, Settings, convert::ToPyObject, scope::Scope};
 
 use crate::{python::{func::create_function, module::create_module}, shared::PixelScript};
 
