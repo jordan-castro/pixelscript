@@ -8,7 +8,7 @@ use std::{
 
 use crate::{
     lua::LuaScripting, python::PythonScripting, shared::{
-        PixelScript, PixelScriptRuntime, PtrMagic, func::{clear_function_lookup, lookup_add_function}, module::Module, object::{FreeMethod, PixelObject, clear_object_lookup, lookup_add_object}, var::{ObjectMethods, VarType}
+        LoadFileFn, PixelScript, PixelScriptRuntime, PtrMagic, ReadDirFn, func::{clear_function_lookup, lookup_add_function}, get_pixel_state, module::Module, object::{FreeMethod, PixelObject, clear_object_lookup, lookup_add_object}, var::{ObjectMethods, VarType}
     },
 };
 
@@ -47,6 +47,7 @@ macro_rules! borrow_string {
 /// Convert a owned C string (i.e. owned by us now.) into a Rust String.
 ///
 /// The C memory will be freed automatically, and you get a nice clean String!
+#[macro_export]
 macro_rules! own_string {
     ($cstr:expr) => {{
         if $cstr.is_null() {
@@ -773,4 +774,39 @@ pub extern "C" fn pixelscript_var_get_object_idx(var: *mut Var) -> i32 {
     unsafe {
         Var::from_borrow(var).get_object_ptr()
     }
+}
+
+/// Check if a variable is of a type.
+#[unsafe(no_mangle)]
+pub extern "C" fn pixelscript_var_is(var: *mut Var, var_type: VarType) -> bool {
+    if var.is_null() {
+        return false;
+    }
+
+    let var_borrow = unsafe {Var::from_borrow(var)};
+
+    var_borrow.tag == var_type
+}
+
+
+/// Set a function for reading a file.
+///
+/// This is used to load files via import, require, etc
+#[unsafe(no_mangle)]
+pub extern "C" fn pixelscript_set_file_reader(func: LoadFileFn) {
+    assert_initiated!();
+    let state = get_pixel_state();
+    let mut load_file = state.load_file.borrow_mut();
+    *load_file = Some(func);
+}
+
+/// Set a function for reading a directory.
+///
+/// This is used to read a dir.
+#[unsafe(no_mangle)]
+pub extern "C" fn pixelscript_set_dir_reader(func: ReadDirFn) {
+    assert_initiated!();
+    let state = get_pixel_state();
+    let mut read_dir = state.read_dir.borrow_mut();
+    *read_dir = Some(func);
 }

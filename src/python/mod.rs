@@ -1,14 +1,15 @@
 use std::{cell::RefCell, collections::HashMap, sync::{Arc, OnceLock}};
 
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
-use rustpython::vm::{Interpreter, PyObjectRef, PyRef, Settings, builtins::PyType, convert::ToPyObject, scope::Scope};
+use rustpython::vm::{Interpreter, PyObjectRef, PyRef, Settings, VirtualMachine, builtins::PyType, convert::ToPyObject, function::FsPath, scope::Scope};
 
-use crate::{python::{func::create_function, module::create_module}, shared::PixelScript};
+use crate::{python::{func::create_function, module::create_module, overrides::override_import_loader}, shared::{PixelScript, read_file}};
 
 mod var;
 mod func;
 mod module;
 mod object;
+mod overrides;
 
 /// This is the Python State
 struct State {
@@ -90,27 +91,30 @@ unsafe impl Sync for State {}
 /// The State static variable for Lua.
 static STATE: OnceLock<ReentrantMutex<State>> = OnceLock::new();
 
-/// Get the state of LUA.
+/// Get the state of Python.
 fn get_state() -> ReentrantMutexGuard<'static, State> {
     let mutex = STATE.get_or_init(|| {
         // Initialize state inside
         let mut settings = Settings::default();
         settings.path_list.push("".to_string());
+        settings.write_bytecode = false;
+        
         let interp = rustpython::InterpreterConfig::new()
             .settings(settings)
             .init_stdlib() 
             .interpreter();
-        
+
         let scope = interp.enter(|vm| {
             let globals = vm.ctx.new_dict();
-            let sys_modules = vm.sys_module.get_attr("modules", vm).unwrap();
+
+            // let sys_modules = vm.sys_module.get_attr("modules", vm).unwrap();
             
-            let modules_dict = sys_modules.downcast::<rustpython::vm::builtins::PyDict>().unwrap();
+            // let modules_dict = sys_modules.downcast::<rustpython::vm::builtins::PyDict>().unwrap();
             
             // Remove dangerous modules from the cache so 'import os' fails
-            let _ = modules_dict.del_item("os", vm);
-            let _ = modules_dict.del_item("io", vm);
-            let _ = modules_dict.del_item("shutil", vm);
+            // let _ = modules_dict.del_item("os", vm);
+            // let _ = modules_dict.del_item("io", vm);
+            // let _ = modules_dict.del_item("shutil", vm);
 
             globals.into()
         });
@@ -123,7 +127,6 @@ fn get_state() -> ReentrantMutexGuard<'static, State> {
                 class_ptrs: RefCell::new(vec![])
             }
         )
-
     });
 
     mutex.lock()
@@ -134,7 +137,10 @@ pub struct PythonScripting {}
 impl PixelScript for PythonScripting {
     fn start() {
         // Initalize the state
-        let _ununsed = get_state();
+        let state = get_state();
+        state.engine.enter(|vm| {
+            override_import_loader(vm, state.global_scope.clone());
+        });
     }
 
     fn stop() {
@@ -145,7 +151,7 @@ impl PixelScript for PythonScripting {
         let state = get_state();
         state.engine.enter(|vm| {
             let var = variable.clone().to_pyobject(vm);
-            state.global_scope.set_item(name, var.into(), vm).expect("Could not set");
+            vm.builtins.set_attr(unsafe {pystr_leak( name.to_string()) }, var, vm).expect("Could not set Var Python.");
         });
     }
 
@@ -154,7 +160,7 @@ impl PixelScript for PythonScripting {
         state.engine.enter(|vm| {
             let pyfunc = create_function(vm, name, fn_idx);
             // Attach it
-            state.global_scope.set_item(name, pyfunc.into(), vm).expect("Could not set");
+            vm.builtins.set_attr(unsafe { pystr_leak(name.to_string()) }, pyfunc, vm).expect("Could not set callback Python.");
         });
     }
 

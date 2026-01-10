@@ -2,3 +2,4 @@
 /build
 *.lib
 /pixel_script
+*__pycache__

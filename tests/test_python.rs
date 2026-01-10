@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use std::{
-        ffi::{CString, c_void},
+        ffi::{CStr, CString, c_char, c_void},
         ptr,
     };
 
@@ -152,6 +152,26 @@ mod tests {
         }
     }
 
+    unsafe extern "C" fn file_loader(file_path: *const c_char) -> *mut c_char {
+        let file_path = unsafe{ CStr::from_ptr(file_path).to_str().unwrap() };
+
+        if file_path.is_empty() {
+            return create_raw_string!("");
+        }
+
+        let file_exists = std::fs::exists(file_path).unwrap();
+
+        if !file_exists {
+            return create_raw_string!("");
+        }
+
+        // Read file
+        let contents = std::fs::read_to_string(file_path).unwrap();
+
+        // Return contents
+        create_raw_string!(contents)
+    }
+
     #[test]
     fn test_add_variable() {
         pixelscript_initialize();
@@ -203,8 +223,13 @@ mod tests {
         test_add_module();
         test_add_object();
 
+        pixelscript_set_file_reader(file_loader);
+
         let py_code = r#"
 import ps_math
+from pad.ft_object import function_from_outside 
+
+function_from_outside() # Should print something
 
 msg = "Welcome " + name
 println(msg)
@@ -220,6 +245,9 @@ person = Person("Jordan")
 println(person.get_name())
 person.set_name("Jordan Castro")
 println(person.get_name())
+
+println(type(person).__name__)
+println(type(Person).__name__)
         "#;
         let err = PythonScripting::execute(py_code, "<test>");
         assert!(err.is_empty(), "Python Error is not empty: {}", err);

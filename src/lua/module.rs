@@ -33,25 +33,28 @@ fn create_module(context: &Lua, module: &Module) -> LuaTable {
             .expect("Could not set callback to module");
     }
 
-    // Add internal modules
-    for inner_module in module.modules.iter() {
-        // Create a module
-        let inner_table = create_module(context, inner_module);
-        // Add to this module
-        module_table
-            .set(inner_module.name.to_owned(), inner_table)
-            .expect("Could not create inner module.");
-    }
+    // // Add internal modules
+    // for inner_module in module.modules.iter() {
+    //     // Create a module
+    //     let inner_table = create_module(context, inner_module);
+    //     // Add to this module
+    //     module_table
+    //         .set(inner_module.name.to_owned(), inner_table)
+    //         .expect("Could not create inner module.");
+    // }
 
     module_table
 }
 
 /// Add a module to Lua!
-pub fn add_module(module: Arc<Module>) {
+pub fn add_module(module: Arc<Module>, parent: Option<&str>) {
     // First get lua state
     let state = get_lua_state();
 
-    let mod_name = module.name.clone();
+    let mod_name = match parent {
+        Some(p) => format!("{p}.{}", module.name.clone()),
+        None => module.name.clone(),
+    };
     let module_for_lua = Arc::clone(&module);
 
     // Let's create a table
@@ -63,6 +66,11 @@ pub fn add_module(module: Arc<Module>) {
     let preload: LuaTable = package
         .get("preload")
         .expect("Could not grab the Preload table");
+
+    for child in module.modules.iter() {
+        let child_module = child.clone();
+        add_module(Arc::new(child_module), Some(mod_name.as_str()));
+    }
 
     // create the loader function for require()
     let loader = state
@@ -78,4 +86,5 @@ pub fn add_module(module: Arc<Module>) {
     preload
         .set(mod_name, loader)
         .expect("Could not set Lua module loader.");
+
 }

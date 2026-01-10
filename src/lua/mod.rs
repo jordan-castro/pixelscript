@@ -7,7 +7,7 @@ use mlua::prelude::*;
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 use std::{cell::RefCell, collections::HashMap, sync::{OnceLock}};
 
-use crate::shared::{PixelScript, object::get_object, var::{ObjectMethods, Var}};
+use crate::shared::{PixelScript, object::get_object, read_file, var::{ObjectMethods, Var}};
 
 /// This is the Lua state. Each language gets it's own private state
 struct State {
@@ -63,7 +63,39 @@ pub fn execute(code: &str, file_name: &str) -> String {
     String::from("")
 }
 
-pub struct LuaScripting {}
+/// Custom moduile loader function
+fn setup_module_loader(lua: &Lua) {
+    // Get package.searchers
+    let package : LuaTable = lua.globals().get("package").expect("Could not get package Lua.");
+    let searchers: LuaTable = package.get("searchers").expect("Could not get searchers Lua.");
+
+    // Custom loader function
+    let loader = lua.create_function(|lua, name: String| {
+        let path = name.replace(".", "/");
+        let path = if !path.ends_with(".lua") {
+            format!("{path}.lua").to_string()
+        } else {
+            path
+        };
+        let contents = read_file(path.as_str());
+
+        if contents.is_empty() {
+            return Ok(LuaNil);
+        }
+
+        // Compile into chunk
+        match lua.load(contents).set_name(&path).into_function() {
+            Ok(func) => Ok(LuaValue::Function(func)),
+            Err(_) => Ok(LuaNil),
+        }
+    }).expect("Could not create loader function Lua.");
+
+    // Set our loader in searchers list
+    let len = searchers.len().expect("Could not get len of searchers Lua.");
+    searchers.set(len + 1, loader).expect("Could not set loader in searchers Lua.");
+}
+
+pub struct LuaScripting;
 
 impl PixelScript for LuaScripting {
     fn add_variable(name: &str, variable: &crate::shared::var::Var) {
@@ -78,7 +110,7 @@ impl PixelScript for LuaScripting {
     }
 
     fn add_module(source: std::sync::Arc<crate::shared::module::Module>) {
-        module::add_module(source);
+        module::add_module(source, None);
     }
 
     fn execute(code: &str, file_name: &str) -> String {
@@ -92,7 +124,8 @@ impl PixelScript for LuaScripting {
 
     fn start() {
         // Initalize the state
-        let _ununsed = get_lua_state();
+        let state = get_lua_state();
+        setup_module_loader(&state.engine);
     }
 
     fn stop() {

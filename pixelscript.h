@@ -209,6 +209,32 @@ typedef struct Var *(*Func)(uintptr_t argc, struct Var **argv, void *opaque);
 typedef void (*FreeMethod)(void *ptr);
 
 /**
+ * Function Type for Loading a file.
+ */
+typedef char *(*LoadFileFn)(const char *file_path);
+
+/**
+ * Type for DirHandle.
+ *
+ * Host owns memory.
+ */
+typedef struct DirHandle {
+  /**
+   * The Length of the array
+   */
+  int32_t length;
+  /**
+   * The array values
+   */
+  char **values;
+} DirHandle;
+
+/**
+ * Function Type for reading a Dir.
+ */
+typedef struct DirHandle (*ReadDirFn)(const char *dir_path);
+
+/**
  * Current pixelscript version.
  */
 uint32_t pixelscript_version(void);
@@ -497,5 +523,24 @@ void *pixelscript_var_get_host_object(struct Var *var);
  * Get the IDX of the PixelObject
  */
 int32_t pixelscript_var_get_object_idx(struct Var *var);
+
+/**
+ * Check if a variable is of a type.
+ */
+bool pixelscript_var_is(struct Var *var, VarType var_type);
+
+/**
+ * Set a function for reading a file.
+ *
+ * This is used to load files via import, require, etc
+ */
+void pixelscript_set_file_reader(LoadFileFn func);
+
+/**
+ * Set a function for reading a directory.
+ *
+ * This is used to read a dir.
+ */
+void pixelscript_set_dir_reader(ReadDirFn func);
 
 #endif  /* PIXEL_SCRIPT_H */

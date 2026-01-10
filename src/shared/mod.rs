@@ -1,9 +1,125 @@
-use std::sync::Arc;
+use std::{cell::RefCell, ffi::{CString, c_char}, ptr, sync::{Arc, OnceLock}};
+
+use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
+
+use crate::own_string;
 
 pub mod func;
 pub mod module;
 pub mod object;
 pub mod var;
+
+
+// /// Create a *const c_char from a rust &str.
+// macro_rules! create_const_char {
+//     ($rstr:expr) => {{ 
+//         let c_str = CString::new($rstr).unwrap(); 
+//         c_str.as_ptr()
+//     }};
+// }
+
+// /// Create a *mut c_char from a rust &str.
+// macro_rules! create_ {
+//     () => {
+//                        
+//     };
+// }
+
+/// Type for DirHandle.
+///
+/// Host owns memory. 
+#[repr(C)]
+pub struct DirHandle {
+    /// The Length of the array
+    pub length: i32,
+    /// The array values
+    pub values: *mut *mut c_char
+}
+
+/// Function Type for Loading a file.
+pub type LoadFileFn = unsafe extern "C" fn(file_path: *const c_char) -> *mut c_char;
+// /// Function Type for writing a file.
+// pub type WriteFileFn = unsafe extern "C" fn(file_path: *const c_char, contents: *const c_char);
+/// Function Type for reading a Dir.
+pub type ReadDirFn = unsafe extern "C" fn(dir_path: *const c_char) -> DirHandle;
+
+/// This is the PixelScript state.
+pub(crate) struct PixelState {
+    pub load_file: RefCell<Option<LoadFileFn>>,
+    // pub write_file: RefCell<Option<WriteFileFn>>,
+    pub read_dir: RefCell<Option<ReadDirFn>>
+}
+
+/// The State static variable for Lua.
+static PIXEL_STATE: OnceLock<ReentrantMutex<PixelState>> = OnceLock::new();
+
+/// Get the state of LUA.
+pub (crate) fn get_pixel_state() -> ReentrantMutexGuard<'static, PixelState> {
+    let mutex = PIXEL_STATE.get_or_init(|| {
+        ReentrantMutex::new(PixelState {
+            load_file: RefCell::new(None),
+            // write_file: RefCell::new(None),
+            read_dir: RefCell::new(None), 
+        })
+    });
+    // This will 
+    mutex.lock()
+}
+
+/// Read a file
+pub fn read_file(file_path: &str) -> String {
+    // Get state
+    let state = get_pixel_state();
+    // Get callback
+    let cbk = state.load_file.borrow();
+    if cbk.is_none() {
+        return String::new();
+    }
+    let cbk = cbk.unwrap();
+
+    // convert to *const c_char
+    let c_str = CString::new(file_path).unwrap();
+    let file_path_cstr = c_str.as_ptr();
+    // Call it
+    let res = unsafe { cbk(file_path_cstr) };
+    // Convet *mut c_char into String
+    let res_owned = own_string!(res);
+    res_owned
+}
+
+// /// Write a file
+// pub fn write_file(file_path: &str, contents: &str) {
+//     // Get state
+//     let state = get_pixel_state();
+//     // Get callback
+//     let cbk = state.write_file.borrow();
+//     if cbk.is_none() {
+//         return;
+//     }
+//     let cbk = cbk.unwrap();
+//     // Convert to *const c_char
+//     let file_path_cstr = create_const_char!(file_path);
+//     let contents_cstr = create_const_char!(contents);
+
+//     // Call it
+//     unsafe { cbk(file_path_cstr, contents_cstr) };
+// }
+
+/// Read a Directory.
+pub fn read_dir(dir_path: &str) -> DirHandle {
+    let state = get_pixel_state();
+    let cbk = state.read_dir.borrow();
+    if cbk.is_none() {
+        return DirHandle { length: 0, values: ptr::null_mut() };
+    }
+    let cbk = cbk.unwrap();
+
+    // Convert to c_str
+    let c_str = CString::new(dir_path).unwrap();
+    let dir_path_cstr = c_str.as_ptr();
+    let res = unsafe { cbk(dir_path_cstr) };
+    res
+}
 
 /// A shared trait for converting from/to a pointer. Specifically a (* mut Self)
 pub trait PtrMagic: Sized {

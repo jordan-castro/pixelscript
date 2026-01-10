@@ -5,7 +5,6 @@ use mlua::prelude::*;
 
 fn create_object_callback(lua: &Lua, fn_idx: i32) -> LuaFunction {
     lua.create_function(move |lua, (internal_obj, args): (LuaTable, LuaMultiValue)| {
-        println!("Testing");
         let mut argv = vec![];
 
         // Add runtime

@@ -27,6 +27,7 @@ use crate::shared::{
 /// You never free the module pointer because the runtime takes ownership.
 ///
 /// Callbacks within modules use the same FUNCTION_LOOKUP global static variable.
+#[derive(Clone)]
 pub struct Module {
     /// Name of the module.
     pub name: String,
@@ -39,6 +40,7 @@ pub struct Module {
 }
 
 /// Wraps a idx with a name.
+#[derive(Clone)]
 pub struct ModuleCallback {
     pub name: String,
     pub full_name: String,
@@ -46,6 +48,7 @@ pub struct ModuleCallback {
 }
 
 /// Wraps a Var with a name.
+#[derive(Clone)]
 pub struct ModuleVariable {
     pub name: String,
     pub var: Var,
