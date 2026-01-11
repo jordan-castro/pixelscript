@@ -1,56 +1,54 @@
-# This builds the crate and moves around the libs to a folder called pixel_script
-# Disclaimer, this was written by Gemini. I have not yet gone through it to clean.
-
-import glob
+# This builds the crate and moves around the libs to a folder called pxsb (pixelscript build)
+from glob import glob
 import os
 import shutil
-from subprocess import call
 from pathlib import Path
+import subprocess
 
-# 1. Configuration
-ALLOWED_CRATES = ["mlua", "rustpython"] # External dependencies
-MAIN_CRATE_NAME = "pixel_script"         # Your actual project
-VALID_EXTENSIONS = {".lib", ".a", ".so", ".dylib", ".wasm"}
 
-def collect_libs():
-    dist_dir = Path("pixel_script")
-    dist_dir.mkdir(exist_ok=True)
-    build_dir = Path("target/release/build")
-    release_dir = Path("target/release")
+# Config
+CRATE_NAME = "pixelscript"
+LIB_CRATES = ["mlua", CRATE_NAME]
+SOURCE = "pxsb"
+# TODO: Figure out how WASM will work since it needs to use other libs for it to work, gotta have to link something.
+VALID_EXTENSIONS = ["lib", "a", "so", "dylib"]
 
-    print(f"Searching for libraries in {build_dir}...")
 
-    # --- Step 1: Collect Internal Dependencies (Strict Folder Check) ---
-    if build_dir.exists():
-        # Iterate through every folder in the build directory
-        for folder in build_dir.iterdir():
-            if not folder.is_dir():
-                continue
-            
-            # Check if this folder starts with one of our allowed crate names
-            # e.g., folder.name is "mlua-sys-928374..."
-            matched_crate = next((c for c in ALLOWED_CRATES if folder.name.startswith(c)), None)
-            
-            if matched_crate:
-                # Only search inside the /out/ directory of THIS specific crate
-                pattern = os.path.join(folder, "out", "**", "*")
-                for f in glob.glob(pattern, recursive=True):
-                    path = Path(f)
-                    if path.suffix.lower() in VALID_EXTENSIONS:
-                        dest = dist_dir / path.name
-                        shutil.copy2(path, dest)
-                        print(f" -> Collected Dependency: {path.name} (from {matched_crate})")
+def convert_path(path:str) -> str:
+    """Convert a Windows path"""
+    return path.replace('\\', '/')
 
-    # --- Step 2: Collect Your Main Crate ---
-    # We look directly in release/, NOT in the build/ subfolders to avoid the noise
+
+def get_ext(path) -> str:
+    return path.split('.')[-1]
+
+
+def move(old):
+    old = convert_path(old)
+    ext = get_ext(old)
+    file_name = old.split('.')[0].split('/')[-1]
+    shutil.copy(old, f"{SOURCE}/{file_name}.{ext}")
+
+
+def collect_libs(folder, rule="/**/*"):
     for ext in VALID_EXTENSIONS:
-        main_lib = release_dir / f"{MAIN_CRATE_NAME}{ext}"
-        if main_lib.exists():
-            dest = dist_dir / main_lib.name
-            shutil.copy2(main_lib, dest)
-            print(f" -> Collected Main Crate: {main_lib.name}")
+        libs = glob(f"{folder}{rule}.{ext}", recursive=True)
+        for lib in libs:
+            move(lib)
 
-if __name__ == "__main__":
-    # Compile program
-    call(["cargo", "build", "--release"])
-    collect_libs()
+
+# Build in release mode
+subprocess.call(["cargo", "build", "--release"])
+
+Path(SOURCE).mkdir(exist_ok=True)
+collect_libs("target/release", rule="/*")
+
+build_dir = Path("target/release/build")
+
+for path in os.listdir(build_dir):
+    for lib in LIB_CRATES:
+        if path.startswith(lib):
+            full_path = f"{build_dir}/{path}"
+            print(full_path)
+            # Search through contents
+            collect_libs(full_path)
