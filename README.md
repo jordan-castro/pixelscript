@@ -293,7 +293,8 @@ int main() {
 - easyjs (runtime)
 
 ## Future
-I will not be maintaining this at all. If it works for me that is it, if you have issues or want to make pull requests, feel free and I will look at them.
-But this is not production ready at all. If you use this, it is at your own risk.
+This will ideally be used by all future epochtech games since it allows for modding in multiple languages. 
+It's not quite ready to be used in production for anyone other than myself and epochtech. And it is definitely leaking memory. But if you make PRs to fix
+something or open issues, I will be responding and merging. Feel free to add a language, just check out /lua or /python for examples on how to use Var, Func, Module, PixelObject, and PixelScripting.
 
 Made with ❤️ by [@epochtechgames](https://x.com/epochtechgames)
