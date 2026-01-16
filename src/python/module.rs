@@ -15,6 +15,8 @@ pub(super) fn create_module(module: &Module, parent: Option<&str>) {
         None => module.name.clone(),
     };
 
+    println!("Creating module: {module_name}");
+
     // Create module
     let c_module_name = create_raw_string!(module_name.clone());
     let pymodule = unsafe { pocketpy::py_newmodule(c_module_name) };
@@ -65,7 +67,6 @@ def {}(*args):
 
     // Do the same for internal modules
     for im in module.modules.iter() {
-        println!("Inner module name: {}", im.name);
         create_module(im, Some(&module_name));
     }
 
