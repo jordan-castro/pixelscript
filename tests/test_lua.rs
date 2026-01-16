@@ -6,7 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_lua -- --nocapture
+// cargo test --test test_lua --no-default-features --features "lua" -- --nocapture
 
 #[cfg(test)]
 mod tests {
@@ -163,9 +163,24 @@ mod tests {
             Var::new_i64(n1.value.i64_val + n2.value.i64_val).into_raw()
         }
     }
+    pub extern "C" fn sub_wrapper(
+        argc: usize,
+        argv: *mut *mut Var,
+        _opaque: *mut c_void,
+    ) -> *mut Var {
+        // Assumes n1 and n2
+        unsafe {
+            let args = std::slice::from_raw_parts(argv, argc);
+
+            let n1 = Var::from_borrow(args[1]);
+            let n2 = Var::from_borrow(args[2]);
+
+            Var::new_i64(n2.value.i64_val - n1.value.i64_val).into_raw()
+        }
+    }
 
     unsafe extern "C" fn file_loader(file_path: *const c_char) -> *mut c_char {
-        let file_path = unsafe{ CStr::from_ptr(file_path).to_str().unwrap() };
+        let file_path = unsafe { CStr::from_ptr(file_path).to_str().unwrap() };
 
         if file_path.is_empty() {
             return create_raw_string!("");
@@ -184,93 +199,99 @@ mod tests {
         create_raw_string!(contents)
     }
 
-    #[test]
-    fn test_add_variable() {
-        pixelscript_initialize();
-        let name = create_raw_string!("name");
-        let jordan = create_raw_string!("Jordan");
-        let var = pixelscript_var_newstring(jordan);
-        println!("New variable");
-        pixelscript_add_variable(name, var);
-        println!("Added variable");
-        free_raw_string!(name);
-        free_raw_string!(jordan);
-
-        println!("Finished?");
-    }
-
-    #[test]
-    fn test_add_callback() {
-        pixelscript_initialize();
-        let name = create_raw_string!("print");
-        pixelscript_add_callback(name, print_wrapper, ptr::null_mut());
-        free_raw_string!(name);
-    }
-
-    #[test]
+    // #[test]
     fn test_add_module() {
         pixelscript_initialize();
-        let module_name = create_raw_string!("cmath");
+        let module_name = create_raw_string!("pxs");
         let module = pixelscript_new_module(module_name);
         // Save methods
         let add_name = create_raw_string!("add");
         let n1_name = create_raw_string!("n1");
-        let n2_name = create_raw_string!("n2");
-        pixelscript_module_add_callback(module, add_name, add_wrapper, ptr::null_mut());
+        let n2_name: *mut i8 = create_raw_string!("n2");
+        pixelscript_add_callback(module, add_name, add_wrapper, ptr::null_mut());
         let n1 = pixelscript_var_newi64(1);
         let n2 = pixelscript_var_newi64(2);
-        pixelscript_module_add_variable(module, n1_name, n1);
-        pixelscript_module_add_variable(module, n2_name, n2);
+        pixelscript_add_variable(module, n1_name, n1);
+        pixelscript_add_variable(module, n2_name, n2);
 
+        let name = create_raw_string!("print");
+        pixelscript_add_callback(module, name, print_wrapper, ptr::null_mut());
+        let var_name = create_raw_string!("name");
+        let jordan = create_raw_string!("Jordan");
+        let var = pixelscript_var_newstring(jordan);
+        pixelscript_add_variable(module, var_name, var);
+
+        let object_name = create_raw_string!("Person");
+        pixelscript_add_object(module, object_name, new_person, ptr::null_mut());
+
+        // Add a inner module
+        let math_module_name = create_raw_string!("math");
+        let math_module = pixelscript_new_module(math_module_name);
+
+        // Add a sub function
+        let sub_name = create_raw_string!("sub");
+        pixelscript_add_callback(math_module, sub_name, sub_wrapper, ptr::null_mut());
+
+        pixelscript_add_submodule(module, math_module);
         pixelscript_add_module(module);
 
         free_raw_string!(module_name);
         free_raw_string!(add_name);
         free_raw_string!(n1_name);
         free_raw_string!(n2_name);
+        free_raw_string!(object_name);
+        free_raw_string!(name);
+        free_raw_string!(var_name);
+        free_raw_string!(math_module_name);
+        free_raw_string!(sub_name);
     }
 
-    #[test]
-    fn test_add_object() {
-        pixelscript_initialize();
-        let object_name = create_raw_string!("Person");
-        pixelscript_add_object(object_name, new_person, ptr::null_mut());
-        free_raw_string!(object_name);
-    }
+    // #[test]
+    // fn test_add_object() {
+    //     pixelscript_initialize();
+    //     let object_name = create_raw_string!("Person");
+    //     pixelscript_add_object(object_name, new_person, ptr::null_mut());
+    //     free_raw_string!(object_name);
+    // }
 
     #[test]
     fn test_execute() {
         pixelscript_initialize();
 
-        test_add_variable();
-        test_add_callback();
         test_add_module();
-        test_add_object();
 
         pixelscript_set_file_reader(file_loader);
 
         let lua_code = r#"
+            local pxs = require('pxs')
+            local pxs_math = require('pxs.math')
+
             local ft_object = require('pad.ft_object')
             ft_object.function_from_outside()
 
-            local msg = "Welcome, " .. name
-            print(msg)
+            local msg = "Welcome, " .. pxs.name
+            pxs.print(msg)
 
-            local math = require("cmath")
-
-            local result = math.add(math.n1, math.n2)
-            print(tostring(math.n1))
-            print(tostring(math.n2))
-            print(tostring(result))
-            print("Module result: " .. tostring(result))
+            local result = pxs.add(pxs.n1, pxs.n2)
+            pxs.print(tostring(pxs.n1))
+            pxs.print(tostring(pxs.n2))
+            pxs.print(tostring(result))
+            pxs.print("Module result: " .. tostring(result))
 
             if result ~= 3 then
                 error("Math, Expected 3, got " .. tostring(result))
             end
-            local person = Person("Jordan")
-            print(person:get_name())
+
+            local res = pxs_math.sub(1, 2)
+
+            if res ~= 1 then
+                error("Math, Expected 1, got " .. tostring(res))
+            end
+
+            local person = pxs.Person("Jordan")
+            pxs.print(person:get_name())
             person:set_name("Jordan Castro")
-            print(person:get_name())
+            pxs.print(person:get_name())
 
             print('Calling internal print?')
         "#;
@@ -281,4 +302,3 @@ mod tests {
         pixelscript_finalize();
     }
 }
-

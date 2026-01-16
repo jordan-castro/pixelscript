@@ -8,7 +8,7 @@
 //
 use std::{ffi::c_void, sync::Arc};
 
-use crate::{borrow_string, create_raw_string, free_raw_string, python::{func::py_assign, object::create_object, pocketpy}, shared::{object::get_object, var::{Var, VarType}}};
+use crate::{borrow_string, create_raw_string, free_raw_string, python::{func::py_assign, object::create_object, pocketpy::{self, py_getreg}}, shared::{object::get_object, var::{Var, VarType}}};
 
 /// Convert a PocketPy ref into a Var
 pub(super) fn pocketpyref_to_var(pref: pocketpy::py_Ref) -> Var {
@@ -83,12 +83,21 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &Var) {
                 pixel_object.update_free_lang_ptr(false);
                 let lang_ptr_is_null = pixel_object.lang_ptr.lock().unwrap().is_null();
                 if lang_ptr_is_null {
+                    // Find current module
+                    let cmod = pocketpy::py_inspect_currentmodule();
+                    let c_name = create_raw_string!("__name__");
+                    let pyname = pocketpy::py_name(c_name);
+                    pocketpy::py_getattr(cmod, pyname);
+                    let r0 = py_getreg(0);
+                    let module_name = pocketpy::py_tostr(r0);
+                    let module_name = borrow_string!(module_name);
                     // TODO: Create the object for the first time...
-                    create_object(idx, Arc::clone(&pixel_object));
+                    create_object(idx, Arc::clone(&pixel_object), module_name);
                     // Get py_retval
                     let pyobj = pocketpy::py_retval();
                     // Set that as the pointer
                     pixel_object.update_lang_ptr(pyobj as *mut c_void);
+                    free_raw_string!(c_name);
                 }
                 // Get PTR again
                 let lang_ptr = pixel_object.lang_ptr.lock().unwrap();

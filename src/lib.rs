@@ -15,26 +15,23 @@ use std::{
     sync::Arc,
 };
 
-#[cfg(feature="lua")]
+#[cfg(feature = "lua")]
 use crate::lua::LuaScripting;
-#[cfg(feature="python")]
+#[cfg(feature = "python")]
 use crate::python::PythonScripting;
 
-use crate::{
-     shared::{
-        LoadFileFn, PixelScript, PixelScriptRuntime, PtrMagic, ReadDirFn, func::{clear_function_lookup, lookup_add_function}, get_pixel_state, module::Module, object::{FreeMethod, PixelObject, clear_object_lookup, lookup_add_object}, var::{ObjectMethods, VarType}
-    },
+use crate::shared::{
+    LoadFileFn, PixelScript, PixelScriptRuntime, PtrMagic, ReadDirFn, WriteFileFn, func::{clear_function_lookup, lookup_add_function}, get_pixel_state, module::Module, object::{FreeMethod, PixelObject, clear_object_lookup, lookup_add_object}, var::{ObjectMethods, VarType}
 };
 
 pub mod shared;
 
+#[cfg(feature = "include-core")]
+pub mod core;
 #[cfg(feature = "lua")]
 pub mod lua;
 #[cfg(feature = "python")]
 pub mod python;
-#[cfg(feature = "include-core")]
-pub mod core;
-
 
 /// Macro to wrap features
 macro_rules! with_feature {
@@ -44,18 +41,16 @@ macro_rules! with_feature {
             $logic
         }
     };
-    ($feature:literal, $logic:block, $fallback:block) => {
+    ($feature:literal, $logic:block, $fallback:block) => {{
+        #[cfg(feature = $feature)]
         {
-            #[cfg(feature = $feature)]
-            {
-                $logic
-            }
-            #[cfg(not(feature = $feature))]
-            {
-                $fallback
-            }
+            $logic
         }
-    };
+        #[cfg(not(feature = $feature))]
+        {
+            $fallback
+        }
+    }};
 }
 
 /// Assert that the module is initiated.
@@ -64,7 +59,7 @@ macro_rules! assert_initiated {
         unsafe {
             assert!(IS_INIT, "Pixel script library is not initialized.");
             // if !IS_INIT {
-                // panic!("Pixel Script library is not initialized.");
+            // panic!("Pixel Script library is not initialized.");
             // }
         }
     }};
@@ -82,13 +77,15 @@ macro_rules! make_pixel_var {
 }
 
 /// Create a random string.
-/// 
+///
 /// Used for PixelTypes
 fn random_string() -> String {
     const STRING_LEN: usize = 8;
     let mut rng = SmallRng::from_rng(&mut rand::rng());
 
-    (0..STRING_LEN).map(|_| rng.sample(Alphanumeric) as char).collect()
+    (0..STRING_LEN)
+        .map(|_| rng.sample(Alphanumeric) as char)
+        .collect()
 }
 
 /// Is initialized?
@@ -150,65 +147,6 @@ pub extern "C" fn pixelscript_finalize() {
     });
 }
 
-/// Add a variable to the __main__ context.
-/// Gotta pass in a name, and a Variable value.
-/// 
-/// Transfers variable ownership.
-#[unsafe(no_mangle)]
-pub extern "C" fn pixelscript_add_variable(name: *const c_char, variable: *mut Var) {
-    assert_initiated!();
-    if name.is_null() {
-        return;
-    }
-
-    // Get string as rust.
-    let r_str = borrow_string!(name);
-    if r_str.is_empty() {
-        return;
-    }
-
-    // Own Variable
-    let var = if variable.is_null() {
-        Var::new_null()
-    } else {  Var::from_raw(variable) };
-
-    // Add variable to lua context
-    with_feature!("lua", {
-        LuaScripting::add_variable(r_str, &var);
-    });
-
-    with_feature!("python", {
-        PythonScripting::add_variable(r_str, &var);
-    });
-    
-    // Var get's dropped. Memory is copied
-}
-
-/// Add a callback to the __main__ context.
-/// Gotta pass in a name, Func, and a optionl *void opaque data type
-#[unsafe(no_mangle)]
-pub extern "C" fn pixelscript_add_callback(name: *const c_char, func: Func, opaque: *mut c_void) {
-    assert_initiated!();
-
-    // Get rust name
-    let name_str = borrow_string!(name);
-    if name_str.is_empty() {
-        return;
-    }
-
-    // Create function in all runtimes
-    let idx = lookup_add_function(name_str, func, opaque);
-
-    // Add Function to lua context
-    with_feature!("lua", {
-        LuaScripting::add_callback(name_str, idx);
-    });
-
-    with_feature!("python", {
-        PythonScripting::add_callback(name_str, idx);
-    });
-}
-
 /// Execute some lua code. Will return a String, an empty string means that the
 /// code executed succesffuly
 ///
@@ -237,13 +175,13 @@ pub extern "C" fn pixelscript_exec_lua(
 }
 
 /// Execute some Python code. Will return a String, an empty string means that the code executed successfully.
-/// 
+///
 /// The result needs to be freed by calling `pixelscript_free_str`
 #[unsafe(no_mangle)]
 #[cfg(feature = "python")]
 pub extern "C" fn pixelscript_exec_python(
     code: *const c_char,
-    file_name: *const c_char
+    file_name: *const c_char,
 ) -> *mut c_char {
     assert_initiated!();
 
@@ -291,7 +229,7 @@ pub extern "C" fn pixelscript_new_module(name: *const c_char) -> *mut Module {
 ///
 /// Pass in the modules pointer and callback paramaters.
 #[unsafe(no_mangle)]
-pub extern "C" fn pixelscript_module_add_callback(
+pub extern "C" fn pixelscript_add_callback(
     module_ptr: *mut Module,
     name: *const c_char,
     func: Func,
@@ -323,10 +261,10 @@ pub extern "C" fn pixelscript_module_add_callback(
 /// Add a Varible to a module.
 ///
 /// Pass in the module pointer and variable params.
-/// 
+///
 /// Variable ownership is transfered.
 #[unsafe(no_mangle)]
-pub extern "C" fn pixelscript_module_add_variable(
+pub extern "C" fn pixelscript_add_variable(
     module_ptr: *mut Module,
     name: *const c_char,
     variable: *mut Var,
@@ -351,7 +289,7 @@ pub extern "C" fn pixelscript_module_add_variable(
 ///
 /// This transfers ownership.
 #[unsafe(no_mangle)]
-pub extern "C" fn pixelscript_module_add_module(parent_ptr: *mut Module, child_ptr: *mut Module) {
+pub extern "C" fn pixelscript_add_submodule(parent_ptr: *mut Module, child_ptr: *mut Module) {
     assert_initiated!();
     if parent_ptr.is_null() || child_ptr.is_null() {
         return;
@@ -361,7 +299,7 @@ pub extern "C" fn pixelscript_module_add_module(parent_ptr: *mut Module, child_p
     // Own child
     let child = Module::from_raw(child_ptr);
 
-    parent.add_module(child);
+    parent.add_module(child.clone());
 
     // Child is now owned by parent
 }
@@ -410,7 +348,7 @@ pub extern "C" fn pixelscript_free_module(module_ptr: *mut Module) {
 pub extern "C" fn pixelscript_new_object(
     ptr: *mut c_void,
     free_method: FreeMethod,
-    type_name: *const c_char
+    type_name: *const c_char,
 ) -> *mut PixelObject {
     assert_initiated!();
     if ptr.is_null() || type_name.is_null() {
@@ -448,16 +386,6 @@ pub extern "C" fn pixelscript_object_add_callback(
     object_borrow.add_callback(name_borrow, full_name.as_str(), idx);
 }
 
-/// Add a object globally.
-/// 
-/// This works as a Tree/Class/Prototype depending on the language.
-/// 
-/// This is essentially just a factory callback but with special linking process.
-#[unsafe(no_mangle)]
-pub extern "C" fn pixelscript_add_object(name: *const c_char, callback: Func, opaque: *mut c_void) {
-    pixelscript_add_callback(name, callback, opaque);
-}
-
 /// Add a object to a Module.
 ///
 /// This essentially makes it so that when constructing this Module, this object is instanced.
@@ -468,7 +396,7 @@ pub extern "C" fn pixelscript_add_object(name: *const c_char, callback: Func, op
 /// local p = Person("Jordan", 23)
 /// p:set_name("Jordan Castro")
 /// local name = p:get_name()
-/// 
+///
 /// -- Although you could also do
 /// local p = Person("Jordan", 23)
 /// p.set_name(p, "Jordan") -- You get the idea
@@ -485,17 +413,18 @@ pub extern "C" fn pixelscript_add_object(name: *const c_char, callback: Func, op
 /// let p = new Person("Jordan", 23);
 /// ```
 #[unsafe(no_mangle)]
-pub extern "C" fn pixelscript_module_add_object(
+pub extern "C" fn pixelscript_add_object(
     module_ptr: *mut Module,
     name: *const c_char,
     object_constructor: Func,
     opaque: *mut c_void,
 ) {
-    pixelscript_module_add_callback(module_ptr, name, object_constructor, opaque);
+    // Save module to object
+    pixelscript_add_callback(module_ptr, name, object_constructor, opaque);
 }
 
 /// Make a new Var string.
-/// 
+///
 /// Does take ownership
 #[unsafe(no_mangle)]
 pub extern "C" fn pixelscript_var_newstring(str: *mut c_char) -> *mut Var {
@@ -510,9 +439,9 @@ pub extern "C" fn pixelscript_var_newnull() -> *mut Var {
 }
 
 /// Make a new HostObject var.
-/// 
+///
 /// If not a valid pointer, will return null
-/// 
+///
 /// Transfers ownership
 #[unsafe(no_mangle)]
 pub extern "C" fn pixelscript_var_newhost_object(pixel_object: *mut PixelObject) -> *mut Var {
@@ -571,24 +500,42 @@ pub extern "C" fn pixelscript_var_newf64(val: f64) -> *mut Var {
 }
 
 #[unsafe(no_mangle)]
-pub extern "C" fn pixelscript_object_call_rt(runtime: PixelScriptRuntime, var: *mut Var, method: *const c_char, argc: usize, argv: *mut *mut Var) -> *mut Var {
-    pixelscript_object_call(Var::new_i64(runtime as i64).into_raw(), var, method, argc, argv)
+pub extern "C" fn pixelscript_object_call_rt(
+    runtime: PixelScriptRuntime,
+    var: *mut Var,
+    method: *const c_char,
+    argc: usize,
+    argv: *mut *mut Var,
+) -> *mut Var {
+    pixelscript_object_call(
+        Var::new_i64(runtime as i64).into_raw(),
+        var,
+        method,
+        argc,
+        argv,
+    )
 }
 
 /// Object call.
-/// 
+///
 /// All memory is borrowed.
-/// 
+///
 /// You can get the runtime from the first Var in any callback.
-/// 
+///
 /// Example
-/// ```C 
+/// ```C
 ///     // Inside a Var* method
 ///     Var* obj = argv[1];
 ///     Var name = pixelscript_object_call()
 /// ```
 #[unsafe(no_mangle)]
-pub extern "C" fn pixelscript_object_call(runtime: *mut Var, var: *mut Var, method: *const c_char, argc: usize, argv: *mut *mut Var) -> *mut Var {
+pub extern "C" fn pixelscript_object_call(
+    runtime: *mut Var,
+    var: *mut Var,
+    method: *const c_char,
+    argc: usize,
+    argv: *mut *mut Var,
+) -> *mut Var {
     assert_initiated!();
 
     if var.is_null() || method.is_null() || argv.is_null() || runtime.is_null() {
@@ -596,13 +543,14 @@ pub extern "C" fn pixelscript_object_call(runtime: *mut Var, var: *mut Var, meth
     }
 
     // Borrow runtime, var, and method, and argv
-    let runtime_borrow = unsafe {Var::from_borrow(runtime)};
-    let var_borrow = unsafe {Var::from_borrow(var)};
+    let runtime_borrow = unsafe { Var::from_borrow(runtime) };
+    let var_borrow = unsafe { Var::from_borrow(var) };
     let method_borrow = borrow_string!(method);
-    let argv_borrow: &[*mut Var] = unsafe {Var::slice_raw(argv, argc)};
-    let args: Vec<Var> = argv_borrow.iter()
+    let argv_borrow: &[*mut Var] = unsafe { Var::slice_raw(argv, argc) };
+    let args: Vec<Var> = argv_borrow
+        .iter()
         .filter(|ptr| !ptr.is_null()) // Always check for nulls from C
-        .map(|&ptr| (unsafe { (*ptr).clone() }).clone())   // Dereference and clone
+        .map(|&ptr| (unsafe { (*ptr).clone() }).clone()) // Dereference and clone
         .collect();
 
     // Check that runtime is acually a int
@@ -633,19 +581,19 @@ pub extern "C" fn pixelscript_object_call(runtime: *mut Var, var: *mut Var, meth
     // This is tricky since we need to know what runtime we are using...
     let var: Result<Var, anyhow::Error> = match runtime {
         PixelScriptRuntime::Lua => {
-            with_feature!("lua", {
-                LuaScripting::object_call(var_borrow, method_borrow, &args)
-            }, {
-                Ok(Var::new_null())
-            })
-        },
+            with_feature!(
+                "lua",
+                { LuaScripting::object_call(var_borrow, method_borrow, &args) },
+                { Ok(Var::new_null()) }
+            )
+        }
         PixelScriptRuntime::Python => {
-            with_feature!("python", {
-                PythonScripting::object_call(var_borrow, method_borrow, &args)
-            }, {
-                Ok(Var::new_null())
-            })
-        },
+            with_feature!(
+                "python",
+                { PythonScripting::object_call(var_borrow, method_borrow, &args) },
+                { Ok(Var::new_null()) }
+            )
+        }
         PixelScriptRuntime::JavaScript => todo!(),
         PixelScriptRuntime::Easyjs => todo!(),
     };
@@ -664,7 +612,7 @@ pub extern "C" fn pixelscript_var_get_i32(var: *mut Var) -> i32 {
         return -1;
     }
 
-    let var = unsafe{Var::from_borrow(var)};
+    let var = unsafe { Var::from_borrow(var) };
 
     var.get_int()
 }
@@ -676,9 +624,7 @@ pub extern "C" fn pixelscript_var_get_i64(var: *mut Var) -> i64 {
         return -1;
     }
 
-    unsafe {
-        Var::from_borrow(var).get_bigint()
-    }
+    unsafe { Var::from_borrow(var).get_bigint() }
 }
 
 /// Get a U32 from a var.
@@ -688,9 +634,7 @@ pub extern "C" fn pixelscript_var_get_u32(var: *mut Var) -> u32 {
         return 0;
     }
 
-    unsafe {
-        Var::from_borrow(var).get_uint()
-    }
+    unsafe { Var::from_borrow(var).get_uint() }
 }
 
 /// Get a U64
@@ -700,9 +644,7 @@ pub extern "C" fn pixelscript_var_get_u64(var: *mut Var) -> u64 {
         return 0;
     }
 
-    unsafe {
-        Var::from_borrow(var).get_biguint()
-    }
+    unsafe { Var::from_borrow(var).get_biguint() }
 }
 
 /// Get a F32
@@ -712,9 +654,7 @@ pub extern "C" fn pixelscript_var_get_f32(var: *mut Var) -> f32 {
         return -1.0;
     }
 
-    unsafe {
-        Var::from_borrow(var).get_float()
-    }
+    unsafe { Var::from_borrow(var).get_float() }
 }
 
 /// Get a F64
@@ -724,9 +664,7 @@ pub extern "C" fn pixelscript_var_get_f64(var: *mut Var) -> f64 {
         return -1.0;
     }
 
-    unsafe {
-        Var::from_borrow(var).get_bigfloat()
-    }
+    unsafe { Var::from_borrow(var).get_bigfloat() }
 }
 
 /// Get a Bool
@@ -736,15 +674,13 @@ pub extern "C" fn pixelscript_var_get_bool(var: *mut Var) -> bool {
         return false;
     }
 
-    unsafe {
-        Var::from_borrow(var).get_bool().unwrap()
-    }
+    unsafe { Var::from_borrow(var).get_bool().unwrap() }
 }
 
 /// Get a String
-/// 
+///
 /// DANGEROUS
-/// 
+///
 /// You have to free this memory by calling `pixelscript_free_str`
 #[unsafe(no_mangle)]
 pub extern "C" fn pixelscript_var_get_string(var: *mut Var) -> *mut c_char {
@@ -767,9 +703,7 @@ pub extern "C" fn pixelscript_var_get_host_object(var: *mut Var) -> *mut c_void 
         return ptr::null_mut();
     }
 
-    unsafe {
-        Var::from_borrow(var).get_host_ptr()
-    }
+    unsafe { Var::from_borrow(var).get_host_ptr() }
 }
 
 /// Get the IDX of the PixelObject
@@ -779,9 +713,7 @@ pub extern "C" fn pixelscript_var_get_object_idx(var: *mut Var) -> i32 {
         return -1;
     }
 
-    unsafe {
-        Var::from_borrow(var).get_object_ptr()
-    }
+    unsafe { Var::from_borrow(var).get_object_ptr() }
 }
 
 /// Check if a variable is of a type.
@@ -791,7 +723,7 @@ pub extern "C" fn pixelscript_var_is(var: *mut Var, var_type: VarType) -> bool {
         return false;
     }
 
-    let var_borrow = unsafe {Var::from_borrow(var)};
+    let var_borrow = unsafe { Var::from_borrow(var) };
 
     var_borrow.tag == var_type
 }
@@ -807,6 +739,17 @@ pub extern "C" fn pixelscript_set_file_reader(func: LoadFileFn) {
     *load_file = Some(func);
 }
 
+/// Set a function for writing a file.
+/// 
+/// This is used to write files via pxs_json
+#[unsafe(no_mangle)]
+pub extern "C" fn pixelscript_set_file_writer(func: WriteFileFn) {
+    assert_initiated!();
+    let state = get_pixel_state();
+    let mut write_file = state.write_file.borrow_mut();
+    *write_file = Some(func);
+}
+
 /// Set a function for reading a directory.
 ///
 /// This is used to read a dir.
@@ -819,7 +762,7 @@ pub extern "C" fn pixelscript_set_dir_reader(func: ReadDirFn) {
 }
 
 /// Free a PixelScript var.
-/// 
+///
 /// You should only free results from `pixelscript_object_call`
 #[unsafe(no_mangle)]
 pub extern "C" fn pixelscript_free_var(var: *mut Var) {

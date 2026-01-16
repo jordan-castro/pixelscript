@@ -10,7 +10,7 @@ use std::{cell::RefCell, ffi::{CString, c_char}, ptr, sync::{Arc, OnceLock}};
 
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
-use crate::own_string;
+use crate::{create_raw_string, own_string};
 
 /// The internal PixelScript function logic.
 pub mod func;
@@ -52,15 +52,15 @@ pub struct DirHandle {
 
 /// Function Type for Loading a file.
 pub type LoadFileFn = unsafe extern "C" fn(file_path: *const c_char) -> *mut c_char;
-// /// Function Type for writing a file.
-// pub type WriteFileFn = unsafe extern "C" fn(file_path: *const c_char, contents: *const c_char);
+/// Function Type for writing a file.
+pub type WriteFileFn = unsafe extern "C" fn(file_path: *const c_char, contents: *const c_char);
 /// Function Type for reading a Dir.
 pub type ReadDirFn = unsafe extern "C" fn(dir_path: *const c_char) -> DirHandle;
 
 /// This is the PixelScript state.
 pub(crate) struct PixelState {
     pub load_file: RefCell<Option<LoadFileFn>>,
-    // pub write_file: RefCell<Option<WriteFileFn>>,
+    pub write_file: RefCell<Option<WriteFileFn>>,
     pub read_dir: RefCell<Option<ReadDirFn>>
 }
 
@@ -72,7 +72,7 @@ pub (crate) fn get_pixel_state() -> ReentrantMutexGuard<'static, PixelState> {
     let mutex = PIXEL_STATE.get_or_init(|| {
         ReentrantMutex::new(PixelState {
             load_file: RefCell::new(None),
-            // write_file: RefCell::new(None),
+            write_file: RefCell::new(None),
             read_dir: RefCell::new(None), 
         })
     });
@@ -101,23 +101,23 @@ pub fn read_file(file_path: &str) -> String {
     res_owned
 }
 
-// /// Write a file
-// pub fn write_file(file_path: &str, contents: &str) {
-//     // Get state
-//     let state = get_pixel_state();
-//     // Get callback
-//     let cbk = state.write_file.borrow();
-//     if cbk.is_none() {
-//         return;
-//     }
-//     let cbk = cbk.unwrap();
-//     // Convert to *const c_char
-//     let file_path_cstr = create_const_char!(file_path);
-//     let contents_cstr = create_const_char!(contents);
+/// Write a file
+pub fn write_file(file_path: &str, contents: &str) {
+    // Get state
+    let state = get_pixel_state();
+    // Get callback
+    let cbk = state.write_file.borrow();
+    if cbk.is_none() {
+        return;
+    }
+    let cbk = cbk.unwrap();
+    // Convert to *const c_char
+    let c_file_path = CString::new(file_path).unwrap();
+    let c_contents = CString::new(contents).unwrap();
 
-//     // Call it
-//     unsafe { cbk(file_path_cstr, contents_cstr) };
-// }
+    // Call it
+    unsafe { cbk(c_file_path.as_ptr(), c_contents.as_ptr()) };
+}
 
 /// Read a Directory.
 pub fn read_dir(dir_path: &str) -> DirHandle {
@@ -164,10 +164,10 @@ pub trait PixelScript {
     /// Stop the runtime.
     fn stop();
 
-    /// Add a global variable to the runtime.
-    fn add_variable(name: &str, variable: &var::Var);
-    /// Add a global callback to the runtime.
-    fn add_callback(name: &str, idx: i32);
+    // /// Add a global variable to the runtime.
+    // fn add_variable(name: &str, variable: &var::Var);
+    // /// Add a global callback to the runtime.
+    // fn add_callback(name: &str, idx: i32);
     /// Add a global module to the runtime.
     fn add_module(source: Arc<module::Module>);
     /// Execute a script in this runtime.

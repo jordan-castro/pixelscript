@@ -112,16 +112,16 @@ fn setup_module_loader(lua: &Lua) {
 pub struct LuaScripting;
 
 impl PixelScript for LuaScripting {
-    fn add_variable(name: &str, variable: &crate::shared::var::Var) {
-        var::add_variable(&get_lua_state().engine, name, variable);
-    }
+    // fn add_variable(name: &str, variable: &crate::shared::var::Var) {
+    //     var::add_variable(&get_lua_state().engine, name, variable);
+    // }
 
-    fn add_callback(
-        name: &str,
-        fn_idx: i32
-    ) {
-        func::add_callback(name, fn_idx);
-    }
+    // fn add_callback(
+    //     name: &str,
+    //     fn_idx: i32
+    // ) {
+    //     func::add_callback(name, fn_idx);
+    // }
 
     fn add_module(source: std::sync::Arc<crate::shared::module::Module>) {
         module::add_module(source, None);

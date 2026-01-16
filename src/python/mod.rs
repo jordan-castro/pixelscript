@@ -46,33 +46,24 @@ struct State {
 }
 
 pub(self) fn exec_py(code: &str, name: &str, module: &str) -> String {
-    let c_code = create_raw_string!(code);
-    let c_name = create_raw_string!(name);
-    let c_module = create_raw_string!(module);
-
-    unsafe {
-        let pymodule = pocketpy::py_getmodule(c_module);
-        let res = pocketpy::py_exec(c_code, c_name, pocketpy::py_CompileMode_EXEC_MODE, pymodule);
-        free_raw_string!(c_code);
-        free_raw_string!(c_name);
-        free_raw_string!(c_module);
-
-        if !res {
-            let py_res = pocketpy::py_formatexc();
-            let py_res = own_string!(py_res);
-
-            py_res
-        } else {
-            String::new()
-        }
-    }
+    run_py(code, name, pocketpy::py_CompileMode_EXEC_MODE, Some(module))
 }
 
-fn run_py(code: &str, name: &str, comp_mode: pocketpy::py_CompileMode) -> String {
+fn run_py(code: &str, name: &str, comp_mode: pocketpy::py_CompileMode, module: Option<&str>) -> String {
     let c_code = create_raw_string!(code);
     let c_name = create_raw_string!(name);
     unsafe {
-        let res = pocketpy::py_exec(c_code, c_name, comp_mode, std::ptr::null_mut());
+        let res = {
+        if let Some(module_name) = module {
+            let c_module = create_raw_string!(module_name);
+            let pymod = pocketpy::py_getmodule(c_module);
+            free_raw_string!(c_module);
+
+            pocketpy::py_exec(c_code, c_name, comp_mode, pymod)
+        } else {
+            pocketpy::py_exec(c_code, c_name, comp_mode, std::ptr::null_mut())
+        }
+    };
         free_raw_string!(c_code);
         free_raw_string!(c_name);
         if !res {
@@ -87,11 +78,15 @@ fn run_py(code: &str, name: &str, comp_mode: pocketpy::py_CompileMode) -> String
 }
 
 pub(self) fn eval_main_py(code: &str, name: &str) -> String {
-run_py(code, name, pocketpy::py_CompileMode_EVAL_MODE)
+    run_py(code, name, pocketpy::py_CompileMode_EVAL_MODE, None)
+}
+
+pub(self) fn eval_py(code: &str, name: &str, module_name: &str) -> String {
+    run_py(code, name, pocketpy::py_CompileMode_EVAL_MODE, Some(module_name))
 }
 
 pub(self) fn exec_main_py(code: &str, name: &str) -> String {
-    run_py(code, name, pocketpy::py_CompileMode_EXEC_MODE)
+    run_py(code, name, pocketpy::py_CompileMode_EXEC_MODE, None)
     // let c_code = create_raw_string!(code);
     // let c_name = create_raw_string!(name);
     // unsafe {
@@ -220,48 +215,48 @@ impl PixelScript for PythonScripting {
         }
     }
 
-    fn add_variable(name: &str, variable: &crate::shared::var::Var) {
-        unsafe {
-            let r0 = pocketpy::py_getreg(0);
-            if r0.is_null() {
-                return;
-            }
-            let cstr = create_raw_string!(name);
-            let pyname = pocketpy::py_name(cstr);
-            var_to_pocketpyref(r0, variable);
-            pocketpy::py_setglobal(pyname, r0);
-            // free cstr
-            free_raw_string!(cstr);
-        }
-    }
+//     fn add_variable(name: &str, variable: &crate::shared::var::Var) {
+//         unsafe {
+//             let r0 = pocketpy::py_getreg(0);
+//             if r0.is_null() {
+//                 return;
+//             }
+//             let cstr = create_raw_string!(name);
+//             let pyname = pocketpy::py_name(cstr);
+//             var_to_pocketpyref(r0, variable);
+//             pocketpy::py_setglobal(pyname, r0);
+//             // free cstr
+//             free_raw_string!(cstr);
+//         }
+//     }
 
-    fn add_callback(name: &str, idx: i32) {
-        // Save function
-        add_new_name_idx_fn(name.to_string(), idx);
+//     fn add_callback(name: &str, idx: i32) {
+//         // Save function
+//         add_new_name_idx_fn(name.to_string(), idx);
 
-        // Create a "private" name
-        let private_name = make_private(name);
+//         // Create a "private" name
+//         let private_name = make_private(name);
 
-        let c_name = create_raw_string!(private_name.clone());
-        let c_main = create_raw_string!("__main__");
-        let bridge_code = format!(
-            r#"
-def {name}(*args):
-    return {private_name}('{name}', *args)
-"#
-        );
-        let c_brige_name = format!("<callback_bridge for {private_name}>");
-        unsafe {
-            let global_scope = pocketpy::py_getmodule(c_main);
+//         let c_name = create_raw_string!(private_name.clone());
+//         let c_main = create_raw_string!("__main__");
+//         let bridge_code = format!(
+//             r#"
+// def _{name}_(*args):
+//     return {private_name}('{name}', *args)
+// "#
+//         );
+//         let c_brige_name = format!("<callback_bridge for {private_name}>");
+//         unsafe {
+//             let global_scope = pocketpy::py_getmodule(c_main);
 
-            pocketpy::py_bindfunc(global_scope, c_name, Some(pocketpy_bridge));
+//             pocketpy::py_bindfunc(global_scope, c_name, Some(pocketpy_bridge));
 
-            // Execute bridge
-            let s = exec_main_py(&bridge_code, &c_brige_name);
-            free_raw_string!(c_name);
-            free_raw_string!(c_main);
-        }
-    }
+//             // Execute bridge
+//             let s = exec_main_py(&bridge_code, &c_brige_name);
+//             free_raw_string!(c_name);
+//             free_raw_string!(c_main);
+//         }
+//     }
 
     fn add_module(source: std::sync::Arc<crate::shared::module::Module>) {
         create_module(&source, None);

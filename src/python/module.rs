@@ -65,6 +65,7 @@ def {}(*args):
 
     // Do the same for internal modules
     for im in module.modules.iter() {
+        println!("Inner module name: {}", im.name);
         create_module(im, Some(&module_name));
     }
 

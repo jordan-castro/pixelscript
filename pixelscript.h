@@ -1,13 +1,4 @@
-/*
-* Copyright 2026 Jordan Castro <jordan@grupojvm.com>
-*
-* Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
-*
-* http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
-*
-*/
+// SPDX-License-Identifier: Apache-2.0
 
 #ifndef PIXEL_SCRIPT_H
 #define PIXEL_SCRIPT_H
@@ -225,6 +216,11 @@ typedef void (*FreeMethod)(void *ptr);
 typedef char *(*LoadFileFn)(const char *file_path);
 
 /**
+ * Function Type for writing a file.
+ */
+typedef void (*WriteFileFn)(const char *file_path, const char *contents);
+
+/**
  * Type for DirHandle.
  *
  * Host owns memory.
@@ -261,20 +257,6 @@ void pixelscript_initialize(void);
 void pixelscript_finalize(void);
 
 /**
- * Add a variable to the __main__ context.
- * Gotta pass in a name, and a Variable value.
- *
- * Transfers variable ownership.
- */
-void pixelscript_add_variable(const char *name, struct Var *variable);
-
-/**
- * Add a callback to the __main__ context.
- * Gotta pass in a name, Func, and a optionl *void opaque data type
- */
-void pixelscript_add_callback(const char *name, Func func, void *opaque);
-
-/**
  * Execute some lua code. Will return a String, an empty string means that the
  * code executed succesffuly
  *
@@ -305,10 +287,7 @@ struct Module *pixelscript_new_module(const char *name);
  *
  * Pass in the modules pointer and callback paramaters.
  */
-void pixelscript_module_add_callback(struct Module *module_ptr,
-                                     const char *name,
-                                     Func func,
-                                     void *opaque);
+void pixelscript_add_callback(struct Module *module_ptr, const char *name, Func func, void *opaque);
 
 /**
  * Add a Varible to a module.
@@ -317,16 +296,14 @@ void pixelscript_module_add_callback(struct Module *module_ptr,
  *
  * Variable ownership is transfered.
  */
-void pixelscript_module_add_variable(struct Module *module_ptr,
-                                     const char *name,
-                                     struct Var *variable);
+void pixelscript_add_variable(struct Module *module_ptr, const char *name, struct Var *variable);
 
 /**
  * Add a Module to a Module
  *
  * This transfers ownership.
  */
-void pixelscript_module_add_module(struct Module *parent_ptr, struct Module *child_ptr);
+void pixelscript_add_submodule(struct Module *parent_ptr, struct Module *child_ptr);
 
 /**
  * Add the module finally to the runtime.
@@ -360,15 +337,6 @@ void pixelscript_object_add_callback(struct PixelObject *object_ptr,
                                      void *opaque);
 
 /**
- * Add a object globally.
- *
- * This works as a Tree/Class/Prototype depending on the language.
- *
- * This is essentially just a factory callback but with special linking process.
- */
-void pixelscript_add_object(const char *name, Func callback, void *opaque);
-
-/**
  * Add a object to a Module.
  *
  * This essentially makes it so that when constructing this Module, this object is instanced.
@@ -396,10 +364,10 @@ void pixelscript_add_object(const char *name, Func callback, void *opaque);
  * let p = new Person("Jordan", 23);
  * ```
  */
-void pixelscript_module_add_object(struct Module *module_ptr,
-                                   const char *name,
-                                   Func object_constructor,
-                                   void *opaque);
+void pixelscript_add_object(struct Module *module_ptr,
+                            const char *name,
+                            Func object_constructor,
+                            void *opaque);
 
 /**
  * Make a new Var string.
@@ -550,6 +518,13 @@ bool pixelscript_var_is(struct Var *var, VarType var_type);
  * This is used to load files via import, require, etc
  */
 void pixelscript_set_file_reader(LoadFileFn func);
+
+/**
+ * Set a function for writing a file.
+ *
+ * This is used to write files via pxs_json
+ */
+void pixelscript_set_file_writer(WriteFileFn func);
 
 /**
  * Set a function for reading a directory.
