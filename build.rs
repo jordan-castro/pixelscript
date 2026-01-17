@@ -55,6 +55,7 @@ fn build_pocketpy_bindings() {
     let bindings = bindgen::Builder::default()
         .header("libs/pocketpy/pocketpy.h")
         .clang_arg("-Ilibs/pocketpy")
+        .default_enum_style(bindgen::EnumVariation::Rust { non_exhaustive: false })
         .size_t_is_usize(true)
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .allowlist_function("py_.*")
@@ -62,7 +63,7 @@ fn build_pocketpy_bindings() {
         .allowlist_var("py_.*")
         .generate()
         .expect("Unable to build Pocketpy rust bindings");
-
+ 
     // Write bindings
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
     bindings

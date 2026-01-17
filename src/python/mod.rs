@@ -56,7 +56,7 @@ struct State {
 }
 
 pub(self) fn exec_py(code: &str, name: &str, module: &str) -> String {
-    run_py(code, name, pocketpy::py_CompileMode_EXEC_MODE, Some(module))
+    run_py(code, name, pocketpy::py_CompileMode::EXEC_MODE, Some(module))
 }
 
 fn run_py(
@@ -86,7 +86,7 @@ fn run_py(
             let py_res = own_string!(py_res);
 
             // Clear the error
-            pocketpy::py_clearexc(pocketpy::py_get);
+            // pocketpy::py_clearexc(pocketpy::py_get);
 
             py_res
         } else {
@@ -97,20 +97,20 @@ fn run_py(
 
 #[allow(unused)]
 pub(self) fn eval_main_py(code: &str, name: &str) -> String {
-    run_py(code, name, pocketpy::py_CompileMode_EVAL_MODE, None)
+    run_py(code, name, pocketpy::py_CompileMode::EVAL_MODE, None)
 }
 
 pub(self) fn eval_py(code: &str, name: &str, module_name: &str) -> String {
     run_py(
         code,
         name,
-        pocketpy::py_CompileMode_EVAL_MODE,
+        pocketpy::py_CompileMode::EVAL_MODE,
         Some(module_name),
     )
 }
 
 pub(self) fn exec_main_py(code: &str, name: &str) -> String {
-    run_py(code, name, pocketpy::py_CompileMode_EXEC_MODE, None)
+    run_py(code, name, pocketpy::py_CompileMode::EXEC_MODE, None)
     // let c_code = create_raw_string!(code);
     // let c_name = create_raw_string!(name);
     // unsafe {

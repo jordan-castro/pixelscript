@@ -12,36 +12,28 @@ use crate::{borrow_string, create_raw_string, free_raw_string, python::{func::py
 
 /// Convert a PocketPy ref into a Var
 pub(super) fn pocketpyref_to_var(pref: pocketpy::py_Ref) -> Var {
-    let tp = unsafe { pocketpy::py_typeof(pref) };
+    let tp = unsafe { pocketpy::py_typeof(pref) } as i32;
     // let tp_enum = pocketpy::py_PredefinedType::from(tp);
-    match tp as u32 {
-        pocketpy::py_PredefinedType_tp_int => {
-            let val: i64 = unsafe { pocketpy::py_toint(pref) };
-            Var::new_i64(val)
-        },
-        pocketpy::py_PredefinedType_tp_float => {
-            let val = unsafe { pocketpy::py_tofloat(pref) };
-            Var::new_f64(val)
-        },
-        pocketpy::py_PredefinedType_tp_bool => {
-            let val = unsafe { pocketpy::py_tobool(pref) };
-            Var::new_bool(val)
-        },
-        pocketpy::py_PredefinedType_tp_str => {
-            let cstr_ptr = unsafe { pocketpy::py_tostr(pref) };
-            let r_str = borrow_string!(cstr_ptr).to_string();
+    if tp == pocketpy::py_PredefinedType::tp_int as i32 {
+        let val = unsafe { pocketpy::py_toint(pref) };
+        Var::new_i64(val)
+    } else if tp == pocketpy::py_PredefinedType::tp_float as i32 {
+        let val = unsafe { pocketpy::py_tofloat(pref) };
+        Var::new_f64(val)
+    } else if tp == pocketpy::py_PredefinedType::tp_bool as i32 {
+        let val = unsafe { pocketpy::py_tobool(pref) };
+        Var::new_bool(val)
+    }  else if tp == pocketpy::py_PredefinedType::tp_str as i32 {
+        let cstr_ptr = unsafe { pocketpy::py_tostr(pref) };
+        let r_str = borrow_string!(cstr_ptr).to_string();
 
-            Var::new_string(r_str)
-        },
-        pocketpy::py_PredefinedType_tp_NoneType => {
-            Var::new_null()
-        }
-        _ => {
-            // Just save the pointer
-            Var::new_object(pref as *mut c_void)
-        }
+        Var::new_string(r_str)
+    } else if tp == pocketpy::py_PredefinedType::tp_NoneType as i32 {
+        Var::new_null()
     }
-    // if pocketpy::py_istype(pref, pocketpy::py)
+    else {
+        Var::new_object(pref as *mut c_void)
+    }
 }
 
 /// Convert a Var into a PocketPy ref
