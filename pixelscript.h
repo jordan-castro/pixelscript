@@ -229,7 +229,7 @@ typedef struct DirHandle {
   /**
    * The Length of the array
    */
-  int32_t length;
+  uintptr_t length;
   /**
    * The array values
    */

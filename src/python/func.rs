@@ -9,9 +9,9 @@
 use crate::{
     borrow_string, create_raw_string, free_raw_string,
     python::{
-        exec_py, get_fn_idx_from_name, pocketpy, var::pocketpyref_to_var, var_to_pocketpyref,
+        get_fn_idx_from_name, pocketpy, var::pocketpyref_to_var, var_to_pocketpyref,
     },
-    shared::{PixelScriptRuntime, func::call_function, read_file, var::Var},
+    shared::{PixelScriptRuntime, func::call_function, var::Var},
 };
 
 /// The size of the Python bug in debug modes.
@@ -46,15 +46,15 @@ pub(super) unsafe fn py_assign(left: pocketpy::py_Ref, right: pocketpy::py_Ref) 
     }
 }
 
-/// Use instead of py_setattr
-pub(super) unsafe fn py_setattr(_self: pocketpy::py_Ref, name: &str, val: pocketpy::py_Ref) {
-    let name = create_raw_string!(name);
-    unsafe {
-        let pyname = pocketpy::py_name(name);
-        pocketpy::py_setattr(_self, pyname, val);
-        free_raw_string!(name);
-    }
-}
+// /// Use instead of py_setattr
+// pub(super) unsafe fn py_setattr(_self: pocketpy::py_Ref, name: &str, val: pocketpy::py_Ref) {
+//     let name = create_raw_string!(name);
+//     unsafe {
+//         let pyname = pocketpy::py_name(name);
+//         pocketpy::py_setattr(_self, pyname, val);
+//         free_raw_string!(name);
+//     }
+// }
 
 pub(super) unsafe fn raise(msg: &str) -> bool {
     let c_msg = create_raw_string!(msg);
@@ -103,73 +103,4 @@ pub(super) unsafe extern "C" fn pocketpy_bridge(argc: i32, argv: pocketpy::py_St
         var_to_pocketpyref(ret_slot, &res);
     }
     true
-}
-
-pub(super) unsafe extern "C" fn virtual_module_loader(_argc: i32, argv: pocketpy::py_StackRef) -> bool {
-    let modname_ref = unsafe { py_get_arg(argv, 0) };
-    let modname = unsafe{ pocketpy::py_tostr(modname_ref) };
-    // let modname = borrow_string!(modname);
-
-    // Check if module already exists (Could potentially disable this)
-    let existing = unsafe { pocketpy::py_getmodule(modname) };
-    if !existing.is_null() {
-        unsafe {
-            py_assign(pocketpy::py_retval(), existing);
-        }
-    }
-
-    // Convert modname from '.' into '/'
-    let modname_str = borrow_string!(modname);
-    let modname_str = modname_str.replace(".", "/");
-
-    // Try and read the file
-    let contents = read_file(format!("{modname_str}.py").as_str());
-    if contents.is_empty() {
-        // If empty, means not found. Default to builtin
-        unsafe {
-            let res= pocketpy::py_import(modname);
-            if res  == 1{
-                true
-            } else {
-                false
-            }
-        }
-    } else {
-        // We have a module, so let's compile it
-        unsafe {
-            let nmod = pocketpy::py_newmodule(modname);
-
-            // In rustpython we use __name__, __package__, __loader__, __spec__. So let's just do the same here.
-
-            let r0 = pocketpy::py_getreg(0);
-            pocketpy::py_newstr(r0, modname);
-            py_setattr(nmod, "__name__", r0);
-
-            // Let's do file too
-            let file = create_raw_string!(format!("v://{modname_str}.py",));
-            let r1 = pocketpy::py_getreg(1);
-            pocketpy::py_newstr(r1, file);
-            free_raw_string!(file);
-            py_setattr(nmod, "__name__", r1);
-
-            let r2 = pocketpy::py_getreg(2);
-            pocketpy::py_newnone(r2);
-            py_setattr(nmod, "__package__", r2);
-
-            let r3 = pocketpy::py_getreg(3);
-            pocketpy::py_newnone(r3);
-            py_setattr(nmod, "__loader__", r3);
-
-            let r4 = pocketpy::py_getreg(4);
-            pocketpy::py_newnone(r4);
-            py_setattr(nmod, "__spec__", r4);
-
-            // Execute code to "compile"
-            exec_py(&contents, &modname_str, &modname_str);
-
-            py_assign(pocketpy::py_retval(), nmod);
-
-            true
-        }
-    }
 }

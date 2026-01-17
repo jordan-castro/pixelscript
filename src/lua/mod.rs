@@ -112,17 +112,6 @@ fn setup_module_loader(lua: &Lua) {
 pub struct LuaScripting;
 
 impl PixelScript for LuaScripting {
-    // fn add_variable(name: &str, variable: &crate::shared::var::Var) {
-    //     var::add_variable(&get_lua_state().engine, name, variable);
-    // }
-
-    // fn add_callback(
-    //     name: &str,
-    //     fn_idx: i32
-    // ) {
-    //     func::add_callback(name, fn_idx);
-    // }
-
     fn add_module(source: std::sync::Arc<crate::shared::module::Module>) {
         module::add_module(source, None);
     }
@@ -130,11 +119,6 @@ impl PixelScript for LuaScripting {
     fn execute(code: &str, file_name: &str) -> String {
         execute(code, file_name)
     }
-
-    // fn add_object_variable(name: &str, idx: i32) {
-    //     // Pass just the idx into the variable... This is a interesting one....
-    //     LuaScripting::add_variable(name, &&Var::new_host_object(idx));
-    // }
 
     fn start() {
         // Initalize the state

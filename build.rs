@@ -77,9 +77,9 @@ fn main() {
 
     #[cfg(feature = "python")] 
     {
-    build_pocketpy();
-    build_pocketpy_bindings();
-    println!("cargo:rerun-if-changed=libs/pocketpy/pocketpy.c");
-    println!("cargo:rerun-if-changed=libs/pocketpy/pocketpy.h");
+        build_pocketpy();
+        build_pocketpy_bindings();
+        println!("cargo:rerun-if-changed=libs/pocketpy/pocketpy.c");
+        println!("cargo:rerun-if-changed=libs/pocketpy/pocketpy.h");
     }
 }

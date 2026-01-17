@@ -6,14 +6,24 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-use std::{cell::RefCell, collections::{HashMap, HashSet}};
+use std::{
+    cell::RefCell,
+    collections::{HashMap, HashSet}
+};
 
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
 use crate::{
-    create_raw_string, free_raw_string, own_string,
-    python::{func::{pocketpy_bridge, virtual_module_loader}, module::create_module, var::{pocketpyref_to_var, var_to_pocketpyref}},
-    shared::{PixelScript, var::{ObjectMethods, Var}},
+    borrow_string, create_raw_string, free_raw_string, own_string,
+    python::{
+        func::pocketpy_bridge,
+        module::create_module,
+        var::{pocketpyref_to_var, var_to_pocketpyref},
+    },
+    shared::{
+        PixelScript, read_file, read_file_dir,
+        var::ObjectMethods,
+    },
 };
 
 // Allow for the binidngs only
@@ -25,9 +35,9 @@ pub(self) mod pocketpy {
 }
 
 mod func;
-mod var;
-mod object;
 mod module;
+mod object;
+mod var;
 
 thread_local! {
     static PYSTATE: ReentrantMutex<State> = ReentrantMutex::new(init_state());
@@ -40,30 +50,35 @@ struct State {
 
     /// Keep a list of defined PixelObject as class
     defined_objects: RefCell<HashMap<i32, HashSet<String>>>,
-    
+
     /// Current thread idx
-    thread_idx: RefCell<i32>
+    thread_idx: RefCell<i32>,
 }
 
 pub(self) fn exec_py(code: &str, name: &str, module: &str) -> String {
     run_py(code, name, pocketpy::py_CompileMode_EXEC_MODE, Some(module))
 }
 
-fn run_py(code: &str, name: &str, comp_mode: pocketpy::py_CompileMode, module: Option<&str>) -> String {
+fn run_py(
+    code: &str,
+    name: &str,
+    comp_mode: pocketpy::py_CompileMode,
+    module: Option<&str>,
+) -> String {
     let c_code = create_raw_string!(code);
     let c_name = create_raw_string!(name);
     unsafe {
         let res = {
-        if let Some(module_name) = module {
-            let c_module = create_raw_string!(module_name);
-            let pymod = pocketpy::py_getmodule(c_module);
-            free_raw_string!(c_module);
+            if let Some(module_name) = module {
+                let c_module = create_raw_string!(module_name);
+                let pymod = pocketpy::py_getmodule(c_module);
+                free_raw_string!(c_module);
 
-            pocketpy::py_exec(c_code, c_name, comp_mode, pymod)
-        } else {
-            pocketpy::py_exec(c_code, c_name, comp_mode, std::ptr::null_mut())
-        }
-    };
+                pocketpy::py_exec(c_code, c_name, comp_mode, pymod)
+            } else {
+                pocketpy::py_exec(c_code, c_name, comp_mode, std::ptr::null_mut())
+            }
+        };
         free_raw_string!(c_code);
         free_raw_string!(c_name);
         if !res {
@@ -77,12 +92,18 @@ fn run_py(code: &str, name: &str, comp_mode: pocketpy::py_CompileMode, module: O
     }
 }
 
+#[allow(unused)]
 pub(self) fn eval_main_py(code: &str, name: &str) -> String {
     run_py(code, name, pocketpy::py_CompileMode_EVAL_MODE, None)
 }
 
 pub(self) fn eval_py(code: &str, name: &str, module_name: &str) -> String {
-    run_py(code, name, pocketpy::py_CompileMode_EVAL_MODE, Some(module_name))
+    run_py(
+        code,
+        name,
+        pocketpy::py_CompileMode_EVAL_MODE,
+        Some(module_name),
+    )
 }
 
 pub(self) fn exec_main_py(code: &str, name: &str) -> String {
@@ -109,7 +130,7 @@ fn init_state() -> State {
     State {
         name_to_idx: RefCell::new(HashMap::new()),
         defined_objects: RefCell::new(HashMap::new()),
-        thread_idx: RefCell::new(0)
+        thread_idx: RefCell::new(0),
     }
 }
 
@@ -140,7 +161,7 @@ pub(self) fn add_new_name_idx_fn(name: String, idx: i32) {
 pub(self) fn get_fn_idx_from_name(name: &str) -> Option<i32> {
     let state = get_py_state();
     let t = state.thread_idx.borrow();
-    if let Some(m) = state.name_to_idx.borrow().get(&t){
+    if let Some(m) = state.name_to_idx.borrow().get(&t) {
         m.get(name).cloned()
     } else {
         None
@@ -161,7 +182,7 @@ pub(self) fn add_new_defined_object(name: &str) {
     };
 
     names.insert(name.to_string());
-} 
+}
 
 /// Check if a object is already defined
 pub(self) fn is_object_defined(name: &str) -> bool {
@@ -172,23 +193,57 @@ pub(self) fn is_object_defined(name: &str) -> bool {
     } else {
         false
     }
-} 
+}
 
 pub(self) fn make_private(name: &str) -> String {
     format!("_pxs_{}", name)
 }
 
+/// This is the import overrider
+unsafe extern "C" fn import_file(arg1: *const std::ffi::c_char) -> *mut std::ffi::c_char {
+    // Borrow string
+    let b = borrow_string!(arg1);
+    // Remove .py and check if this is a directory
+    let file_path = {
+        let pos_dir = &b[0..b.len() - 3];
+        let files = read_file_dir(pos_dir);
+
+        if files.contains(&"__import__.py".to_string()) {
+            // Ok just use that then
+            format!("{pos_dir}__import__.py")
+        } else {
+            // No __import__.py so let's see first if there is any .py so we can return a pseudo type
+            let mut found = false;
+            for file in files.iter() {
+                if file.ends_with(".py") {
+                    found = true;
+                    break;
+                }
+            }
+
+            if found {
+                // So we have some python, lets use it.
+                return create_raw_string!("");
+            } else {
+                b.to_string()
+            }
+        }
+    };
+
+    let contents = read_file(&file_path);
+
+    if contents.is_empty() {
+        std::ptr::null_mut()
+    } else {
+        create_raw_string!(contents)
+    }
+}
+
 /// This needs to be called in every PKPY VM.
 unsafe fn setup_module_loader() {
     unsafe {
-        //             pocketpy::py_bindfunc(global_scope, c_name, Some(pocketpy_bridge));
-        let main_name = create_raw_string!("__main__");
-        let func_name = create_raw_string!("__import__");
-        let main = pocketpy::py_getmodule(main_name);
-        pocketpy::py_bindfunc(main, func_name, Some(virtual_module_loader));
-
-        free_raw_string!(main_name);
-        free_raw_string!(func_name);
+        let callbacks = pocketpy::py_callbacks();
+        (*callbacks).importfile = Some(import_file);
     }
 }
 
@@ -215,49 +270,6 @@ impl PixelScript for PythonScripting {
         }
     }
 
-//     fn add_variable(name: &str, variable: &crate::shared::var::Var) {
-//         unsafe {
-//             let r0 = pocketpy::py_getreg(0);
-//             if r0.is_null() {
-//                 return;
-//             }
-//             let cstr = create_raw_string!(name);
-//             let pyname = pocketpy::py_name(cstr);
-//             var_to_pocketpyref(r0, variable);
-//             pocketpy::py_setglobal(pyname, r0);
-//             // free cstr
-//             free_raw_string!(cstr);
-//         }
-//     }
-
-//     fn add_callback(name: &str, idx: i32) {
-//         // Save function
-//         add_new_name_idx_fn(name.to_string(), idx);
-
-//         // Create a "private" name
-//         let private_name = make_private(name);
-
-//         let c_name = create_raw_string!(private_name.clone());
-//         let c_main = create_raw_string!("__main__");
-//         let bridge_code = format!(
-//             r#"
-// def _{name}_(*args):
-//     return {private_name}('{name}', *args)
-// "#
-//         );
-//         let c_brige_name = format!("<callback_bridge for {private_name}>");
-//         unsafe {
-//             let global_scope = pocketpy::py_getmodule(c_main);
-
-//             pocketpy::py_bindfunc(global_scope, c_name, Some(pocketpy_bridge));
-
-//             // Execute bridge
-//             let s = exec_main_py(&bridge_code, &c_brige_name);
-//             free_raw_string!(c_name);
-//             free_raw_string!(c_main);
-//         }
-//     }
-
     fn add_module(source: std::sync::Arc<crate::shared::module::Module>) {
         create_module(&source, None);
     }
@@ -266,7 +278,7 @@ impl PixelScript for PythonScripting {
         let res = exec_main_py(code, file_name);
         res
     }
-    
+
     fn start_thread() {
         unsafe {
             let idx = pocketpy::py_currentvm() + 1;
@@ -276,7 +288,7 @@ impl PixelScript for PythonScripting {
             *(state.thread_idx.borrow_mut()) = idx;
         }
     }
-    
+
     fn stop_thread() {
         unsafe {
             let idx = pocketpy::py_currentvm() - 1;
@@ -289,7 +301,11 @@ impl PixelScript for PythonScripting {
 }
 
 impl ObjectMethods for PythonScripting {
-    fn object_call(var: &crate::shared::var::Var, method: &str, args: &Vec<crate::shared::var::Var>) -> Result<crate::shared::var::Var, anyhow::Error> {
+    fn object_call(
+        var: &crate::shared::var::Var,
+        method: &str,
+        args: &Vec<crate::shared::var::Var>,
+    ) -> Result<crate::shared::var::Var, anyhow::Error> {
         // Get the pyref
         let pyref = unsafe { pocketpy::py_getreg(0) };
         var_to_pocketpyref(pyref, var);

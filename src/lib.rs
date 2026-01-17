@@ -6,11 +6,10 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-use anyhow::anyhow;
-use rand::{Rng, SeedableRng, distr::Alphanumeric, rngs::SmallRng};
+// use rand::{Rng, SeedableRng, distr::Alphanumeric, rngs::SmallRng};
 use shared::{func::Func, var::Var};
 use std::{
-    ffi::{CStr, CString, c_char, c_void},
+    ffi::{CString, c_char, c_void},
     ptr,
     sync::Arc,
 };
@@ -65,28 +64,28 @@ macro_rules! assert_initiated {
     }};
 }
 
-/// Add the methods for creating a pixel var.
-macro_rules! make_pixel_var {
-    ($($ffi_name:ident, $internal_method:ident, $t:ty);*) => {
-        $(
-        #[unsafe(no_mangle)]
-        pub extern "C" fn $ffi_name(val: $t) -> Var {
-            Var::$internal_method(val)
-        })*
-    };
-}
+// /// Add the methods for creating a pixel var.
+// macro_rules! make_pixel_var {
+//     ($($ffi_name:ident, $internal_method:ident, $t:ty);*) => {
+//         $(
+//         #[unsafe(no_mangle)]
+//         pub extern "C" fn $ffi_name(val: $t) -> Var {
+//             Var::$internal_method(val)
+//         })*
+//     };
+// }
 
-/// Create a random string.
-///
-/// Used for PixelTypes
-fn random_string() -> String {
-    const STRING_LEN: usize = 8;
-    let mut rng = SmallRng::from_rng(&mut rand::rng());
+// /// Create a random string.
+// ///
+// /// Used for PixelTypes
+// fn random_string() -> String {
+//     const STRING_LEN: usize = 8;
+//     let mut rng = SmallRng::from_rng(&mut rand::rng());
 
-    (0..STRING_LEN)
-        .map(|_| rng.sample(Alphanumeric) as char)
-        .collect()
-}
+//     (0..STRING_LEN)
+//         .map(|_| rng.sample(Alphanumeric) as char)
+//         .collect()
+// }
 
 /// Is initialized?
 static mut IS_INIT: bool = false;

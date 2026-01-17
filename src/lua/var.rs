@@ -103,15 +103,15 @@ pub(super) fn into_lua(lua: &Lua, var: &Var) -> LuaResult<LuaValue> {
         }
 }
 
-/// Add a variable by name to __main__ in lua.
-pub fn add_variable(context: &Lua, name: &str, variable: &Var) {
-    context
-        .globals()
-        .set(
-            name,
-                into_lua(context, variable)
-                .expect("Could not unwrap LUA vl from Var."),
-        )
-        .expect("Could not add variable to Lua global context.");
-    // Listo!
-}
+// /// Add a variable by name to __main__ in lua.
+// pub fn add_variable(context: &Lua, name: &str, variable: &Var) {
+//     context
+//         .globals()
+//         .set(
+//             name,
+//                 into_lua(context, variable)
+//                 .expect("Could not unwrap LUA vl from Var."),
+//         )
+//         .expect("Could not add variable to Lua global context.");
+//     // Listo!
+// }

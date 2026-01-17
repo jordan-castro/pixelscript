@@ -6,12 +6,18 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-use std::{cell::RefCell, ffi::{CString, c_char}, ptr, sync::{Arc, OnceLock}};
+use std::{
+    cell::RefCell,
+    ffi::{CStr, CString, c_char},
+    sync::{Arc, OnceLock},
+};
 
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
-use crate::{create_raw_string, own_string};
+use crate::own_string;
 
+/// Helper methods/macros for using PixelScript
+pub mod ffi;
 /// The internal PixelScript function logic.
 pub mod func;
 /// The internal PixelScript Module structure.
@@ -20,34 +26,57 @@ pub mod module;
 pub mod object;
 /// The internal PixelScript Var logic.
 pub mod var;
-/// Helper methods/macros for using PixelScript
-pub mod ffi;
-
-
-// /// Create a *const c_char from a rust &str.
-// macro_rules! create_const_char {
-//     ($rstr:expr) => {{ 
-//         let c_str = CString::new($rstr).unwrap(); 
-//         c_str.as_ptr()
-//     }};
-// }
-
-// /// Create a *mut c_char from a rust &str.
-// macro_rules! create_ {
-//     () => {
-//                        
-//     };
-// }
 
 /// Type for DirHandle.
 ///
-/// Host owns memory. 
+/// Host owns memory.
 #[repr(C)]
 pub struct DirHandle {
     /// The Length of the array
-    pub length: i32,
+    pub length: usize,
     /// The array values
-    pub values: *mut *mut c_char
+    pub values: *mut *mut c_char,
+}
+
+impl DirHandle {
+    /// Empty Dir Handle
+    pub fn empty() -> Self {
+        DirHandle { length: 0, values: std::ptr::null_mut() }
+    }
+
+    /// Get a Vec<String> from the DirHandle.
+    pub fn into_vec(&self) -> Vec<String> {
+        if self.length == 0 || self.values.is_null() {
+            return vec![];
+        }
+        let args = unsafe { std::slice::from_raw_parts_mut(self.values, self.length) };
+        let mut res = vec![];
+        for &ptr in args.iter() {
+            if ptr.is_null() {
+                continue;
+            }
+
+            let c_str = unsafe { CStr::from_ptr(ptr) };
+            let str_slice = c_str.to_str().unwrap_or("<Invalid UTF-8>");
+            res.push(str_slice.to_string().clone());
+        }
+        res
+    }
+}
+
+impl Drop for DirHandle {
+    fn drop(&mut self) {
+        if self.length == 0 || self.values.is_null() {
+            return;
+        }
+
+        // Go through each and free them
+        let args = unsafe { std::slice::from_raw_parts_mut(self.values, self.length) };
+
+        for arg in args.iter() {
+            let _ = own_string!(arg.to_owned());
+        }
+    }
 }
 
 /// Function Type for Loading a file.
@@ -61,22 +90,22 @@ pub type ReadDirFn = unsafe extern "C" fn(dir_path: *const c_char) -> DirHandle;
 pub(crate) struct PixelState {
     pub load_file: RefCell<Option<LoadFileFn>>,
     pub write_file: RefCell<Option<WriteFileFn>>,
-    pub read_dir: RefCell<Option<ReadDirFn>>
+    pub read_dir: RefCell<Option<ReadDirFn>>,
 }
 
 /// The State static variable for Lua.
 static PIXEL_STATE: OnceLock<ReentrantMutex<PixelState>> = OnceLock::new();
 
 /// Get the state of LUA.
-pub (crate) fn get_pixel_state() -> ReentrantMutexGuard<'static, PixelState> {
+pub(crate) fn get_pixel_state() -> ReentrantMutexGuard<'static, PixelState> {
     let mutex = PIXEL_STATE.get_or_init(|| {
         ReentrantMutex::new(PixelState {
             load_file: RefCell::new(None),
             write_file: RefCell::new(None),
-            read_dir: RefCell::new(None), 
+            read_dir: RefCell::new(None),
         })
     });
-    // This will 
+    // This will
     mutex.lock()
 }
 
@@ -120,11 +149,11 @@ pub fn write_file(file_path: &str, contents: &str) {
 }
 
 /// Read a Directory.
-pub fn read_dir(dir_path: &str) -> DirHandle {
+pub fn read_file_dir(dir_path: &str) -> Vec<String> {
     let state = get_pixel_state();
     let cbk = state.read_dir.borrow();
     if cbk.is_none() {
-        return DirHandle { length: 0, values: ptr::null_mut() };
+        return vec![];
     }
     let cbk = cbk.unwrap();
 
@@ -132,7 +161,7 @@ pub fn read_dir(dir_path: &str) -> DirHandle {
     let c_str = CString::new(dir_path).unwrap();
     let dir_path_cstr = c_str.as_ptr();
     let res = unsafe { cbk(dir_path_cstr) };
-    res
+    res.into_vec()
 }
 
 /// A shared trait for converting from/to a pointer. Specifically a (* mut Self)
@@ -164,10 +193,6 @@ pub trait PixelScript {
     /// Stop the runtime.
     fn stop();
 
-    // /// Add a global variable to the runtime.
-    // fn add_variable(name: &str, variable: &var::Var);
-    // /// Add a global callback to the runtime.
-    // fn add_callback(name: &str, idx: i32);
     /// Add a global module to the runtime.
     fn add_module(source: Arc<module::Module>);
     /// Execute a script in this runtime.
@@ -184,7 +209,7 @@ pub enum PixelScriptRuntime {
     Lua,
     Python,
     JavaScript,
-    Easyjs
+    Easyjs,
 }
 
 impl PixelScriptRuntime {

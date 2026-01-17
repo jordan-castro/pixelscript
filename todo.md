@@ -30,6 +30,7 @@
 
 ## Vars
 - add Array type which holds many Vars.
+- Add to_* methods for bool, int, float, and string. These methods will use the Object.call and will require the runtime.
 
 ## STD
 - Add std library via pixelscript runtime. These are optional and handled via features
@@ -44,9 +45,7 @@
 - Eventually look back at this
 
 ## Python (PocketPy)
-- object.call
 - custom imports
-- execute_python
 
 ## JS
 - add_variable

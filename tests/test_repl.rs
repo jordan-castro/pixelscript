@@ -6,7 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_python --no-default-features --features "python" -- --nocapture --test-threads=1
+// cargo test --test test_repl -- --nocapture --test-threads=1
 #[cfg(test)]
 mod tests {
     use std::{
@@ -15,9 +15,7 @@ mod tests {
     };
 
     use pixelscript::{
-        python::PythonScripting,
-        shared::{PixelScript, PtrMagic, var::Var},
-        *,
+        lua::LuaScripting, python::PythonScripting, shared::{DirHandle, PixelScript, PixelScriptRuntime, PtrMagic, var::Var}, *
     };
 
     /// Create a raw string from &str.
@@ -202,6 +200,42 @@ mod tests {
         create_raw_string!(contents)
     }
 
+    unsafe extern "C" fn dir_reader(dir_path: *const c_char) -> DirHandle {
+        let dir_path = unsafe { CStr::from_ptr(dir_path).to_str().unwrap() };
+
+        if dir_path.is_empty() {
+            return DirHandle::empty();
+        }
+
+        // Check if dir exists
+        let dir_exists = std::fs::exists(dir_path).unwrap();
+        if !dir_exists {
+            return DirHandle::empty();
+        }
+
+        // Load dir 
+        let files = std::fs::read_dir(dir_path).unwrap();
+        let mut result = vec![];
+
+        for f in files {
+            let entry = f.unwrap();
+            result.push(entry.file_name().into_string().unwrap());
+        }
+
+        // 1. Convert Strings to CStrings, then to raw pointers
+    // We use .into_raw() so Rust surrenders ownership and doesn't free the memory
+    let mut c_ptrs: Vec<*mut c_char> = result
+        .into_iter()
+        .map(|s| CString::new(s).unwrap().into_raw())
+        .collect();
+
+    // 2. Get a pointer to the array of pointers
+    // We get the pointer to the underlying buffer of the Vec
+    let argv: *mut *mut c_char = c_ptrs.as_mut_ptr();
+    let argc = c_ptrs.len();
+        DirHandle { length: argc, values: argv }
+    }
+
     // // #[test]
     // fn test_add_variable() {
     //     println!("Inside test add variable");
@@ -296,56 +330,29 @@ mod tests {
         // println!("Object");
 
         pixelscript_set_file_reader(file_loader);
+        pixelscript_set_dir_reader(dir_reader);
 
-        //         let py_code = r#"
-        // println('Welcome ' + name, '2', '3', '4', '5', '6')
-        // import ps_math
-        // res = ps_math.add(ps_math.n1, ps_math.n2)
+        let runtime = PixelScriptRuntime::Python;
+        loop {
+            let mut input = String::new(); // Create an empty, mutable String
+            std::io::stdin()
+                .read_line(&mut input) // Read the line and store it in 'input'
+                .expect("Failed to read line"); // Handle potential errors
 
-        // println(f"Res is {res}")
-        // if res != 3:
-        //     raise "res is not 3"
+            if input.contains("quit") {
+                break;
+            } 
 
-        // println("Res is: ", str(res))
-        // "#;
+            let err = match runtime {
+                PixelScriptRuntime::Lua => LuaScripting::execute(&input, "<test_repl>"),
+                PixelScriptRuntime::Python => PythonScripting::execute(&input, "<test_repl>"),
+                PixelScriptRuntime::JavaScript => todo!(),
+                PixelScriptRuntime::Easyjs => todo!(),
+            };
 
-        let py_code = r#"
-import pxs
-from pad.ft_object import function_from_outside 
-
-function_from_outside() # Should print something
-
-msg = "Welcome " + pxs.name
-pxs.print(msg)
-
-result = pxs.add(pxs.n1, pxs.n2)
-pxs.print(f"Module result: {result}")
-
-if result != 3:
-    raise "Math, Expected 3, got " + str(result)
-
-res = pxs.math.sub(2, 1)
-pxs.print(res)
-if res != 1:
-    raise Exception("Math, Expected 1, got " + str(res))
-
-person = pxs.Person("Jordan")
-
-print(person.get_name())
-person.set_name("Jordan Castro")
-print(person.get_name())
-
-print(type(person).__name__)
-print(type(pxs.Person).__name__)
-        "#;
-        let err = PythonScripting::execute(py_code, "<test>");
-
-        pixelscript_start_thread();
-        pixelscript_start_thread();
-        pixelscript_stop_thread();
-        pixelscript_stop_thread();
+            assert!(err.is_empty(), "Repl Error is not empty: {}", err);
+        }
 
         pixelscript_finalize();
-        assert!(err.is_empty(), "Python Error is not empty: {}", err);
     }
 }
