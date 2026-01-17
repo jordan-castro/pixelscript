@@ -85,6 +85,9 @@ fn run_py(
             let py_res = pocketpy::py_formatexc();
             let py_res = own_string!(py_res);
 
+            // Clear the error
+            pocketpy::py_clearexc(pocketpy::py_get);
+
             py_res
         } else {
             String::new()

@@ -13,7 +13,8 @@ use crate::{borrow_string, create_raw_string, free_raw_string, python::{func::py
 /// Convert a PocketPy ref into a Var
 pub(super) fn pocketpyref_to_var(pref: pocketpy::py_Ref) -> Var {
     let tp = unsafe { pocketpy::py_typeof(pref) };
-    match tp as i32 {
+    // let tp_enum = pocketpy::py_PredefinedType::from(tp);
+    match tp as u32 {
         pocketpy::py_PredefinedType_tp_int => {
             let val: i64 = unsafe { pocketpy::py_toint(pref) };
             Var::new_i64(val)
