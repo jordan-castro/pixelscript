@@ -55,6 +55,7 @@ fn build_pocketpy_bindings() {
     let bindings = bindgen::Builder::default()
         .header("libs/pocketpy/pocketpy.h")
         .clang_arg("-Ilibs/pocketpy")
+        .size_t_is_usize(true)
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .allowlist_function("py_.*")
         .allowlist_type("py_.*")
