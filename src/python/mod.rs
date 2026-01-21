@@ -301,8 +301,9 @@ impl ObjectMethods for PythonScripting {
         method: &str,
         args: &Vec<&mut crate::shared::var::pxs_Var>,
     ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
-        // Get the object ref
-        let obj_ref = unsafe { pocketpy::py_getreg(0) };
+        // Make a object ref
+        let obj_ref = unsafe { pocketpy::py_pushtmp() };
+        // Set it
         var_to_pocketpyref(obj_ref, var);
 
         let method_name = create_raw_string!(method);
