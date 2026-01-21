@@ -356,31 +356,35 @@ impl ObjectMethods for PythonScripting {
                     }
                 }
             };
+            free_raw_string!(method_name);
             
             if pymethod.is_null() {
                 return Ok(pxs_Var::new_null());
             }
 
+            // Push method
+            pocketpy::py_push(pymethod);
+            // Push self, in this case nil.
+            pocketpy::py_pushnil();
+
             for i in 0..args.len() {
-                let tmp_reg = pocketpy::py_getreg(0);
+                let tmp_reg = pocketpy::py_pushtmp();
                 var_to_pocketpyref(tmp_reg, &args[i]);
-                pocketpy::py_push(tmp_reg);
+                println!("Var type is: {:#?}", args[i].tag);
+                println!("Pocketpy Var type is: {:#?}", pocketpy::py_typeof(tmp_reg));
+            }
+            println!("Got here.");
+
+            // Call it via vectrocall
+            let ok = pocketpy::py_vectorcall(args.len() as u16, 0);
+            if !ok {
+                return Ok(pxs_Var::new_null());
             }
 
-            // get argv
-            let argv_ptr = pocketpy::py_peek(- (args.len() as i32));
-
-            // Call
-            pocketpy::py_call(pymethod, args.len() as i32, argv_ptr);
-
-            free_raw_string!(method_name);
-
-            let result = pocketpy::py_retval();
-
-            // Pop the stack
-            pocketpy::py_pop();
-
-            Ok(pocketpyref_to_var(result))
+            let result_ref = pocketpy::py_retval();
+            let final_var = pocketpyref_to_var(result_ref);
+            
+            Ok(final_var)
         }
     }
 }

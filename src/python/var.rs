@@ -68,7 +68,9 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var) {
                 } else {
                     // This is a Python object that already exists, just that it's pointer was passed around.
                     let ptr = var.value.object_val as pocketpy::py_Ref;
+                    println!("ptr Type: {:#?}", pocketpy::py_typeof(ptr));
                     py_assign(out, ptr);
+                    println!("out Type: {:#?}", pocketpy::py_typeof(out));
                     // UNSAFE UNSAFE UNSAFE UNSAFE!!!!
                 }
             },

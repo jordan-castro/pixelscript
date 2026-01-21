@@ -341,7 +341,7 @@ mod tests {
         pixelscript_set_file_reader(file_loader);
         pixelscript_set_dir_reader(dir_reader);
 
-        let runtime = PixelScriptRuntime::Python;
+        let runtime = PixelScriptRuntime::Lua;
         let mut lines = vec![];
         loop {
             let mut input = String::new(); // Create an empty, mutable String

@@ -14,28 +14,14 @@ use crate::{
     shared::{PixelScriptRuntime, func::call_function, var::pxs_Var},
 };
 
-/// The size of the Python bug in debug modes.
-#[cfg(debug_assertions)]
-const PY_SIZE_DEBUG: usize = 24;
-/// The size of the Python bug in release modes.
-#[cfg(not(debug_assertions))]
-const PY_SIZE_RELEASE: usize = 24;
+/// The size of the pyType thingy. This is the same for all modes and platforms.
+/// According to bluelove
+const PY_TYPE_SIZE: usize = 24;
 
 /// Use instead of the py_arg macro.
 pub(super) unsafe fn py_get_arg(argv: pocketpy::py_StackRef, i: usize) -> pocketpy::py_StackRef {
-    // 1. Convert the pointer to a raw byte address (u8)
     let base_addr = argv as *mut u8;
-
-    #[cfg(debug_assertions)]
-    let pysize = PY_SIZE_DEBUG;
-    #[cfg(not(debug_assertions))]
-    let pysize = PY_SIZE_RELEASE;
-
-    // 2. Manually offset by (index * 16 bytes)
-    // 16 is the standard size of py_TValue in pocketpy
-    let offset_addr = unsafe { base_addr.add(i * pysize) };
-
-    // 3. Cast it back to the pointer type the VM expects
+    let offset_addr = unsafe { base_addr.add(i * PY_TYPE_SIZE) };
     offset_addr as pocketpy::py_StackRef
 }
 
@@ -90,6 +76,7 @@ pub(super) unsafe extern "C" fn pocketpy_bridge(argc: i32, argv: pocketpy::py_St
     // Add the runtime
     vars.push(pxs_Var::new_i64(PixelScriptRuntime::Python as i64));
 
+    // Convert py_Ref into pxs_Var.
     for i in 1..argc {
         let arg_ref = unsafe { py_get_arg(argv, i as usize) };
         vars.push(pocketpyref_to_var(arg_ref));

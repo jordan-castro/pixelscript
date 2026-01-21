@@ -6,16 +6,19 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-pub mod object;
 pub mod func;
 pub mod module;
+pub mod object;
 pub mod var;
 
 use mlua::prelude::*;
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 use std::{cell::RefCell, collections::HashMap};
 
-use crate::{lua::var::{from_lua, into_lua}, shared::{PixelScript, object::get_object, read_file, var::{ObjectMethods}}};
+use crate::{
+    lua::var::{from_lua, into_lua},
+    shared::{PixelScript, object::get_object, read_file, var::ObjectMethods},
+};
 
 thread_local! {
     static LUASTATE: ReentrantMutex<State> = ReentrantMutex::new(init_state());
@@ -26,7 +29,7 @@ struct State {
     /// The lua engine.
     engine: Lua,
     /// Cached Tables
-    tables: RefCell<HashMap<String, LuaTable>>
+    tables: RefCell<HashMap<String, LuaTable>>,
 }
 
 /// Initialize Lua state per thread.
@@ -80,33 +83,44 @@ pub fn execute(code: &str, file_name: &str) -> String {
 /// Custom moduile loader function
 fn setup_module_loader(lua: &Lua) {
     // Get package.searchers
-    let package : LuaTable = lua.globals().get("package").expect("Could not get package Lua.");
-    let searchers: LuaTable = package.get("searchers").expect("Could not get searchers Lua.");
+    let package: LuaTable = lua
+        .globals()
+        .get("package")
+        .expect("Could not get package Lua.");
+    let searchers: LuaTable = package
+        .get("searchers")
+        .expect("Could not get searchers Lua.");
 
     // Custom loader function
-    let loader = lua.create_function(|lua, name: String| {
-        let path = name.replace(".", "/");
-        let path = if !path.ends_with(".lua") {
-            format!("{path}.lua").to_string()
-        } else {
-            path
-        };
-        let contents = read_file(path.as_str());
+    let loader = lua
+        .create_function(|lua, name: String| {
+            let path = name.replace(".", "/");
+            let path = if !path.ends_with(".lua") {
+                format!("{path}.lua").to_string()
+            } else {
+                path
+            };
+            let contents = read_file(path.as_str());
 
-        if contents.is_empty() {
-            return Ok(LuaNil);
-        }
+            if contents.is_empty() {
+                return Ok(LuaNil);
+            }
 
-        // Compile into chunk
-        match lua.load(contents).set_name(&path).into_function() {
-            Ok(func) => Ok(LuaValue::Function(func)),
-            Err(_) => Ok(LuaNil),
-        }
-    }).expect("Could not create loader function Lua.");
+            // Compile into chunk
+            match lua.load(contents).set_name(&path).into_function() {
+                Ok(func) => Ok(LuaValue::Function(func)),
+                Err(_) => Ok(LuaNil),
+            }
+        })
+        .expect("Could not create loader function Lua.");
 
     // Set our loader in searchers list
-    let len = searchers.len().expect("Could not get len of searchers Lua.");
-    searchers.set(len + 1, loader).expect("Could not set loader in searchers Lua.");
+    let len = searchers
+        .len()
+        .expect("Could not get len of searchers Lua.");
+    searchers
+        .set(len + 1, loader)
+        .expect("Could not set loader in searchers Lua.");
 }
 
 pub struct LuaScripting;
@@ -133,11 +147,11 @@ impl PixelScript for LuaScripting {
         state.engine.gc_collect().unwrap();
         state.engine.gc_collect().unwrap();
     }
-    
+
     fn start_thread() {
         // LUA does not need this.
     }
-    
+
     fn stop_thread() {
         // LUA does not need this.
     }
@@ -153,7 +167,8 @@ impl ObjectMethods for LuaScripting {
         let table = unsafe {
             if var.is_host_object() {
                 // This is from the PTR!
-                let pixel_object = get_object(var.value.host_object_val).expect("No HostObject found.");
+                let pixel_object =
+                    get_object(var.value.host_object_val).expect("No HostObject found.");
                 let lang_ptr = pixel_object.lang_ptr.lock().unwrap();
                 // Get as table.
                 let table_ptr = *lang_ptr as *const LuaTable;
@@ -168,33 +183,48 @@ impl ObjectMethods for LuaScripting {
 
         // Call method
         let mut lua_args = vec![];
-        {
-            // State start
-            let state = get_lua_state();
-            for arg in args.iter() {
-                lua_args.push(into_lua(&state.engine, arg).expect("Could not convert Var into Lua Var"));
-            }
-            // State drop
+        // State start
+        let state = get_lua_state();
+        for arg in args.iter() {
+            lua_args
+                .push(into_lua(&state.engine, arg).expect("Could not convert Var into Lua Var"));
         }
-        // The function could potentially call the state
-        let res = table.call_function(method, lua_args).expect("Could not call function on Lua Table.");
+        // pack lua args
+        let packed = state
+            .engine
+            .pack_multi(lua_args)
+            .expect("Could not pack Lua args.");
+        let res = table
+            .call_function(method, packed)
+            .expect("Could not call function on Lua Table.");
 
         let pixel_res = from_lua(res).expect("Could not convert LuaVar into PixelScript Var.");
 
         Ok(pixel_res)
         // Drop state
     }
-    
-    fn call_method(method: &str, args: &Vec<&mut crate::shared::var::pxs_Var>) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
+
+    fn call_method(
+        method: &str,
+        args: &Vec<&mut crate::shared::var::pxs_Var>,
+    ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
         // Get args as lua args
         let mut lua_args = vec![];
         let state = get_lua_state();
         for arg in args.iter() {
-            lua_args.push(into_lua(&state.engine, arg).expect("Could not convert Var into Lua Var."));
+            lua_args
+                .push(into_lua(&state.engine, arg).expect("Could not convert Var into Lua Var."));
         }
 
         let function: LuaFunction = state.engine.globals().get(method)?;
-        let res: LuaValue = function.call(lua_args).expect(format!("Could not call {method}").as_str());
+        let res: LuaValue = function
+            .call(
+                state
+                    .engine
+                    .pack_multi(lua_args)
+                    .expect("Could not pack Lua args."),
+            )
+            .expect("Could not call Lua method.");
 
         from_lua(res)
     }
