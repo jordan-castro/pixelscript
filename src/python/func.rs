@@ -28,7 +28,7 @@ pub(super) unsafe fn py_get_arg(argv: pocketpy::py_StackRef, i: usize) -> pocket
 /// Use instead of the py_assign macro.
 pub(super) unsafe fn py_assign(left: pocketpy::py_Ref, right: pocketpy::py_Ref) {
     unsafe {
-        *left = *right;
+        std::ptr::copy_nonoverlapping(right, left, 1);
     }
 }
 
