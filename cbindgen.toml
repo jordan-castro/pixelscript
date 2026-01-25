@@ -13,5 +13,7 @@ includes = []
 include_guard = "PIXEL_SCRIPT_H"
 header = "// SPDX-License-Identifier: Apache-2.0"
 
+cpp_compat = true
+
 [export]
 include = []

@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use crate::{
     lua::{from_lua, get_metatable, into_lua, store_metatable},
-    shared::{PixelScriptRuntime, func::call_function, object::pxs_PixelObject, var::pxs_Var},
+    shared::{pxs_Runtime, func::call_function, object::pxs_PixelObject, var::pxs_Var},
 };
 use mlua::prelude::*;
 
@@ -20,7 +20,7 @@ fn create_object_callback(lua: &Lua, fn_idx: i32) -> LuaFunction {
             let mut argv = vec![];
 
             // Add runtime
-            argv.push(pxs_Var::new_i64(PixelScriptRuntime::Lua as i64));
+            argv.push(pxs_Var::new_i64(pxs_Runtime::pxs_Lua as i64));
 
             // Get obj id
             let obj_id: i64 = internal_obj

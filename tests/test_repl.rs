@@ -17,7 +17,7 @@ mod tests {
     use pixelscript::{
         lua::LuaScripting,
         python::PythonScripting,
-        shared::{PixelScript, PixelScriptRuntime, PtrMagic, pxs_DirHandle, var::pxs_Var},
+        shared::{PixelScript, PtrMagic, pxs_DirHandle, pxs_Runtime, var::{pxs_Var, pxs_VarT}},
         *,
     };
 
@@ -37,6 +37,111 @@ mod tests {
                 }
             }
         }};
+    }
+
+    struct TodoList {
+        items: Vec<String>,
+    }
+
+    impl TodoList {
+        pub fn new(initial_items: Vec<String>) -> Self {
+            TodoList { items: initial_items }
+        }
+
+        pub fn add_item(&mut self, item: &str) {
+            self.items.push(item.to_string().clone());
+        }
+
+        pub fn get_item(&mut self, index: usize) -> Option<String> {
+            self.items.get(index).cloned()
+        }
+    }
+
+    impl PtrMagic for TodoList {}
+
+    pub extern "C" fn free_todolist(ptr: *mut c_void) {
+        let _ = unsafe { TodoList::from_borrow(ptr as *mut TodoList) };
+    }
+
+    pub extern "C" fn new_todolist(args: pxs_VarT, _opaque: pxs_Opaque) -> pxs_VarT {
+        unsafe {
+            // Expect a list
+            let list = pxs_listget(args, 1);
+            // Add the iteam
+            let mut strings = vec![];
+            for i in 0..pxs_listlen(list) {
+                let string = pxs_getstring(pxs_listget(list, i));
+                let rstring = own_string!(string);
+
+                strings.push(rstring);
+            }
+
+            // Now add to new object
+            let todolist = TodoList::new(strings);
+
+            let ptr = todolist.into_raw();
+            let typename = create_raw_string!("TodoList");
+            let object = pxs_newobject(ptr as *mut c_void, free_todolist, typename);
+            free_raw_string!(typename);
+
+            let func_name = create_raw_string!("get_item");
+            pxs_object_addfunc(object, func_name, get_item, ptr::null_mut());
+            free_raw_string!(func_name);
+
+            let func_name = create_raw_string!("add_item");
+            pxs_object_addfunc(object, func_name, add_item, ptr::null_mut());
+            free_raw_string!(func_name);
+
+            pxs_newnull()
+        }
+    }
+
+    pub extern "C" fn get_item(args: *mut pxs_Var, _opaque: pxs_Opaque) -> pxs_VarT {
+        unsafe {
+            let pxsobject = borrow_var!(pxs_listget(args, 1));
+
+            // Let index
+            let index = borrow_var!(pxs_listget(args, 2));
+
+            // Get TodoList
+            let todolist = unsafe { TodoList::from_borrow(pxs_gethost(pxsobject) as *mut TodoList) };
+
+            // Get at index
+            let item = todolist.get_item(pxs_getint(index) as usize);
+
+            if let Some(item) = item {
+                let raw_string = create_raw_string!(item);
+                let result = pxs_newstring(raw_string);
+                free_raw_string!(raw_string);
+                result
+            } else {
+                let raw_string = create_raw_string!("");
+                let result = pxs_newstring(raw_string);
+                free_raw_string!(raw_string);
+                result
+            }
+        }
+    }
+
+    pub extern "C" fn add_item(args: pxs_VarT, _opaque: pxs_Opaque) -> pxs_VarT {
+        unsafe {
+            let pxsobject = borrow_var!(pxs_listget(args, 1));
+            // item
+            let item = borrow_var!(pxs_listget(args, 2));
+
+            // Derefernce
+            let todolist = unsafe { TodoList::from_borrow(pxs_gethost(pxsobject) as *mut TodoList) };
+
+            // Get string
+            let item_str = pxs_getstring(item);
+            let string = borrow_string!(item_str).to_string().clone();
+            pxs_freestr(item_str);
+
+            // Now add item
+            todolist.add_item(&string);
+
+            pxs_newnull()
+        }
     }
 
     struct Person {
@@ -63,10 +168,7 @@ mod tests {
         let _ = unsafe { Person::from_borrow(ptr as *mut Person) };
     }
 
-    pub extern "C" fn set_name(
-        args: *mut pxs_Var,
-        _opaque: *mut c_void,
-    ) -> *mut pxs_Var {
+    pub extern "C" fn set_name(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
         unsafe {
             // Get ptr
             let pixel_object_var = pxs_Var::from_borrow(pxs_listget(args, 1));
@@ -89,10 +191,7 @@ mod tests {
         }
     }
 
-    pub extern "C" fn get_name(
-        args: *mut pxs_Var,
-        _opaque: *mut c_void,
-    ) -> *mut pxs_Var {
+    pub extern "C" fn get_name(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
         unsafe {
             // Get ptr
             let pixel_object_var = pxs_Var::from_borrow(pxs_listget(args, 1));
@@ -103,10 +202,7 @@ mod tests {
         }
     }
 
-    pub extern "C" fn new_person(
-        args: *mut pxs_Var,
-        opaque: *mut c_void,
-    ) -> *mut pxs_Var {
+    pub extern "C" fn new_person(args: *mut pxs_Var, opaque: *mut c_void) -> *mut pxs_Var {
         unsafe {
             let p_name = pxs_Var::from_borrow(pxs_listget(args, 1));
             let p_name = p_name.get_string().unwrap();
@@ -130,10 +226,7 @@ mod tests {
     }
 
     // Testing callbacks
-    pub extern "C" fn print_wrapper(
-        args: *mut pxs_Var,
-        _opaque: *mut c_void,
-    ) -> *mut pxs_Var {
+    pub extern "C" fn print_wrapper(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
         unsafe {
             let runtime = pxs_listget(args, 0);
 
@@ -152,10 +245,7 @@ mod tests {
         pxs_Var::new_null().into_raw()
     }
 
-    pub extern "C" fn add_wrapper(
-        args: *mut pxs_Var,
-        _opaque: *mut c_void,
-    ) -> *mut pxs_Var {
+    pub extern "C" fn add_wrapper(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
         // Assumes n1 and n2
         unsafe {
             let n1 = pxs_Var::from_borrow(pxs_listget(args, 1));
@@ -165,10 +255,7 @@ mod tests {
         }
     }
 
-    pub extern "C" fn sub_wrapper(
-        args: *mut pxs_Var,
-        _opaque: *mut c_void,
-    ) -> *mut pxs_Var {
+    pub extern "C" fn sub_wrapper(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
         // Assumes n1 and n2
         unsafe {
             let n1 = pxs_Var::from_borrow(pxs_listget(args, 1));
@@ -333,7 +420,7 @@ mod tests {
         pxs_set_filereader(file_loader);
         pxs_set_dirreader(dir_reader);
 
-        let runtime = PixelScriptRuntime::Python;
+        let runtime = pxs_Runtime::pxs_Python;
         let mut lines = vec![];
         loop {
             let mut input = String::new(); // Create an empty, mutable String
@@ -346,14 +433,17 @@ mod tests {
             } else if input.contains("run") {
                 let full_lines = lines.join("\n");
                 let err = match runtime {
-                    PixelScriptRuntime::Lua => LuaScripting::execute(&full_lines, "<test_repl>"),
-                    PixelScriptRuntime::Python => {
+                    pxs_Runtime::pxs_Lua => {
+                        LuaScripting::execute(&full_lines, "<test_repl>")
+                    }
+                    pxs_Runtime::pxs_Python => {
                         PythonScripting::execute(&full_lines, "<test_repl>")
                     }
-                    PixelScriptRuntime::JavaScript => todo!(),
-                    PixelScriptRuntime::Easyjs => todo!(),
-                    PixelScriptRuntime::RustPython => todo!(),
-                    PixelScriptRuntime::LuaJit => todo!(),
+                    pxs_Runtime::pxs_JavaScript => todo!(),
+                    pxs_Runtime::pxs_Easyjs => todo!(),
+                    pxs_Runtime::pxs_RustPython => todo!(),
+                    _ => todo!()
+                    // pxs_Runtime::LuaJit => todo!(),
                 };
 
                 if !err.is_empty() {

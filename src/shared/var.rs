@@ -75,26 +75,26 @@ macro_rules! write_is_methods {
 // }
 
 /// This represents the variable type that is being read or created.
-#[repr(u32)]
+#[repr(C)]
 #[derive(Debug, PartialEq, Clone)]
 #[allow(non_camel_case_types)]
 pub enum pxs_VarType {
-    Int64,
-    UInt64,
-    String,
-    Bool,
-    Float64,
+    pxs_Int64,
+    pxs_UInt64,
+    pxs_String,
+    pxs_Bool,
+    pxs_Float64,
     /// Lua (nil), Python (None), JS/easyjs (null/undefined)
-    Null,
+    pxs_Null,
     /// Lua (Tree), Python (Class), JS/easyjs (Prototype)
-    Object,
+    pxs_Object,
     /// Host object converted when created.
     /// Lua (Tree), Python (object), JS/easyjs (Prototype think '{}')
-    HostObject,
+    pxs_HostObject,
     /// Lua (Tree), Python (list), JS/easyjs (Array)
-    List,
+    pxs_List,
     /// Lua (Value), Python (def or lambda), JS/easyjs (anon function)
-    Function,
+    pxs_Function,
 }
 
 /// Holds data for a pxs_Var of list.
@@ -214,7 +214,7 @@ pub union pxs_VarValue {
 /// - float (f32, f64)
 /// - string
 /// - boolean
-/// - Objects 
+/// - Objects
 /// - HostObjects (C structs acting as pseudo-classes)
 /// - List
 /// - Functions (First class functions)
@@ -254,7 +254,7 @@ impl pxs_Var {
 
     /// Get the Rust string from the Var.
     pub fn get_string(&self) -> Result<String, Error> {
-        if self.tag == pxs_VarType::String {
+        if self.tag == pxs_VarType::pxs_String {
             unsafe {
                 if self.value.string_val.is_null() {
                     return Err(anyhow!("String pointer is null"));
@@ -281,7 +281,7 @@ impl pxs_Var {
         let cstr = CString::new(val).expect("Could not create CString.");
 
         pxs_Var {
-            tag: pxs_VarType::String,
+            tag: pxs_VarType::pxs_String,
             value: pxs_VarValue {
                 string_val: cstr.into_raw(),
             },
@@ -293,7 +293,7 @@ impl pxs_Var {
     /// No need to free, or any of that. It cretes a *const c_void
     pub fn new_null() -> Self {
         pxs_Var {
-            tag: pxs_VarType::Null,
+            tag: pxs_VarType::pxs_Null,
             value: pxs_VarValue {
                 null_val: ptr::null(),
             },
@@ -303,7 +303,7 @@ impl pxs_Var {
     /// Create a new HostObject var.
     pub fn new_host_object(ptr: i32) -> Self {
         pxs_Var {
-            tag: pxs_VarType::HostObject,
+            tag: pxs_VarType::pxs_HostObject,
             value: pxs_VarValue {
                 host_object_val: ptr,
             },
@@ -313,7 +313,7 @@ impl pxs_Var {
     /// Create a new Object var.
     pub fn new_object(ptr: *mut c_void) -> Self {
         pxs_Var {
-            tag: pxs_VarType::Object,
+            tag: pxs_VarType::pxs_Object,
             value: pxs_VarValue { object_val: ptr },
         }
     }
@@ -321,7 +321,7 @@ impl pxs_Var {
     /// Create a new pxs_VarList var.
     pub fn new_list() -> Self {
         pxs_Var {
-            tag: pxs_VarType::List,
+            tag: pxs_VarType::pxs_List,
             value: pxs_VarValue {
                 list_val: pxs_VarList::new().into_raw(),
             },
@@ -331,7 +331,7 @@ impl pxs_Var {
     /// Create a new Function var.
     pub fn new_function(ptr: *mut c_void) -> Self {
         pxs_Var {
-            tag: pxs_VarType::Function,
+            tag: pxs_VarType::pxs_Function,
             value: pxs_VarValue { function_val: ptr },
         }
     }
@@ -379,9 +379,9 @@ impl pxs_Var {
     /// Get the ptr of the object if Host, i32, i64, u32, u64
     pub fn get_object_ptr(&self) -> i32 {
         match self.tag {
-            pxs_VarType::Int64 => self.get_i64().unwrap() as i32,
-            pxs_VarType::UInt64 => self.get_u64().unwrap() as i32,
-            pxs_VarType::HostObject => unsafe { self.value.host_object_val },
+            pxs_VarType::pxs_Int64 => self.get_i64().unwrap() as i32,
+            pxs_VarType::pxs_UInt64 => self.get_u64().unwrap() as i32,
+            pxs_VarType::pxs_HostObject => unsafe { self.value.host_object_val },
             _ => -1,
         }
     }
@@ -400,46 +400,53 @@ impl pxs_Var {
         // First create a slice
         let argv_borrow = unsafe { pxs_Var::slice_raw(argv, argc) };
         // Now clone them!
-        let cloned: Vec<pxs_Var> = argv_borrow.iter().filter(|ptr| !ptr.is_null())
-        .map(|&ptr| unsafe { (*ptr).clone() })
-        .collect();
+        let cloned: Vec<pxs_Var> = argv_borrow
+            .iter()
+            .filter(|ptr| !ptr.is_null())
+            .map(|&ptr| unsafe { (*ptr).clone() })
+            .collect();
 
         cloned
     }
 
     write_func!(
-        (get_i64, i64_val, i64, pxs_VarType::Int64),
-        (get_u64, u64_val, u64, pxs_VarType::UInt64),
-        (get_bool, bool_val, bool, pxs_VarType::Bool),
-        (get_f64, f64_val, f64, pxs_VarType::Float64),
-        (get_function, function_val, *mut c_void, pxs_VarType::Function)
+        (get_i64, i64_val, i64, pxs_VarType::pxs_Int64),
+        (get_u64, u64_val, u64, pxs_VarType::pxs_UInt64),
+        (get_bool, bool_val, bool, pxs_VarType::pxs_Bool),
+        (get_f64, f64_val, f64, pxs_VarType::pxs_Float64),
+        (
+            get_function,
+            function_val,
+            *mut c_void,
+            pxs_VarType::pxs_Function
+        )
     );
 
     // $t:ty, $func:ident, $vt:expr, $vn:ident
     write_new_methods! {
-        i64, new_i64, pxs_VarType::Int64, i64_val;
-        u64, new_u64, pxs_VarType::UInt64, u64_val;
-        f64, new_f64, pxs_VarType::Float64, f64_val;
-        bool, new_bool, pxs_VarType::Bool, bool_val
+        i64, new_i64, pxs_VarType::pxs_Int64, i64_val;
+        u64, new_u64, pxs_VarType::pxs_UInt64, u64_val;
+        f64, new_f64, pxs_VarType::pxs_Float64, f64_val;
+        bool, new_bool, pxs_VarType::pxs_Bool, bool_val
     }
 
     write_is_methods! {
-        is_i64, pxs_VarType::Int64;
-        is_u64, pxs_VarType::UInt64;
-        is_f64, pxs_VarType::Float64;
-        is_bool, pxs_VarType::Bool;
-        is_string, pxs_VarType::String;
-        is_null, pxs_VarType::Null;
-        is_object, pxs_VarType::Object;
-        is_host_object, pxs_VarType::HostObject;
-        is_list, pxs_VarType::List;
-        is_function, pxs_VarType::Function
+        is_i64, pxs_VarType::pxs_Int64;
+        is_u64, pxs_VarType::pxs_UInt64;
+        is_f64, pxs_VarType::pxs_Float64;
+        is_bool, pxs_VarType::pxs_Bool;
+        is_string, pxs_VarType::pxs_String;
+        is_null, pxs_VarType::pxs_Null;
+        is_object, pxs_VarType::pxs_Object;
+        is_host_object, pxs_VarType::pxs_HostObject;
+        is_list, pxs_VarType::pxs_List;
+        is_function, pxs_VarType::pxs_Function
     }
 }
 
 impl Drop for pxs_Var {
     fn drop(&mut self) {
-        if self.tag == pxs_VarType::String {
+        if self.tag == pxs_VarType::pxs_String {
             unsafe {
                 // Free the mem
                 if !self.value.string_val.is_null() {
@@ -447,7 +454,7 @@ impl Drop for pxs_Var {
                     self.value.string_val = ptr::null_mut();
                 }
             }
-        } else if self.tag == pxs_VarType::List {
+        } else if self.tag == pxs_VarType::pxs_List {
             let _ = unsafe {
                 // This will automatically drop
                 pxs_VarList::from_raw(self.value.list_val)
@@ -462,30 +469,30 @@ impl Clone for pxs_Var {
     fn clone(&self) -> Self {
         unsafe {
             match self.tag {
-                pxs_VarType::Int64 => pxs_Var::new_i64(self.value.i64_val),
-                pxs_VarType::UInt64 => pxs_Var::new_u64(self.value.u64_val),
-                pxs_VarType::String => {
+                pxs_VarType::pxs_Int64 => pxs_Var::new_i64(self.value.i64_val),
+                pxs_VarType::pxs_UInt64 => pxs_Var::new_u64(self.value.u64_val),
+                pxs_VarType::pxs_String => {
                     let string = borrow_string!(self.value.string_val);
                     let cloned_string = string.to_string().clone();
                     let new_string = create_raw_string!(cloned_string);
                     pxs_Var {
-                        tag: pxs_VarType::String,
+                        tag: pxs_VarType::pxs_String,
                         value: pxs_VarValue {
                             string_val: new_string,
                         },
                     }
                 }
-                pxs_VarType::Bool => pxs_Var::new_bool(self.value.bool_val),
-                pxs_VarType::Float64 => pxs_Var::new_f64(self.value.f64_val),
-                pxs_VarType::Null => pxs_Var::new_null(),
-                pxs_VarType::Object => pxs_Var {
-                    tag: pxs_VarType::Object,
+                pxs_VarType::pxs_Bool => pxs_Var::new_bool(self.value.bool_val),
+                pxs_VarType::pxs_Float64 => pxs_Var::new_f64(self.value.f64_val),
+                pxs_VarType::pxs_Null => pxs_Var::new_null(),
+                pxs_VarType::pxs_Object => pxs_Var {
+                    tag: pxs_VarType::pxs_Object,
                     value: pxs_VarValue {
                         object_val: self.value.object_val,
                     },
                 },
-                pxs_VarType::HostObject => pxs_Var::new_host_object(self.value.host_object_val),
-                pxs_VarType::List => {
+                pxs_VarType::pxs_HostObject => pxs_Var::new_host_object(self.value.host_object_val),
+                pxs_VarType::pxs_List => {
                     let mut list = pxs_VarList::new();
                     // let mut list = pxs_Var::new_list();
                     let og_list_val = pxs_VarList::from_borrow(self.value.list_val);
@@ -497,15 +504,13 @@ impl Clone for pxs_Var {
                     }
 
                     pxs_Var {
-                        tag: pxs_VarType::List,
+                        tag: pxs_VarType::pxs_List,
                         value: pxs_VarValue {
                             list_val: list.into_raw(),
                         },
                     }
-                },
-                pxs_VarType::Function => {
-                    pxs_Var::new_function(self.value.function_val)
                 }
+                pxs_VarType::pxs_Function => pxs_Var::new_function(self.value.function_val),
             }
         }
     }
@@ -514,8 +519,7 @@ impl Clone for pxs_Var {
 /// Methods for interacting with objects and callbacks from the runtime.
 pub trait ObjectMethods {
     /// Call a method on a object.
-    fn object_call(var: &pxs_Var, method: &str, args: &mut pxs_VarList)
-    -> Result<pxs_Var, Error>;
+    fn object_call(var: &pxs_Var, method: &str, args: &mut pxs_VarList) -> Result<pxs_Var, Error>;
 
     /// Call a method and pass in args
     fn call_method(method: &str, args: &mut pxs_VarList) -> Result<pxs_Var, Error>;
@@ -523,7 +527,6 @@ pub trait ObjectMethods {
     /// Call a pxs_Var function.
     fn var_call(method: &pxs_Var, args: &mut pxs_VarList) -> Result<pxs_Var, Error>;
 }
-
 
 /// Type Helper for a pxs_Var
 /// Use this instead of writing out pxs_Var*

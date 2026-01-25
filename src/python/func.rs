@@ -8,17 +8,13 @@
 //
 use crate::{
     borrow_string, create_raw_string, free_raw_string,
-    python::{
-        get_fn_idx_from_name, pocketpy, var::pocketpyref_to_var, var_to_pocketpyref,
-    },
-    shared::{PixelScriptRuntime, func::call_function, var::pxs_Var},
+    python::{get_fn_idx_from_name, pocketpy, var::pocketpyref_to_var, var_to_pocketpyref},
+    shared::{func::call_function, pxs_Runtime, var::pxs_Var},
 };
 
 /// Use instead of the py_arg macro.
 pub(super) unsafe fn py_get_arg(argv: pocketpy::py_StackRef, i: usize) -> pocketpy::py_StackRef {
-    unsafe {
-        argv.add(i)
-    }
+    unsafe { argv.add(i) }
 }
 
 /// Use instead of the py_assign macro.
@@ -70,7 +66,7 @@ pub(super) unsafe extern "C" fn pocketpy_bridge(argc: i32, argv: pocketpy::py_St
     let mut vars: Vec<pxs_Var> = vec![];
 
     // Add the runtime
-    vars.push(pxs_Var::new_i64(PixelScriptRuntime::Python as i64));
+    vars.push(pxs_Var::new_i64(pxs_Runtime::pxs_Python as i64));
 
     // Convert py_Ref into pxs_Var.
     for i in 1..argc {

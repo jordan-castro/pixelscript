@@ -6,7 +6,10 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-use crate::shared::{PtrMagic, var::{pxs_VarList, pxs_VarType, pxs_VarValue}};
+use crate::shared::{
+    PtrMagic,
+    var::{pxs_VarList, pxs_VarType, pxs_VarValue},
+};
 
 use super::var::pxs_Var;
 use std::{
@@ -24,8 +27,7 @@ use std::{
 ///
 /// But if you use any Vars within the function, you will have to free them before the function returns.
 #[allow(non_camel_case_types)]
-pub type pxs_Func =
-    unsafe extern "C" fn(args: *mut pxs_Var, opaque: *mut c_void) -> *mut pxs_Var;
+pub type pxs_Func = unsafe extern "C" fn(args: *mut pxs_Var, opaque: *mut c_void) -> *mut pxs_Var;
 
 /// Basic rust structure to track Funcs and opaques together.
 pub struct Function {
@@ -118,12 +120,10 @@ pub unsafe fn call_function(fn_idx: i32, args: Vec<pxs_Var>) -> pxs_Var {
 
     // Convert the pxs_Var vector into a list.
     // Do this because I don't want to mess with the older code.
-    let args = pxs_Var{
-        tag: pxs_VarType::List,
+    let args = pxs_Var {
+        tag: pxs_VarType::pxs_List,
         value: pxs_VarValue {
-            list_val: pxs_VarList {
-                vars: args,
-            }.into_raw()
+            list_val: pxs_VarList { vars: args }.into_raw(),
         },
     };
     let args_ptr = args.into_raw();

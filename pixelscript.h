@@ -11,65 +11,64 @@
 /**
  * This represents the variable type that is being read or created.
  */
-enum pxs_VarType {
-  Int64,
-  UInt64,
-  String,
-  Bool,
-  Float64,
+typedef enum pxs_VarType {
+  pxs_Int64,
+  pxs_UInt64,
+  pxs_String,
+  pxs_Bool,
+  pxs_Float64,
   /**
    * Lua (nil), Python (None), JS/easyjs (null/undefined)
    */
-  Null,
+  pxs_Null,
   /**
    * Lua (Tree), Python (Class), JS/easyjs (Prototype)
    */
-  Object,
+  pxs_Object,
   /**
    * Host object converted when created.
    * Lua (Tree), Python (object), JS/easyjs (Prototype think '{}')
    */
-  HostObject,
+  pxs_HostObject,
   /**
    * Lua (Tree), Python (list), JS/easyjs (Array)
    */
-  List,
+  pxs_List,
   /**
    * Lua (Value), Python (def or lambda), JS/easyjs (anon function)
    */
-  Function,
-};
-typedef uint32_t pxs_VarType;
+  pxs_Function,
+} pxs_VarType;
 
 /**
  * Public enum for supported runtimes.
  */
-typedef enum PixelScriptRuntime {
+typedef enum pxs_Runtime {
   /**
    * Lua v5.4 with mlua.
    */
-  Lua,
+  pxs_Lua,
   /**
    * Python v3.x with pocketpy.
    */
-  Python,
+  pxs_Python,
   /**
    * ES 2020 using rquickjs
    */
-  JavaScript,
+  pxs_JavaScript,
   /**
    * v0.4.5 using easyjsc
    */
-  Easyjs,
+  pxs_Easyjs,
   /**
    * Python >= v3.8 with RustPython
    */
-  RustPython,
+  pxs_RustPython,
   /**
-   * LuaJit v5.4 with mlua.
+   * PHP v5.3 with PH7
    */
-  LuaJit,
-} PixelScriptRuntime;
+  pxs_PHP,
+} pxs_Runtime;
 
 /**
  * A Module is a C representation of data that needs to be (imported,required, etc)
@@ -247,7 +246,7 @@ typedef struct pxs_Var {
   /**
    * A tag for the variable type.
    */
-  pxs_VarType tag;
+  enum pxs_VarType tag;
   /**
    * A value as a union.
    */
@@ -306,6 +305,10 @@ typedef struct pxs_DirHandle {
  * Function Type for reading a Dir.
  */
 typedef struct pxs_DirHandle (*ReadDirFn)(const char *dir_path);
+
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
 
 /**
  * Current pixelscript version.
@@ -479,7 +482,7 @@ struct pxs_Var *pxs_newfloat(double val);
  *
  * var is self.
  */
-struct pxs_Var *pxs_object_callrt(enum PixelScriptRuntime runtime,
+struct pxs_Var *pxs_object_callrt(enum pxs_Runtime runtime,
                                   struct pxs_Var *var,
                                   const char *method,
                                   struct pxs_Var *args);
@@ -547,7 +550,7 @@ int32_t pxs_getobject(struct pxs_Var *var);
 /**
  * Check if a variable is of a type.
  */
-bool pxs_varis(struct pxs_Var *var, pxs_VarType var_type);
+bool pxs_varis(struct pxs_Var *var, enum pxs_VarType var_type);
 
 /**
  * Set a function for reading a file.
@@ -669,5 +672,9 @@ struct pxs_Var *pxs_varcall(struct pxs_Var *runtime,
  * Memory is handled by caller
  */
 struct pxs_Var *pxs_newcopy(struct pxs_Var *item);
+
+#ifdef __cplusplus
+}  // extern "C"
+#endif  // __cplusplus
 
 #endif  /* PIXEL_SCRIPT_H */

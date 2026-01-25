@@ -209,32 +209,32 @@ pub trait PixelScript {
 
 /// Public enum for supported runtimes.
 #[repr(C)]
-pub enum PixelScriptRuntime {
+pub enum pxs_Runtime {
     /// Lua v5.4 with mlua.
-    Lua,
+    pxs_Lua,
     /// Python v3.x with pocketpy.
-    Python,
+    pxs_Python,
     /// ES 2020 using rquickjs
-    JavaScript,
+    pxs_JavaScript,
     /// v0.4.5 using easyjsc
-    Easyjs,
+    pxs_Easyjs,
     /// Python >= v3.8 with RustPython
-    RustPython,
-    /// LuaJit v5.4 with mlua.
-    LuaJit 
+    pxs_RustPython,
+    /// PHP v5.3 with PH7
+    pxs_PHP
 }
 
-impl PixelScriptRuntime {
-    /// 
+impl pxs_Runtime {
+    ///
     pub fn from_i64(val: i64) -> Option<Self> {
         match val {
-            0 => Some(Self::Lua),
-            1 => Some(Self::Python),
-            2 => Some(Self::JavaScript),
-            3 => Some(Self::Easyjs),
-            4 => Some(Self::RustPython),
-            5 => Some(Self::LuaJit),
-            _ => None, 
+            0 => Some(Self::pxs_Lua),
+            1 => Some(Self::pxs_Python),
+            2 => Some(Self::pxs_JavaScript),
+            3 => Some(Self::pxs_Easyjs),
+            4 => Some(Self::pxs_RustPython),
+            5 => Some(Self::pxs_PHP),
+            _ => None,
         }
     }
 

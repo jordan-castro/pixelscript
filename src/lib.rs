@@ -20,11 +20,12 @@ use crate::lua::LuaScripting;
 use crate::python::PythonScripting;
 
 use crate::shared::{
-    LoadFileFn, PixelScript, PixelScriptRuntime, PtrMagic, ReadDirFn, WriteFileFn,
+    LoadFileFn, PixelScript, PtrMagic, ReadDirFn, WriteFileFn,
     func::{clear_function_lookup, lookup_add_function},
     get_pixel_state,
     module::pxs_Module,
     object::{FreeMethod, clear_object_lookup, lookup_add_object, pxs_PixelObject},
+    pxs_Runtime,
     var::{ObjectMethods, pxs_VarT, pxs_VarType},
 };
 
@@ -491,7 +492,7 @@ pub extern "C" fn pxs_newfloat(val: f64) -> *mut pxs_Var {
 /// var is self.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_object_callrt(
-    runtime: PixelScriptRuntime,
+    runtime: pxs_Runtime,
     var: *mut pxs_Var,
     method: *const c_char,
     args: *mut pxs_Var,
@@ -553,7 +554,7 @@ pub extern "C" fn pxs_objectcall(
         return ptr::null_mut();
     }
 
-    let runtime = PixelScriptRuntime::from_i64(runtime.unwrap());
+    let runtime = pxs_Runtime::from_i64(runtime.unwrap());
     if runtime.is_none() {
         return ptr::null_mut();
     }
@@ -561,10 +562,10 @@ pub extern "C" fn pxs_objectcall(
 
     // Ensure type
     let tags = vec![
-        pxs_VarType::Object,
-        pxs_VarType::HostObject,
-        pxs_VarType::Int64,
-        pxs_VarType::UInt64,
+        pxs_VarType::pxs_Object,
+        pxs_VarType::pxs_HostObject,
+        pxs_VarType::pxs_Int64,
+        pxs_VarType::pxs_UInt64,
     ];
     if !tags.contains(&var_borrow.tag) {
         return ptr::null_mut();
@@ -572,24 +573,26 @@ pub extern "C" fn pxs_objectcall(
 
     // This is tricky since we need to know what runtime we are using...
     let var: Result<pxs_Var, anyhow::Error> = match runtime {
-        PixelScriptRuntime::Lua => {
+        pxs_Runtime::pxs_Lua => {
             with_feature!(
                 "lua",
                 { LuaScripting::object_call(var_borrow, method_borrow, list) },
                 { Ok(pxs_Var::new_null()) }
             )
         }
-        PixelScriptRuntime::Python => {
+        pxs_Runtime::pxs_Python => {
             with_feature!(
                 "python",
                 { PythonScripting::object_call(var_borrow, method_borrow, list) },
                 { Ok(pxs_Var::new_null()) }
             )
         }
-        PixelScriptRuntime::JavaScript => todo!(),
-        PixelScriptRuntime::Easyjs => todo!(),
-        PixelScriptRuntime::RustPython => todo!(),
-        PixelScriptRuntime::LuaJit => todo!(),
+        pxs_Runtime::pxs_JavaScript => todo!(),
+        pxs_Runtime::pxs_Easyjs => todo!(),
+        pxs_Runtime::pxs_RustPython => todo!(),
+        _ => todo!(), // pxs_Runtime::pxs_JavaScript => todo!(),
+                      // pxs_Runtime::pxs_Easyjs => todo!(),
+                      // pxs_Runtime::pxs_RustPython => todo!(),
     };
 
     if let Ok(var) = var {
@@ -610,10 +613,10 @@ pub extern "C" fn pxs_getint(var: *mut pxs_Var) -> i64 {
 
     unsafe {
         match b_var.tag {
-            pxs_VarType::Int64 => b_var.value.i64_val,
-            pxs_VarType::UInt64 => b_var.value.u64_val as i64,
-            pxs_VarType::Bool => b_var.value.bool_val.into(),
-            pxs_VarType::Float64 => b_var.value.f64_val as i64,
+            pxs_VarType::pxs_Int64 => b_var.value.i64_val,
+            pxs_VarType::pxs_UInt64 => b_var.value.u64_val as i64,
+            pxs_VarType::pxs_Bool => b_var.value.bool_val.into(),
+            pxs_VarType::pxs_Float64 => b_var.value.f64_val as i64,
             _ => -1,
         }
     }
@@ -630,10 +633,10 @@ pub extern "C" fn pxs_getuint(var: *mut pxs_Var) -> u64 {
 
     unsafe {
         match b_var.tag {
-            pxs_VarType::Int64 => b_var.value.i64_val as u64,
-            pxs_VarType::UInt64 => b_var.value.u64_val,
-            pxs_VarType::Bool => b_var.value.bool_val.into(),
-            pxs_VarType::Float64 => b_var.value.f64_val as u64,
+            pxs_VarType::pxs_Int64 => b_var.value.i64_val as u64,
+            pxs_VarType::pxs_UInt64 => b_var.value.u64_val,
+            pxs_VarType::pxs_Bool => b_var.value.bool_val.into(),
+            pxs_VarType::pxs_Float64 => b_var.value.f64_val as u64,
             _ => 0,
         }
     }
@@ -650,10 +653,10 @@ pub extern "C" fn pxs_getfloat(var: *mut pxs_Var) -> f64 {
 
     unsafe {
         match b_var.tag {
-            pxs_VarType::Int64 => b_var.value.i64_val as f64,
-            pxs_VarType::UInt64 => b_var.value.u64_val as f64,
-            pxs_VarType::Bool => b_var.value.bool_val.into(),
-            pxs_VarType::Float64 => b_var.value.f64_val,
+            pxs_VarType::pxs_Int64 => b_var.value.i64_val as f64,
+            pxs_VarType::pxs_UInt64 => b_var.value.u64_val as f64,
+            pxs_VarType::pxs_Bool => b_var.value.bool_val.into(),
+            pxs_VarType::pxs_Float64 => b_var.value.f64_val,
             _ => 0 as f64,
         }
     }
@@ -807,7 +810,7 @@ pub extern "C" fn pxs_call(
     }
 
     // Borrow runtime, var, and method, and argv
-    let runtime_borrow = unsafe { PixelScriptRuntime::from_var_ptr(runtime) };
+    let runtime_borrow = unsafe { pxs_Runtime::from_var_ptr(runtime) };
     let method_borrow = borrow_string!(method);
     // Own args
     let args = own_var!(args);
@@ -819,22 +822,21 @@ pub extern "C" fn pxs_call(
     // Get runtime
     if let Some(rt) = runtime_borrow {
         let res = match rt {
-            PixelScriptRuntime::Lua => {
+            pxs_Runtime::pxs_Lua => {
                 with_feature!("lua", { LuaScripting::call_method(method_borrow, list) }, {
                     Ok(pxs_Var::new_null())
                 })
             }
-            PixelScriptRuntime::Python => {
+            pxs_Runtime::pxs_Python => {
                 with_feature!(
                     "python",
                     { PythonScripting::call_method(method_borrow, list) },
                     { Ok(pxs_Var::new_null()) }
                 )
             }
-            PixelScriptRuntime::JavaScript => todo!(),
-            PixelScriptRuntime::Easyjs => todo!(),
-            PixelScriptRuntime::RustPython => todo!(),
-            PixelScriptRuntime::LuaJit => todo!(),
+            _ => todo!(), // pxs_Runtime::pxs_JavaScript => todo!(),
+                          // pxs_Runtime::pxs_Easyjs => todo!(),
+                          // pxs_Runtime::pxs_RustPython => todo!(),
         };
         if let Ok(res) = res {
             res.into_raw()
@@ -862,21 +864,21 @@ pub extern "C" fn pxs_tostring(runtime: *mut pxs_Var, var: *mut pxs_Var) -> *mut
 
     // If string or primative, no object calling needed
     match b_var.tag {
-        pxs_VarType::Int64 => {
+        pxs_VarType::pxs_Int64 => {
             let val = b_var.get_i64().unwrap();
             return pxs_Var::new_string(val.to_string()).into_raw();
         }
-        pxs_VarType::UInt64 => {
+        pxs_VarType::pxs_UInt64 => {
             let val = b_var.get_u64().unwrap();
             return pxs_Var::new_string(val.to_string()).into_raw();
         }
-        pxs_VarType::String => {
+        pxs_VarType::pxs_String => {
             return pxs_Var::new_string(b_var.get_string().unwrap().clone()).into_raw();
         }
-        pxs_VarType::Bool => {
+        pxs_VarType::pxs_Bool => {
             return pxs_Var::new_string(b_var.get_bool().unwrap().to_string()).into_raw();
         }
-        pxs_VarType::Float64 => {
+        pxs_VarType::pxs_Float64 => {
             return pxs_Var::new_string(b_var.get_f64().unwrap().to_string()).into_raw();
         }
         _ => {
@@ -885,27 +887,29 @@ pub extern "C" fn pxs_tostring(runtime: *mut pxs_Var, var: *mut pxs_Var) -> *mut
     }
 
     // Not a string, so let's convert
-    let runtime = unsafe { PixelScriptRuntime::from_var_ptr(runtime) };
+    let runtime = unsafe { pxs_Runtime::from_var_ptr(runtime) };
     if let Some(runtime) = runtime {
         let args = pxs_Var::new_list();
         let list = args.get_list().unwrap();
         list.add_item(b_var.clone());
         // let args = vec![b_var];
         let res = match runtime {
-            PixelScriptRuntime::Lua => {
+            pxs_Runtime::pxs_Lua => {
                 with_feature!("lua", { LuaScripting::call_method("tostring", list) }, {
                     Ok(pxs_Var::new_null())
                 })
             }
-            PixelScriptRuntime::Python => {
+            pxs_Runtime::pxs_Python => {
                 with_feature!("python", { PythonScripting::call_method("str", list) }, {
                     Ok(pxs_Var::new_null())
                 })
             }
-            PixelScriptRuntime::JavaScript => todo!(),
-            PixelScriptRuntime::Easyjs => todo!(),
-            PixelScriptRuntime::RustPython => todo!(),
-            PixelScriptRuntime::LuaJit => todo!(),
+            pxs_Runtime::pxs_JavaScript => todo!(),
+            pxs_Runtime::pxs_Easyjs => todo!(),
+            pxs_Runtime::pxs_RustPython => todo!(),
+            _ => todo!(), // pxs_Runtime::pxs_JavaScript => todo!(),
+                          // pxs_Runtime::pxs_Easyjs => todo!(),
+                          // pxs_Runtime::pxs_RustPython => todo!(),
         };
 
         if let Ok(res) = res {
@@ -1075,34 +1079,36 @@ pub extern "C" fn pxs_varcall(
     let list = args.get_list().unwrap();
 
     // Match the runtime
-    let runtime = unsafe { PixelScriptRuntime::from_var_ptr(runtime) };
+    let runtime = unsafe { pxs_Runtime::from_var_ptr(runtime) };
     if let Some(runtime) = runtime {
         match runtime {
-            PixelScriptRuntime::Lua => {
+            pxs_Runtime::pxs_Lua => {
                 with_feature!(
                     "lua",
                     { LuaScripting::var_call(borrow_func, list).unwrap() },
                     { pxs_Var::new_null() }
                 )
             }
-            PixelScriptRuntime::Python => {
+            pxs_Runtime::pxs_Python => {
                 with_feature!(
                     "python",
                     { PythonScripting::var_call(borrow_func, list).unwrap() },
                     { pxs_Var::new_null() }
                 )
             }
-            PixelScriptRuntime::JavaScript => todo!(),
-            PixelScriptRuntime::Easyjs => todo!(),
-            PixelScriptRuntime::RustPython => todo!(),
-            PixelScriptRuntime::LuaJit => todo!(),
+            pxs_Runtime::pxs_JavaScript => todo!(),
+            pxs_Runtime::pxs_Easyjs => todo!(),
+            pxs_Runtime::pxs_RustPython => todo!(),
+            _ => todo!(), // pxs_Runtime::pxs_JavaScript => todo!(),
+                          // pxs_Runtime::pxs_Easyjs => todo!(),
+                          // pxs_Runtime::pxs_RustPython => todo!(),
         }
         .into_raw()
     } else {
         ptr::null_mut()
     }
 }
-
+ 
 /// Copy the pxs_Var.
 ///
 /// Memory is handled by caller

@@ -8,7 +8,18 @@
 //
 use std::{ffi::c_void, sync::Arc};
 
-use crate::{borrow_string, create_raw_string, free_raw_string, python::{func::py_assign, object::create_object, pocketpy::{self, py_getreg}}, shared::{object::get_object, var::{pxs_Var, pxs_VarType}}};
+use crate::{
+    borrow_string, create_raw_string, free_raw_string,
+    python::{
+        func::py_assign,
+        object::create_object,
+        pocketpy::{self, py_getreg},
+    },
+    shared::{
+        object::get_object,
+        var::{pxs_Var, pxs_VarType},
+    },
+};
 
 /// Convert a PocketPy ref into a Var
 pub(super) fn pocketpyref_to_var(pref: pocketpy::py_Ref) -> pxs_Var {
@@ -23,15 +34,14 @@ pub(super) fn pocketpyref_to_var(pref: pocketpy::py_Ref) -> pxs_Var {
     } else if tp == pocketpy::py_PredefinedType::tp_bool as i32 {
         let val = unsafe { pocketpy::py_tobool(pref) };
         pxs_Var::new_bool(val)
-    }  else if tp == pocketpy::py_PredefinedType::tp_str as i32 {
+    } else if tp == pocketpy::py_PredefinedType::tp_str as i32 {
         let cstr_ptr = unsafe { pocketpy::py_tostr(pref) };
         let r_str = borrow_string!(cstr_ptr).to_string();
 
         pxs_Var::new_string(r_str)
     } else if tp == pocketpy::py_PredefinedType::tp_NoneType as i32 {
         pxs_Var::new_null()
-    }
-    else {
+    } else {
         pxs_Var::new_object(pref as *mut c_void)
     }
 }
@@ -40,29 +50,27 @@ pub(super) fn pocketpyref_to_var(pref: pocketpy::py_Ref) -> pxs_Var {
 pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var) {
     unsafe {
         match var.tag {
-            pxs_VarType::Int64 => {
+            pxs_VarType::pxs_Int64 => {
                 pocketpy::py_newint(out, var.get_i64().unwrap());
-            },
-            pxs_VarType::UInt64 => {
-                pocketpy::py_newint(out, var.get_u64().unwrap() as i64)
-            },
-            pxs_VarType::Float64 => {
+            }
+            pxs_VarType::pxs_UInt64 => pocketpy::py_newint(out, var.get_u64().unwrap() as i64),
+            pxs_VarType::pxs_Float64 => {
                 pocketpy::py_newfloat(out, var.get_f64().unwrap());
-            },
-            crate::shared::var::pxs_VarType::Bool => {
+            }
+            crate::shared::var::pxs_VarType::pxs_Bool => {
                 pocketpy::py_newbool(out, var.get_bool().unwrap());
-            },
-            crate::shared::var::pxs_VarType::String => {
+            }
+            crate::shared::var::pxs_VarType::pxs_String => {
                 let s = var.get_string().unwrap();
                 let c_str = create_raw_string!(s);
                 pocketpy::py_newstr(out, c_str);
                 // Free raw string
                 free_raw_string!(c_str);
-            },
-            crate::shared::var::pxs_VarType::Null => {
+            }
+            crate::shared::var::pxs_VarType::pxs_Null => {
                 pocketpy::py_newnone(out);
-            },
-            crate::shared::var::pxs_VarType::Object => {
+            }
+            crate::shared::var::pxs_VarType::pxs_Object => {
                 if var.value.object_val.is_null() {
                     pocketpy::py_newnone(out);
                 } else {
@@ -71,8 +79,8 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var) {
                     py_assign(out, ptr);
                     // UNSAFE UNSAFE UNSAFE UNSAFE!!!!
                 }
-            },
-            crate::shared::var::pxs_VarType::HostObject => {
+            }
+            crate::shared::var::pxs_VarType::pxs_HostObject => {
                 let idx = var.value.host_object_val;
                 let pixel_object = get_object(idx).unwrap();
                 // DO NOT FREE POCKETPY memory.
@@ -99,31 +107,31 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var) {
                 let lang_ptr = pixel_object.lang_ptr.lock().unwrap();
                 // Assign again
                 *out = *(*lang_ptr as pocketpy::py_Ref);
-            },
-            pxs_VarType::List => todo!(),
-            pxs_VarType::Function => todo!(),
+            }
+            pxs_VarType::pxs_List => todo!(),
+            pxs_VarType::pxs_Function => todo!(),
         }
     }
 }
 
 // RUST PYTHON OLD VERSION
-            // crate::shared::var::VarType::HostObject => {
-            //     unsafe {
-            //         let idx = var.value.host_object_val;
-            //         let pixel_object = get_object(idx).unwrap();
-            //         let lang_ptr_is_null = pixel_object.lang_ptr.lock().unwrap().is_null();
-            //         if lang_ptr_is_null {
-            //             // Create the object for the first and mutate the pixel object TODO.
-            //             let pyobj = create_object(vm, idx, Arc::clone(&pixel_object));
-            //             // Set pointer
-            //             pixel_object.update_lang_ptr(pyobj.into_raw() as *mut c_void);
-            //         }
+// crate::shared::var::VarType::HostObject => {
+//     unsafe {
+//         let idx = var.value.host_object_val;
+//         let pixel_object = get_object(idx).unwrap();
+//         let lang_ptr_is_null = pixel_object.lang_ptr.lock().unwrap().is_null();
+//         if lang_ptr_is_null {
+//             // Create the object for the first and mutate the pixel object TODO.
+//             let pyobj = create_object(vm, idx, Arc::clone(&pixel_object));
+//             // Set pointer
+//             pixel_object.update_lang_ptr(pyobj.into_raw() as *mut c_void);
+//         }
 
-            //         // Get PTR again
-            //         let lang_ptr = pixel_object.lang_ptr.lock().unwrap();
-            //         // Get as PyObject and grab dict
-            //         let pyobj_ptr = *lang_ptr as *const PyObject;
+//         // Get PTR again
+//         let lang_ptr = pixel_object.lang_ptr.lock().unwrap();
+//         // Get as PyObject and grab dict
+//         let pyobj_ptr = *lang_ptr as *const PyObject;
 
-            //         PyObjectRef::from_raw(pyobj_ptr)
-            //     }
-            // },
+//         PyObjectRef::from_raw(pyobj_ptr)
+//     }
+// },

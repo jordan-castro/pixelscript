@@ -38,18 +38,18 @@ pub(super) fn from_lua(value: LuaValue) -> Result<pxs_Var, anyhow::Error> {
 /// Convert a Var into a LuaValue
 pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
     match var.tag {
-        pxs_VarType::Int64 => Ok(mlua::Value::Integer(var.get_i64().unwrap())),
-        pxs_VarType::UInt64 => Ok(mlua::Value::Integer(var.get_u64().unwrap() as i64)),
-        pxs_VarType::String => {
+        pxs_VarType::pxs_Int64 => Ok(mlua::Value::Integer(var.get_i64().unwrap())),
+        pxs_VarType::pxs_UInt64 => Ok(mlua::Value::Integer(var.get_u64().unwrap() as i64)),
+        pxs_VarType::pxs_String => {
             let contents = var.get_string().unwrap();
             let lua_str = lua.create_string(contents).expect("test");
 
             Ok(mlua::Value::String(lua_str))
         }
-        pxs_VarType::Bool => Ok(mlua::Value::Boolean(var.get_bool().unwrap())),
-        pxs_VarType::Float64 => Ok(mlua::Value::Number(var.get_f64().unwrap())),
-        pxs_VarType::Null => Ok(mlua::Value::Nil),
-        pxs_VarType::Object => {
+        pxs_VarType::pxs_Bool => Ok(mlua::Value::Boolean(var.get_bool().unwrap())),
+        pxs_VarType::pxs_Float64 => Ok(mlua::Value::Number(var.get_f64().unwrap())),
+        pxs_VarType::pxs_Null => Ok(mlua::Value::Nil),
+        pxs_VarType::pxs_Object => {
             unsafe {
                 // This MUST BE A TABLE!
                 let table_ptr = var.value.object_val as *const LuaTable;
@@ -66,7 +66,7 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
                 Ok(mlua::Value::Table(lua_table))
             }
         }
-        pxs_VarType::HostObject => {
+        pxs_VarType::pxs_HostObject => {
             unsafe {
                 let idx = var.value.host_object_val;
                 // let object_lookup = get_object_lookup();
@@ -89,8 +89,8 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
                 Ok(mlua::Value::Table(table))
             }
         }
-        pxs_VarType::List => todo!(),
-        pxs_VarType::Function => todo!(),
+        pxs_VarType::pxs_List => todo!(),
+        pxs_VarType::pxs_Function => todo!(),
     }
 }
 
