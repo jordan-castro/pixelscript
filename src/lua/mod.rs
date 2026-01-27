@@ -172,7 +172,8 @@ impl PixelScript for LuaScripting {
     }
 
     fn stop_thread() {
-        // LUA does not need this.
+        // Run the stop logic.
+        Self::stop();
     }
 }
 
