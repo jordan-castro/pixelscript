@@ -285,8 +285,6 @@ pub extern "C" fn pxs_addvar(
     let module = unsafe { pxs_Module::from_borrow(module_ptr) };
     let name_str = borrow_string!(name);
 
-    let var_borrow = borrow_var!(variable);
-
     // Now add variable
     module.add_variable(name_str, variable);
 }
@@ -580,14 +578,14 @@ pub extern "C" fn pxs_objectcall(
             with_feature!(
                 "lua",
                 { LuaScripting::object_call(var_borrow, method_borrow, list) },
-                { Err(()) }
+                { return std::ptr::null_mut(); }
             )
         }
         pxs_Runtime::pxs_Python => {
             with_feature!(
                 "python",
                 { PythonScripting::object_call(var_borrow, method_borrow, list) },
-                { Err(()) }
+                { return std::ptr::null_mut(); }
             )
         }
         pxs_Runtime::pxs_JavaScript => todo!(),
@@ -827,15 +825,14 @@ pub extern "C" fn pxs_call(
         let res = match rt {
             pxs_Runtime::pxs_Lua => {
                 with_feature!("lua", { LuaScripting::call_method(method_borrow, list) }, {
-                    Err(())
-                    // Ok(pxs_Var::new_null())
+                    return std::ptr::null_mut();
                 })
             }
             pxs_Runtime::pxs_Python => {
                 with_feature!(
                     "python",
                     { PythonScripting::call_method(method_borrow, list) },
-                    { Err(()) }
+                    { return std::ptr::null_mut(); }
                 )
             }
             _ => todo!(), // pxs_Runtime::pxs_JavaScript => todo!(),
@@ -900,14 +897,13 @@ pub extern "C" fn pxs_tostring(runtime: *mut pxs_Var, var: *mut pxs_Var) -> *mut
         let res = match runtime {
             pxs_Runtime::pxs_Lua => {
                 with_feature!("lua", { LuaScripting::call_method("tostring", list) }, {
-                    Err(())
-                    // Ok(pxs_Var::new_null())
+return std::ptr::null_mut();
                 })
             }
             pxs_Runtime::pxs_Python => {
                 with_feature!("python", { PythonScripting::call_method("str", list) }, {
-                    Err(())
-                    // Ok(pxs_Var::new_null())
+return std::ptr::null_mut();
+
                 })
             }
             pxs_Runtime::pxs_JavaScript => todo!(),
@@ -976,7 +972,7 @@ pub extern "C" fn pxs_listadd(list: *mut pxs_Var, item: *mut pxs_Var) -> i32 {
 ///
 /// Expcts a pointer to pxs_VarList. And a index of i32. Supports negative indexes just like in Python.
 ///
-/// This will return a cloned variable, you must free it once done.
+/// This will NOT return a cloned variable, you must NOT free it.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_listget(list: *mut pxs_Var, index: i32) -> *mut pxs_Var {
     assert_initiated!();
@@ -995,7 +991,7 @@ pub extern "C" fn pxs_listget(list: *mut pxs_Var, index: i32) -> *mut pxs_Var {
     // If found, clone the value so now the caller has it's own seperate memory.
     let varlist = borrow_list.get_list().unwrap();
     if let Some(res) = varlist.get_item(index) {
-        res.clone().into_raw()
+        res as *const pxs_Var as *mut pxs_Var
     } else {
         ptr::null_mut()
     }
@@ -1092,14 +1088,14 @@ pub extern "C" fn pxs_varcall(
                 with_feature!(
                     "lua",
                     { LuaScripting::var_call(borrow_func, list).unwrap() },
-                    { Err(()) }
+                    { return std::ptr::null_mut(); }
                 )
             }
             pxs_Runtime::pxs_Python => {
                 with_feature!(
                     "python",
                     { PythonScripting::var_call(borrow_func, list).unwrap() },
-                    { Err(()) }
+                    { return std::ptr::null_mut(); }
                 )
             }
             pxs_Runtime::pxs_JavaScript => todo!(),
@@ -1121,6 +1117,10 @@ pub extern "C" fn pxs_varcall(
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_newcopy(item: *mut pxs_Var) -> *mut pxs_Var {
     assert_initiated!();
+
+    if item.is_null() {
+        return ptr::null_mut();
+    }
 
     // Borrow var
     let borrow_item = borrow_var!(item);

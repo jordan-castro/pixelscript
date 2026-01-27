@@ -18,7 +18,7 @@ mod tests {
 
     use pixelscript::{
         lua::LuaScripting,
-        shared::{PixelScript, PtrMagic, object::pxs_PixelObject, var::pxs_Var},
+        shared::{PixelScript, PtrMagic, object::pxs_PixelObject, var::{pxs_Var, pxs_VarT}},
         *,
     };
 
@@ -191,7 +191,25 @@ mod tests {
         create_raw_string!(contents)
     }
 
-    // #[test]
+    unsafe extern "C" fn call_function(
+        args: pxs_VarT,
+        _op: pxs_Opaque
+    ) -> pxs_VarT {
+        // Assume 1 is a function
+        let func = pxs_listget(args, 1);
+        // Check for args
+        let argc = pxs_listlen(args);
+        let res = if argc > 2 {
+            // 2 is args
+            pxs_varcall(pxs_listget(args, 0), func, pxs_newcopy(pxs_listget(args, 2)))
+        } else {
+            pxs_varcall(pxs_listget(args, 0), func, pxs_newlist())
+        };
+
+        // Return result!
+        res
+    }
+
     fn test_add_module() {
         pxs_initialize();
         let module_name = create_raw_string!("pxs");
@@ -216,6 +234,11 @@ mod tests {
         let object_name = create_raw_string!("Person");
         pxs_addobject(module, object_name, new_person, ptr::null_mut());
 
+        // Add call 
+        let call_name = create_raw_string!("call_function");
+        pxs_addfunc(module, call_name, call_function, ptr::null_mut());
+        free_raw_string!(call_name);
+
         // Add a inner module
         let math_module_name = create_raw_string!("math");
         let math_module = pxs_newmod(math_module_name);
@@ -237,14 +260,6 @@ mod tests {
         free_raw_string!(math_module_name);
         free_raw_string!(sub_name);
     }
-
-    // #[test]
-    // fn test_add_object() {
-    //     pxs_initialize();
-    //     let object_name = create_raw_string!("Person");
-    //     pxs_add_object(object_name, new_person, ptr::null_mut());
-    //     free_raw_string!(object_name);
-    // }
 
     #[test]
     fn test_execute() {
@@ -285,7 +300,16 @@ mod tests {
             person:set_name("Jordan Castro")
             pxs.print(person:get_name())
 
-            print('Calling internal print?')
+            -- Test calling function.
+            function hadd(n1, n2)
+                return n1 + n2
+            end
+            -- Call it
+            pxs.print(tostring(pxs.call_function(hadd, {1,2})))
+            function get_pi()
+                return 3.145
+            end 
+            pxs.print(tostring(pxs.call_function(get_pi)))
         "#;
         let err = LuaScripting::execute(lua_code, "<test>");
 

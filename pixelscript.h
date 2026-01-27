@@ -630,7 +630,7 @@ int32_t pxs_listadd(struct pxs_Var *list,
  *
  * Expcts a pointer to pxs_VarList. And a index of i32. Supports negative indexes just like in Python.
  *
- * This will return a cloned variable, you must free it once done.
+ * This will NOT return a cloned variable, you must NOT free it.
  */
 struct pxs_Var *pxs_listget(struct pxs_Var *list,
                             int32_t index);

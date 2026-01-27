@@ -16,7 +16,7 @@ mod tests {
 
     use pixelscript::{
         python::PythonScripting,
-        shared::{PixelScript, PtrMagic, pxs_DirHandle, var::pxs_Var},
+        shared::{PixelScript, PtrMagic, pxs_DirHandle, var::{pxs_Var, pxs_VarT}},
         *,
     };
     /// Create a raw string from &str.
@@ -235,30 +235,25 @@ mod tests {
         }
     }
 
-    // // #[test]
-    // fn test_add_variable() {
-    //     println!("Inside test add variable");
-    //     pxs_initialize();
-    //     let name = create_raw_string!("name");
-    //     let jordan = create_raw_string!("Jordan");
-    //     let var = pxs_var_newstring(jordan);
-    //     println!("Before add variable");
-    //     pxs_add_variable(name, var);
-    //     println!("After add variable");
-    //     free_raw_string!(name);
-    //     println!("Freed strings");
-    // }
+    unsafe extern "C" fn call_function(
+        args: pxs_VarT,
+        _op: pxs_Opaque
+    ) -> pxs_VarT {
+        // Assume 1 is a function
+        let func = pxs_listget(args, 1);
+        // Check for args
+        let argc = pxs_listlen(args);
+        let res = if argc > 2 {
+            // 2 is args
+            pxs_varcall(pxs_listget(args, 0), func, pxs_newcopy(pxs_listget(args, 2)))
+        } else {
+            pxs_varcall(pxs_listget(args, 0), func, pxs_newlist())
+        };
 
-    // // #[test]
-    // fn test_add_callback() {
-    //     println!("Inside Test add callback");
-    //     pxs_initialize();
-    //     let name = create_raw_string!("println");
-    //     pxs_add_callback(name, print_wrapper, ptr::null_mut());
-    //     free_raw_string!(name);
-    // }
+        // Return result!
+        res
+    }
 
-    // #[test]
     fn test_add_module() {
         println!("Inside Test add module");
         pxs_initialize();
@@ -284,6 +279,11 @@ mod tests {
         let object_name = create_raw_string!("Person");
         pxs_addobject(module, object_name, new_person, ptr::null_mut());
 
+        // Add call 
+        let call_name = create_raw_string!("call_function");
+        pxs_addfunc(module, call_name, call_function, ptr::null_mut());
+        free_raw_string!(call_name);
+
         // Add a inner module
         let math_module_name = create_raw_string!("math");
         let math_module = pxs_newmod(math_module_name);
@@ -306,42 +306,16 @@ mod tests {
         free_raw_string!(sub_name);
     }
 
-    // // #[test]
-    // fn test_add_object() {
-    //     pxs_initialize();
-    //     let object_name = create_raw_string!("Person");
-    //     pxs_add_object(object_name, new_person, ptr::null_mut());
-    //     free_raw_string!(object_name);
-    // }
 
     #[test]
     fn test_execute() {
         println!("Test starting");
         pxs_initialize();
 
-        // test_add_variable();
-        // println!("Var");
-        // test_add_callback();
-        // println!("Callback");
         test_add_module();
-        // println!("Module");
-        // test_add_object();
-        // println!("Object");
 
         pxs_set_filereader(file_loader);
         pxs_set_dirreader(dir_reader);
-
-        //         let py_code = r#"
-        // println('Welcome ' + name, '2', '3', '4', '5', '6')
-        // import ps_math
-        // res = ps_math.add(ps_math.n1, ps_math.n2)
-
-        // println(f"Res is {res}")
-        // if res != 3:
-        //     raise "res is not 3"
-
-        // println("Res is: ", str(res))
-        // "#;
 
         let py_code = r#"
 import pxs
@@ -371,6 +345,16 @@ print(person.get_name())
 
 print(type(person).__name__)
 print(type(pxs.Person).__name__)
+
+def hadd(n1, n2):
+    return n1 + n2
+
+print(pxs.call_function(hadd, [1,2]))
+
+def get_pi():
+    return 3.1459
+
+print(pxs.call_function(get_pi))
         "#;
         let err = PythonScripting::execute(py_code, "<test>");
 

@@ -34,7 +34,7 @@ pub(super) fn from_lua(value: LuaValue) -> Result<pxs_Var, anyhow::Error> {
         }
         LuaValue::Table(t) => {
             // Check if table is actually a list.
-            let t_length = t.len()?;
+            let t_length = t.raw_len();
 
             if t_length == 0 {
                 // Regular table
@@ -125,21 +125,6 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
             Ok(mlua::Value::Table(table))
         },
         pxs_VarType::pxs_Function => {
-            //             unsafe {
-            //     // This MUST BE A TABLE!
-            //     let table_ptr = var.value.object_val as *const LuaTable;
-            //     if table_ptr.is_null() {
-            //         return Err(mlua::Error::RuntimeError(
-            //             "Null pointer in Object".to_string(),
-            //         ));
-            //     }
-
-            //     // Clone
-            //     let lua_table = (&*table_ptr).clone();
-
-            //     // WooHoo we are back into lua
-            //     Ok(mlua::Value::Table(lua_table))
-            // }
             unsafe {
                 // This has got to be a function
                 let func_ptr = var.value.function_val as *const LuaFunction;

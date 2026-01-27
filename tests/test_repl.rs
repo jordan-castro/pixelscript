@@ -372,27 +372,11 @@ mod tests {
         free_raw_string!(sub_name);
     }
 
-    // // #[test]
-    // fn test_add_object() {
-    //     pxs_initialize();
-    //     let object_name = create_raw_string!("Person");
-    //     pxs_add_object(object_name, new_person, ptr::null_mut());
-    //     free_raw_string!(object_name);
-    // }
-
     #[test]
     fn test_execute() {
         println!("Test starting");
         pxs_initialize();
-
-        // test_add_variable();
-        // println!("Var");
-        // test_add_callback();
-        // println!("Callback");
         test_add_module();
-        // println!("Module");
-        // test_add_object();
-        // println!("Object");
 
         pxs_set_filereader(file_loader);
         pxs_set_dirreader(dir_reader);

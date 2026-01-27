@@ -157,7 +157,7 @@ impl pxs_VarList {
         if r_index < 0 {
             None
         } else {
-            self.vars.get(index as usize)
+            self.vars.get(r_index as usize)
         }
     }
 

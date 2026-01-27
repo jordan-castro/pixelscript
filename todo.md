@@ -41,14 +41,12 @@
     - os
 
 ## Lua
-- Var Function
+- Fix leaks
 
 ## Python (rustpython)
 - Eventually look back at this
 
 ## Python (PocketPy)
-- Var List
-- Var Function
 
 ## JS
 - add_variable

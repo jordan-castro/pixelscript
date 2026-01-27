@@ -39,9 +39,33 @@ pub(super) fn pocketpyref_to_var(pref: pocketpy::py_Ref) -> pxs_Var {
         let r_str = borrow_string!(cstr_ptr).to_string();
 
         pxs_Var::new_string(r_str)
-    } else if tp == pocketpy::py_PredefinedType::tp_NoneType as i32 {
+    } else if tp == pocketpy::py_PredefinedType::tp_NoneType as i32 || pref.is_null() {
         pxs_Var::new_null()
-    } else {
+    } else if tp == pocketpy::py_PredefinedType::tp_list as i32 {
+        // We have to get all items in the list
+        let mut vars = vec![];
+        let ok = unsafe { pocketpy::py_len(pref) };
+        if !ok {
+            return pxs_Var::new_null();
+        }
+
+        // Get list
+        let list_len = unsafe { pocketpy::py_toint(pocketpy::py_retval()) };
+
+        for i in 0..list_len {
+            let item = unsafe { pocketpy::py_list_getitem(pref, i as i32) };
+            if item.is_null() {
+                continue;
+            }
+
+            vars.push(pocketpyref_to_var(item));
+        }
+
+        pxs_Var::new_list_with(vars)
+    } else if tp == pocketpy::py_PredefinedType::tp_function as i32 {
+        // Just like object, save the raw pointer
+        pxs_Var::new_function(pref as *mut c_void)
+    }else {
         pxs_Var::new_object(pref as *mut c_void)
     }
 }
@@ -106,32 +130,35 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var) {
                 // Get PTR again
                 let lang_ptr = pixel_object.lang_ptr.lock().unwrap();
                 // Assign again
-                *out = *(*lang_ptr as pocketpy::py_Ref);
+                py_assign(out, *lang_ptr as pocketpy::py_Ref);
+                // *out = *(*lang_ptr as pocketpy::py_Ref);
             }
-            pxs_VarType::pxs_List => todo!(),
-            pxs_VarType::pxs_Function => todo!(),
+            pxs_VarType::pxs_List => {
+                // Ok take vars and convet them into pylist
+                pocketpy::py_newlist(out);
+                let list = var.get_list().unwrap();
+                for i in 0..list.vars.len() {
+                    let item = list.get_item(i as i32);
+                    if let Some(item) = item {
+                        // Add it
+                        let tmp = pocketpy::py_pushtmp();
+                        var_to_pocketpyref(tmp, item);
+                        pocketpy::py_list_append(out, tmp);
+                    }
+                }
+
+                // Donezo
+            },
+            pxs_VarType::pxs_Function => {
+                if var.value.function_val.is_null() {
+                    pocketpy::py_newnone(out);
+                } else {
+                    // Python function that already exists. Just a pointer passed around
+                    let ptr = var.value.function_val as pocketpy::py_Ref;
+                    py_assign(out, ptr);
+                }
+
+            },
         }
     }
 }
-
-// RUST PYTHON OLD VERSION
-// crate::shared::var::VarType::HostObject => {
-//     unsafe {
-//         let idx = var.value.host_object_val;
-//         let pixel_object = get_object(idx).unwrap();
-//         let lang_ptr_is_null = pixel_object.lang_ptr.lock().unwrap().is_null();
-//         if lang_ptr_is_null {
-//             // Create the object for the first and mutate the pixel object TODO.
-//             let pyobj = create_object(vm, idx, Arc::clone(&pixel_object));
-//             // Set pointer
-//             pixel_object.update_lang_ptr(pyobj.into_raw() as *mut c_void);
-//         }
-
-//         // Get PTR again
-//         let lang_ptr = pixel_object.lang_ptr.lock().unwrap();
-//         // Get as PyObject and grab dict
-//         let pyobj_ptr = *lang_ptr as *const PyObject;
-
-//         PyObjectRef::from_raw(pyobj_ptr)
-//     }
-// },
