@@ -686,6 +686,18 @@ struct pxs_Var *pxs_varcall(struct pxs_Var *runtime,
  */
 struct pxs_Var *pxs_newcopy(struct pxs_Var *item);
 
+/**
+ * Call a objects getter.
+ */
+pxs_VarT pxs_objectget(pxs_VarT runtime, pxs_VarT obj, const char *key);
+
+/**
+ * Call a objects setter.
+ *
+ * value ownership is transfered.
+ */
+bool pxs_objectset(pxs_VarT runtime, pxs_VarT obj, const char *key, pxs_VarT value);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus

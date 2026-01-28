@@ -1131,3 +1131,86 @@ pub extern "C" fn pxs_newcopy(item: *mut pxs_Var) -> *mut pxs_Var {
     let cloned_var = borrow_item.clone();
     cloned_var.into_raw()
 }
+
+/// Call a objects getter.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_objectget(runtime:pxs_VarT, obj: pxs_VarT, key: *const c_char) -> pxs_VarT {
+    assert_initiated!();
+    if runtime.is_null() || obj.is_null() || key.is_null() {
+        return ptr::null_mut();
+    }
+
+    // Borrow var
+    let borrow_obj = borrow_var!(obj);
+    let borrow_rt = unsafe { pxs_Runtime::from_var_ptr(runtime).unwrap() };
+    let borrow_key = borrow_string!(key);
+
+    let res = match borrow_rt {
+        pxs_Runtime::pxs_Lua => {
+            with_feature!("lua", {
+                LuaScripting::get(borrow_obj, borrow_key)
+            }, {
+                return ptr::null_mut();
+            })
+        },
+        pxs_Runtime::pxs_Python => {
+            with_feature!("python", {
+                PythonScripting::get(borrow_obj, borrow_key)
+            }, {
+                return ptr::null_mut();
+            })
+        },
+        _ => todo!()
+        // pxs_Runtime::pxs_JavaScript => todo!(),
+        // pxs_Runtime::pxs_Easyjs => todo!(),
+        // pxs_Runtime::pxs_RustPython => todo!(),
+        // pxs_Runtime::pxs_PHP => todo!(),
+    };
+
+    match res {
+        Ok(t) => t.into_raw(),
+        Err(_) => ptr::null_mut(),
+    }
+}
+
+/// Call a objects setter.
+/// 
+/// value ownership is transfered.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_objectset(runtime: pxs_VarT, obj: pxs_VarT, key: *const c_char, value: pxs_VarT) -> bool {
+    assert_initiated!();
+
+    if runtime.is_null() || obj.is_null() || key.is_null() || value.is_null() {
+        return false;
+    }
+
+    // Borrow
+    let rt = unsafe { pxs_Runtime::from_var_ptr(runtime).unwrap() };
+    let borrow_obj = borrow_var!(obj);
+    let borrow_key = borrow_string!(key);
+    // own
+    let owned_value = own_var!(value);
+
+    let res = match rt {
+        pxs_Runtime::pxs_Lua => {
+            with_feature!("lua", {
+                LuaScripting::set(borrow_obj, borrow_key, &owned_value)
+            }, {
+                return false;
+            })
+        },
+        pxs_Runtime::pxs_Python => {
+            with_feature!("python", {
+                PythonScripting::set(borrow_obj, borrow_key, &owned_value)
+            }, {
+                return false;
+            })
+        },
+        _ => todo!()
+    };
+
+    match res {
+        Ok(v) => v.get_bool().unwrap(),
+        Err(_) => false,
+    }
+}
