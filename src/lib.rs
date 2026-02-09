@@ -24,7 +24,7 @@ use crate::shared::{
     func::{clear_function_lookup, lookup_add_function},
     get_pixel_state,
     module::pxs_Module,
-    object::{FreeMethod, clear_object_lookup, lookup_add_object, pxs_PixelObject},
+    object::{FreeMethod, clear_object_lookup, get_object, lookup_add_object, pxs_PixelObject},
     pxs_Runtime,
     var::{ObjectMethods, pxs_VarT, pxs_VarType},
 };
@@ -1218,3 +1218,20 @@ pub extern "C" fn pxs_objectset(runtime: pxs_VarT, obj: pxs_VarT, key: *const c_
     }
 }
 
+/// Call the opaque pointer of a object based on it's idx from `pxs_getobject`
+/// This should only be used when derefing a passed in argument.
+/// For `self` use `pxs_listget(args, 1)` and `pxs_gethost`.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_host_fromidx(idx: i32) -> pxs_Opaque {
+    if idx < 0 {
+        return ptr::null_mut();
+    }
+
+    // Get object
+    let object = get_object(idx);
+    if let Some(object) = object {
+        object.ptr
+    } else {
+        ptr::null_mut()
+    }
+}
