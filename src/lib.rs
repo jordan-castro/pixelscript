@@ -278,7 +278,7 @@ pub extern "C" fn pxs_addvar(
 
     if name.is_null() {
         return;
-    }
+    } 
 
     let module = unsafe { pxs_Module::from_borrow(module_ptr) };
     let name_str = borrow_string!(name);

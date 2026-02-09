@@ -6,7 +6,7 @@ use std::process::Command;
 
 /// Build the pixelscript.h C bindings
 fn build_pixelscript_h() {
-let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+    let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let package_name = env::var("CARGO_PKG_NAME").unwrap();
     let output_file = PathBuf::from(&crate_dir)
         .join(format!("{}.h", package_name));

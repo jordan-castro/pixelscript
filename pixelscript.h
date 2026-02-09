@@ -70,8 +70,6 @@ typedef enum pxs_Runtime {
   pxs_PHP,
 } pxs_Runtime;
 
-typedef struct Option_DeleterFn Option_DeleterFn;
-
 /**
  * A Module is a C representation of data that needs to be (imported,required, etc)
  *
@@ -216,6 +214,8 @@ typedef union pxs_VarValue {
   void *function_val;
 } pxs_VarValue;
 
+typedef void (*DeleterFn)(void*);
+
 /**
  * A PixelScript Var(iable).
  *
@@ -256,7 +256,7 @@ typedef struct pxs_Var {
   /**
    * Optional delete method. This is used for Pointers in Objects, and Functions.
    */
-  struct Option_DeleterFn deleter;
+  DeleterFn deleter;
 } pxs_Var;
 
 /**

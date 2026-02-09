@@ -21,7 +21,7 @@ use crate::{
 };
 
 /// Lua Function for freeing memory
-fn free_lua_mem(ptr: *mut c_void) {
+unsafe extern "C" fn free_lua_mem(ptr: *mut c_void) {
     if ptr.is_null() {
         return;
     }
@@ -42,7 +42,7 @@ pub(super) fn from_lua(value: LuaValue) -> Result<pxs_Var, anyhow::Error> {
             let func = Box::into_raw(Box::new(f));
             Ok(pxs_Var::new_function(
                 func as *mut c_void,
-                Some(Box::new(free_lua_mem)),
+                Some(free_lua_mem),
             ))
         }
         LuaValue::Table(t) => {
@@ -52,7 +52,7 @@ pub(super) fn from_lua(value: LuaValue) -> Result<pxs_Var, anyhow::Error> {
             if t_length == 0 {
                 // Regular table
                 let obj = Box::into_raw(Box::new(t));
-                Ok(pxs_Var::new_object(obj as *mut c_void, Some(Box::new(free_lua_mem))))
+                Ok(pxs_Var::new_object(obj as *mut c_void, Some(free_lua_mem)))
             } else {
                 // It's a list.
                 let mut values = vec![];

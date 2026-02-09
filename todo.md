@@ -33,6 +33,7 @@
 ## Vars
 - Add exceptions
 - Add Map
+- Wrap `pxs_Var` in a rust `Var` that contains the deleter via a Option.
 
 ## STD
 - Add std library via pixelscript runtime. These are optional and handled via features

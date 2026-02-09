@@ -8,14 +8,12 @@
 //
 use crate::shared::{
     PtrMagic,
-    var::{pxs_VarList, pxs_VarType, pxs_VarValue},
+    var::{default_deleter, pxs_VarList, pxs_VarType, pxs_VarValue},
 };
 
 use super::var::pxs_Var;
 use std::{
-    collections::HashMap,
-    ffi::c_void,
-    sync::{Mutex, OnceLock},
+    cell::Cell, collections::HashMap, ffi::c_void, sync::{Mutex, OnceLock}
 };
 
 /// Function reference used in C.
@@ -125,7 +123,7 @@ pub unsafe fn call_function(fn_idx: i32, args: Vec<pxs_Var>) -> pxs_Var {
         value: pxs_VarValue {
             list_val: pxs_VarList { vars: args }.into_raw(),
         },
-        deleter: None
+        deleter: Cell::new(default_deleter)
     };
     let args_ptr = args.into_raw();
 
