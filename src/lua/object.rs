@@ -24,7 +24,7 @@ fn create_object_callback(lua: &Lua, fn_idx: i32) -> LuaFunction {
 
             // Get obj id
             let obj_id: i64 = internal_obj
-                .get("_id")
+                .get("_pxs_ptr")
                 .expect("Could not grab ID from Object.");
 
             // Add object id
@@ -50,8 +50,8 @@ fn create_object_callback(lua: &Lua, fn_idx: i32) -> LuaFunction {
 pub(super) fn create_object(lua: &Lua, idx: i32, source: Arc<pxs_PixelObject>) -> LuaTable {
     let table = lua.create_table().expect("Could not create table.");
     table
-        .set("_id", LuaValue::Integer(idx as i64))
-        .expect("Could not set _id on Lua Table.");
+        .set("_pxs_ptr", LuaValue::Integer(idx as i64))
+        .expect("Could not set _pxs_ptr on Lua Table.");
     // Check if the meta table exists already
 
     let metatable = get_metatable(&source.type_name);

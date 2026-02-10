@@ -71,7 +71,7 @@ pub(super) fn create_object(idx: i32, source: Arc<pxs_PixelObject>, module_name:
             format!(
                 r#"
     def {}(self, *args):
-        return {}('{}', self.ptr, *args)
+        return {}('{}', self._pxs_ptr, *args)
         
 "#,
                 method.name, private_name, method.name
@@ -86,7 +86,7 @@ pub(super) fn create_object(idx: i32, source: Arc<pxs_PixelObject>, module_name:
 class _{}:
     def __init__(self, ptr):
         # Set the ptr
-        self.ptr = ptr
+        self._pxs_ptr = ptr
 
 {}
 

@@ -549,11 +549,6 @@ char *pxs_getstring(struct pxs_Var *var);
 pxs_Opaque pxs_gethost(struct pxs_Var *var);
 
 /**
- * Get the IDX of the PixelObject
- */
-int32_t pxs_getobject(struct pxs_Var *var);
-
-/**
  * Check if a variable is of a type.
  */
 bool pxs_varis(struct pxs_Var *var, enum pxs_VarType var_type);

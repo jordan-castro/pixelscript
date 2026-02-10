@@ -686,16 +686,6 @@ pub extern "C" fn pxs_gethost(var: *mut pxs_Var) -> pxs_Opaque {
     unsafe { pxs_Var::from_borrow(var).get_host_ptr() }
 }
 
-/// Get the IDX of the PixelObject
-#[unsafe(no_mangle)]
-pub extern "C" fn pxs_getobject(var: *mut pxs_Var) -> i32 {
-    if var.is_null() {
-        return -1;
-    }
-
-    unsafe { pxs_Var::from_borrow(var).get_object_ptr() }
-}
-
 /// Check if a variable is of a type.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_varis(var: *mut pxs_Var, var_type: pxs_VarType) -> bool {

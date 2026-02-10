@@ -152,15 +152,28 @@ mod tests {
 
             // Check if first arg is self or nme
             let name = {
-                let first_arg = pxs_Var::from_borrow(pxs_listget(args, 2));
-                if first_arg.is_string() {
-                    first_arg
+                let arg = pxs_Var::from_borrow(pxs_listget(args, 2));
+                if arg.is_string() {
+                    let raw = pxs_getstring(arg);
+                    let owned = own_string!(raw);
+                    owned
                 } else {
-                    pxs_Var::from_borrow(pxs_listget(args, 3))
+                    println!("Arg: {:#?}", arg);
+                    // Assume it's a person
+                    let arg = pxs_listget(args, 2);
+                    let key = create_raw_string!("_pxs_ptr");
+                    let idx_var = pxs_objectget(pxs_listget(args, 0), arg, key);
+                    let idx = pxs_getint(idx_var);
+                    pxs_freevar(idx_var); 
+                    free_raw_string!(key);
+                    // let idx = pxs_getobject(pxs_listget(args, 2));
+                    let ptr = pxs_host_fromidx(idx as i32);
+                    let np = Person::from_borrow(ptr as *mut Person);
+                    np.name.clone()
                 }
             };
 
-            p.set_name(name.get_string().unwrap().clone());
+            p.set_name(name.clone());
 
             pxs_Var::into_raw(pxs_Var::new_null())
         }
