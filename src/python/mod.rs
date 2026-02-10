@@ -302,6 +302,12 @@ impl PixelScript for PythonScripting {
         // Drop defined objects
         let state = get_py_state();
         state.defined_objects.borrow_mut().clear();
+        let idx = state.thread_idx.borrow().abs();
+        let mut binding = state.name_to_idx.borrow_mut();
+        let name_map = binding.get_mut(&idx);
+        if let Some(m) = name_map {
+            m.clear();
+        }
 
         if call_gc {
             // Invoke GC
