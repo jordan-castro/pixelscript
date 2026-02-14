@@ -3,6 +3,9 @@ name = "pixelscript"
 version = "0.3.0"
 edition = "2024"
 license = "Apache-2.0"
+authors = ["Jordan Castro jordan@grupojvm.com"]
+description = "Multi language scripting runtime"
+repository = "https://github.com/jordan-castro/pixelscript"
 
 [lib]
 crate-type = ["staticlib", "rlib"]
