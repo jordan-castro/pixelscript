@@ -28,6 +28,7 @@ use crate::{
 #[allow(unused)]
 #[allow(non_camel_case_types)]
 #[allow(non_upper_case_globals)]
+#[allow(dead_code)]
 pub(self) mod pocketpy {
     include!(concat!(env!("OUT_DIR"), "/pocketpy_bindings.rs"));
 }
@@ -114,21 +115,6 @@ pub(self) fn eval_py(code: &str, name: &str, module_name: &str) -> String {
 
 pub(self) fn exec_main_py(code: &str, name: &str) -> String {
     run_py(code, name, pocketpy::py_CompileMode::EXEC_MODE, None)
-    // let c_code = create_raw_string!(code);
-    // let c_name = create_raw_string!(name);
-    // unsafe {
-    //     let res = pocketpy::py_exec(c_code, c_name, pocketpy::py_CompileMode_EXEC_MODE, std::ptr::null_mut());
-    //     free_raw_string!(c_code);
-    //     free_raw_string!(c_name);
-    //     if !res {
-    //         let py_res = pocketpy::py_formatexc();
-    //         let py_res = own_string!(py_res);
-
-    //         py_res
-    //     } else {
-    //         String::new()
-    //     }
-    // }
 }
 
 /// Initialize Lua state per thread.
@@ -203,6 +189,10 @@ pub(self) fn is_object_defined(name: &str) -> bool {
 
 pub(self) fn make_private(name: &str) -> String {
     format!("_pxs_{}", name)
+}
+
+pub(self) fn make_private_prefix(name: &str, prefix: &str) -> String {
+    make_private(format!("{prefix}_{name}").as_str())
 }
 
 /// This is the import overrider

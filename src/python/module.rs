@@ -23,13 +23,13 @@ pub(super) fn create_module(module: &pxs_Module, parent: Option<&str>) {
     for var in module.variables.iter() {
         let var_name = var.name.clone();
         let c_var_name = create_raw_string!(var_name);
-        let r0 = unsafe { pocketpy::py_getreg(0) };
-        var_to_pocketpyref(r0, unsafe{pxs_Var::from_borrow(var.var)});
+        let tmp = unsafe { pocketpy::py_pushtmp() };
+        var_to_pocketpyref(tmp, unsafe{pxs_Var::from_borrow(var.var)});
         
         // Set
         unsafe {
             let py_name = pocketpy::py_name(c_var_name);
-            pocketpy::py_setattr(pymodule, py_name, r0);
+            pocketpy::py_setattr(pymodule, py_name, tmp);
             free_raw_string!(c_var_name);
         }
     }

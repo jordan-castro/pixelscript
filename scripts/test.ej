@@ -1,0 +1,32 @@
+# Script for runnig /tests except for test_repl
+
+import "core:os"
+import "core:sys"
+import "core:io"
+
+skipped_tests = sys.argv.after!(1)
+skipped_tests.push("test_repl.rs")
+
+tests = os::listdir("tests")
+for t in tests {
+    if t in skipped_tests {
+        continue
+    }
+
+    // Get line 9
+    line = ""
+    file = "tests/$t"
+    if io::file_exists(file) {
+        line = io::read_file(file).split("\n")[8]
+    }
+
+    if not line[0] == '/' and line[1] == '/' {
+        continue
+    }
+
+    // Get cmd
+    command = line.split("// ")[-1]
+    std::print!(command)
+
+    os::system(command)
+}

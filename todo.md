@@ -50,8 +50,8 @@
 - Eventually look back at this
 
 ## Python (PocketPy)
-- Add Object.get
-- Add Object.set
+- Make callback global. i.e. one per thread
+- Make object callbacks global. i.e. one per object
 
 ## JS
 - add_variable

@@ -214,7 +214,7 @@ typedef union pxs_VarValue {
   void *function_val;
 } pxs_VarValue;
 
-typedef void (*DeleterFn)(void*);
+typedef void (*pxs_DeleterFn)(void*);
 
 /**
  * A PixelScript Var(iable).
@@ -256,7 +256,7 @@ typedef struct pxs_Var {
   /**
    * Optional delete method. This is used for Pointers in Objects, and Functions.
    */
-  DeleterFn deleter;
+  pxs_DeleterFn deleter;
 } pxs_Var;
 
 /**

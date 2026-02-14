@@ -9,16 +9,14 @@
 use std::{ffi::c_void, sync::Arc};
 
 use crate::{
-    borrow_string, create_raw_string, free_raw_string,
-    python::{
+    borrow_string, create_raw_string, free_raw_string, python::{
         func::py_assign,
         object::create_object,
-        pocketpy::{self, py_getreg},
-    },
-    shared::{
+        pocketpy::{self},
+    }, shared::{
         object::get_object,
         var::{pxs_Var, pxs_VarType},
-    },
+    }
 };
 
 /// Convert a PocketPy ref into a Var
@@ -116,7 +114,7 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var) {
                     let c_name = create_raw_string!("__name__");
                     let pyname = pocketpy::py_name(c_name);
                     pocketpy::py_getattr(cmod, pyname);
-                    let r0 = py_getreg(0);
+                    let r0 = pocketpy::py_retval();
                     let module_name = pocketpy::py_tostr(r0);
                     let module_name = borrow_string!(module_name);
                     // Create the object for the first time...

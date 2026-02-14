@@ -46,7 +46,8 @@ macro_rules! own_string {
 /// Remember to FREE THIS!
 #[macro_export]
 macro_rules! create_raw_string {
-    ($rstr:expr) => {{ std::ffi::CString::new($rstr).unwrap().into_raw() }};
+    ($rstr:expr) => {{ 
+        std::ffi::CString::new($rstr).unwrap().into_raw() }};
 }
 
 /// Free a raw sring

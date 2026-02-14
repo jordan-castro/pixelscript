@@ -205,7 +205,8 @@ pub union pxs_VarValue {
     pub function_val: *mut c_void,
 }
 
-type DeleterFn = unsafe extern "C" fn(*mut c_void);
+#[allow(non_camel_case_types)]
+pub type pxs_DeleterFn = unsafe extern "C" fn(*mut c_void);
 
 /// Default Var deleter fn.
 /// Use it when you don't want to delete memory.
@@ -248,7 +249,7 @@ pub struct pxs_Var {
     pub value: pxs_VarValue,
 
     /// Optional delete method. This is used for Pointers in Objects, and Functions.
-    pub deleter: Cell<DeleterFn>,
+    pub deleter: Cell<pxs_DeleterFn>,
 }
 
 // Rust specific functions
@@ -325,7 +326,7 @@ impl pxs_Var {
     }
 
     /// Create a new Object var.
-    pub fn new_object(ptr: *mut c_void, deleter: Option<DeleterFn>) -> Self {
+    pub fn new_object(ptr: *mut c_void, deleter: Option<pxs_DeleterFn>) -> Self {
         let deleter = if let Some(d) = deleter {
             d
         } else {
@@ -363,7 +364,7 @@ impl pxs_Var {
     }
 
     /// Create a new Function var.
-    pub fn new_function(ptr: *mut c_void, deleter: Option<DeleterFn>) -> Self {
+    pub fn new_function(ptr: *mut c_void, deleter: Option<pxs_DeleterFn>) -> Self {
         let deleter = if let Some(d) = deleter {
             d
         } else {

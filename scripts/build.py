@@ -57,8 +57,8 @@ for arg in argv:
         target =  "--target=" + rtarget
     elif "features" in arg:
         # Split features
-        features_ = ",".join(arg.split("=")[-1])
-        features += ["--features", f'"{features_}"']
+        features_ = arg.split("=")[-1]
+        features += ["--features", f'{features_}']
 
 # Build in release mode
 cmd = ["cargo", "build", "--release"]
@@ -67,6 +67,7 @@ if target:
     cmd += [target]
 if len(features) > 1:
     cmd += features
+print(" ".join(cmd))
 subprocess.call(cmd)
 
 # Find build directory

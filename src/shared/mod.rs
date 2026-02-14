@@ -26,6 +26,7 @@ pub mod module;
 pub mod object;
 /// The internal PixelScript Var logic.
 pub mod var;
+pub mod utils;
 
 /// Type for DirHandle.
 ///

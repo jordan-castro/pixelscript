@@ -6,7 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// use rand::{Rng, SeedableRng, distr::Alphanumeric, rngs::SmallRng};
+
 use shared::{func::pxs_Func, var::pxs_Var};
 use std::{
     ffi::{CString, c_char, c_void},
@@ -26,7 +26,7 @@ use crate::shared::{
     module::pxs_Module,
     object::{FreeMethod, clear_object_lookup, get_object, lookup_add_object, pxs_PixelObject},
     pxs_Runtime,
-    var::{ObjectMethods, pxs_VarT, pxs_VarType},
+    var::{ObjectMethods, pxs_VarT, pxs_VarType, pxs_DeleterFn},
 };
 
 pub mod shared;

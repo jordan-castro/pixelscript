@@ -6,7 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_python --no-default-features --features "python" -- --nocapture --test-threads=1
+// cargo test --test test_python --no-default-features --features "python,pxs-debug" -- --nocapture --test-threads=1
 #[cfg(test)]
 mod tests {
     use std::{
@@ -321,6 +321,8 @@ mod tests {
 import pxs
 from pad.ft_object import function_from_outside 
 
+pxs.print(__name__)
+
 function_from_outside() # Should print something
 
 msg = "Welcome " + pxs.name
@@ -338,7 +340,7 @@ if res != 1:
     raise Exception("Math, Expected 1, got " + str(res))
 
 person = pxs.Person("Jordan")
-
+pxs.print(person)
 print(person.get_name())
 person.set_name("Jordan Castro")
 print(person.get_name())

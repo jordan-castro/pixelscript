@@ -32,7 +32,11 @@ php = []
 # Include Python scripting. via rustpython
 # rustpython = ["dep:rustpython-vm", "dep:rustpython-compiler"]
 
+# Include core libs like pxs-json, pxs-io, pxs-os
 include-core = []
+
+# Compile pixel script to debug in a "release" enviroment
+pxs-debug = []
 
 [profile.release]
 opt-level = "z"
