@@ -215,6 +215,7 @@ pub trait PixelScript {
 /// Public enum for supported runtimes.
 #[repr(C)]
 #[allow(non_camel_case_types)]
+#[derive(Clone)]
 pub enum pxs_Runtime {
     /// Lua v5.4 with mlua.
     pxs_Lua = 0,

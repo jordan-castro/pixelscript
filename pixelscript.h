@@ -47,27 +47,27 @@ typedef enum pxs_Runtime {
   /**
    * Lua v5.4 with mlua.
    */
-  pxs_Lua,
+  pxs_Lua = 0,
   /**
    * Python v3.x with pocketpy.
    */
-  pxs_Python,
+  pxs_Python = 1,
   /**
    * ES 2020 using rquickjs
    */
-  pxs_JavaScript,
+  pxs_JavaScript = 2,
   /**
    * v0.4.5 using easyjsc
    */
-  pxs_Easyjs,
+  pxs_Easyjs = 3,
   /**
    * Python >= v3.8 with RustPython
    */
-  pxs_RustPython,
+  pxs_RustPython = 4,
   /**
    * PHP v5.3 with PH7
    */
-  pxs_PHP,
+  pxs_PHP = 5,
 } pxs_Runtime;
 
 /**
