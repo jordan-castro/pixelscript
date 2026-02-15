@@ -1225,3 +1225,34 @@ pub extern "C" fn pxs_host_fromidx(idx: i32) -> pxs_Opaque {
         ptr::null_mut()
     }
 }
+
+/// Evaluate code. This will return a pxs_Var.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_eval(script: *const c_char, rt: pxs_Runtime) -> pxs_VarT {
+    if script.is_null() {
+        return pxs_newnull();
+    }
+
+    let script = borrow_string!(script);
+
+    match rt {
+        pxs_Runtime::pxs_Lua => {
+            with_feature!("lua", {
+                LuaScripting::eval(script).into_raw()
+            }, {
+                pxs_newnull()
+            })
+        },
+        pxs_Runtime::pxs_Python => {
+            with_feature!("python", {
+                PythonScripting::eval(script).into_raw()
+            }, {
+                pxs_newnull()
+            })
+        },
+        pxs_Runtime::pxs_JavaScript => todo!(),
+        pxs_Runtime::pxs_Easyjs => todo!(),
+        pxs_Runtime::pxs_RustPython => todo!(),
+        pxs_Runtime::pxs_PHP => todo!(),
+    }
+}

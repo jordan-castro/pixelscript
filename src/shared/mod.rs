@@ -202,6 +202,8 @@ pub trait PixelScript {
     fn add_module(source: Arc<module::pxs_Module>);
     /// Execute a script in this runtime.
     fn execute(code: &str, file_name: &str) -> String;
+    /// Evaluate a script in this runtime. Returns a pxs_Var.
+    fn eval(code: &str) -> pxs_Var;
     /// Allows the language to start a new thread. In this new thread all callbacks/objects/variables will be empty.
     fn start_thread();
     /// Tells the language that we just finished the most recent started thread.

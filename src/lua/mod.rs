@@ -169,6 +169,18 @@ impl PixelScript for LuaScripting {
             state.engine.gc_collect().unwrap();
         }
     }
+    
+    fn eval(code: &str) -> pxs_Var {
+        let state = get_lua_state();
+        let res = state.engine.load(code).call(());
+        if res.is_err() {
+            return pxs_Var::new_null();
+        }
+        let res: LuaValue = res.unwrap();
+
+        from_lua(res).unwrap()
+        
+    }
 }
 
 /// Convert args for ObjectMethods into LuaMutliValue

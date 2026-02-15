@@ -700,6 +700,11 @@ bool pxs_objectset(pxs_VarT runtime, pxs_VarT obj, const char *key, pxs_VarT val
  */
 pxs_Opaque pxs_host_fromidx(int32_t idx);
 
+/**
+ * Evaluate code. This will return a pxs_Var.
+ */
+pxs_VarT pxs_eval(const char *script, enum pxs_Runtime rt);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus
