@@ -319,6 +319,7 @@ mod tests {
         let script = r#"
 local pxs = require('pxs')
 local pxs_math = require('pxs.math')
+local pxs_math.sub = pxs_math.sub
 function main()
     return pxs_math.sub(1,2)
 end
