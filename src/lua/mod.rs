@@ -174,7 +174,8 @@ impl PixelScript for LuaScripting {
         let state = get_lua_state();
         let res = state.engine.load(code).call(());
         if res.is_err() {
-            return pxs_Var::new_null();
+            let msg = res.err().unwrap().to_string();
+            return pxs_Var::new_string(msg);
         }
         let res: LuaValue = res.unwrap();
 

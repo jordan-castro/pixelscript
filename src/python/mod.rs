@@ -21,7 +21,7 @@ use crate::{
         module::create_module,
         var::{pocketpyref_to_var, var_to_pocketpyref},
     },
-    shared::{PixelScript, PtrMagic, read_file, read_file_dir, var::{ObjectMethods, pxs_Var, pxs_VarList}},
+    shared::{PixelScript, read_file, read_file_dir, var::{ObjectMethods, pxs_Var, pxs_VarList}},
 };
 
 // Allow for the binidngs only
@@ -312,7 +312,7 @@ impl PixelScript for PythonScripting {
         if res.is_empty() {
             pocketpyref_to_var(unsafe{ pocketpy::py_retval() })
         } else {
-            pxs_Var::new_null()
+            pxs_Var::new_string(res)
         }
     }
 

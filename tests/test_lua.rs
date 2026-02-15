@@ -18,7 +18,7 @@ mod tests {
 
     use pixelscript::{
         lua::LuaScripting,
-        shared::{PixelScript, PtrMagic, object::pxs_PixelObject, var::{pxs_Var, pxs_VarT}},
+        shared::{PixelScript, PtrMagic, object::pxs_PixelObject, pxs_Runtime, var::{pxs_Var, pxs_VarT}},
         *,
     };
 
@@ -314,6 +314,27 @@ mod tests {
         let err = LuaScripting::execute(lua_code, "<test>");
 
         assert!(err.is_empty(), "Lua Error is not empty: {}", err);
+
+        // Test eval
+        let script = r#"
+local pxs = require('pxs')
+local pxs_math = require('pxs.math')
+function main()
+    return pxs_math.sub(1,2)
+end
+
+return main()"#;
+        let script_raw = create_raw_string!(script);
+
+        let result = pxs_eval(script_raw, pxs_Runtime::pxs_Lua);
+        assert!(!result.is_null(), "Lua result is null.");
+        let str = pxs_tostring(pxs_newint(pxs_Runtime::pxs_Lua as i64), result);
+        assert!(!str.is_null(), "Str is null.");
+        let contents = pxs_getstring(str);
+        assert!(!contents.is_null(), "Contents is null.");
+        let owned = own_string!(contents);
+        println!("{owned}");
+        free_raw_string!(script_raw);
 
         pxs_finalize();
     }
