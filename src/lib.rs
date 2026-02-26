@@ -106,7 +106,10 @@ pub type pxs_Opaque = *mut c_void;
 /// Current pixelscript version.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_version() -> u32 {
-    0x00030000 // 0.3.0
+    let major = 0;
+    let minor = 3;
+    let patch = 4;
+    (major << 16) | (minor << 8) | patch
 }
 
 /// Initialize the PixelScript runtime.
@@ -301,8 +304,8 @@ pub extern "C" fn pxs_add_submod(parent_ptr: *mut pxs_Module, child_ptr: *mut px
     // Own child
     let child = pxs_Module::from_raw(child_ptr);
 
-    parent.add_module(child.clone());
-
+    parent.add_module(child);
+    
     // Child is now owned by parent
 }
 
@@ -904,9 +907,7 @@ return std::ptr::null_mut();
             pxs_Runtime::pxs_JavaScript => todo!(),
             pxs_Runtime::pxs_Easyjs => todo!(),
             pxs_Runtime::pxs_RustPython => todo!(),
-            _ => todo!(), // pxs_Runtime::pxs_JavaScript => todo!(),
-                          // pxs_Runtime::pxs_Easyjs => todo!(),
-                          // pxs_Runtime::pxs_RustPython => todo!(),
+            _ => todo!(),
         };
 
         if let Ok(res) = res {

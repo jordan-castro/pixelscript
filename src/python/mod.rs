@@ -15,13 +15,11 @@ use anyhow::anyhow;
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
 use crate::{
-    borrow_string, create_raw_string, free_raw_string, own_string,
-    python::{
+    borrow_string, create_raw_string, free_raw_string, own_string, pxs_debug, python::{
         func::pocketpy_bridge,
         module::create_module,
         var::{pocketpyref_to_var, var_to_pocketpyref},
-    },
-    shared::{PixelScript, read_file, read_file_dir, var::{ObjectMethods, pxs_Var, pxs_VarList}},
+    }, shared::{PixelScript, read_file, read_file_dir, var::{ObjectMethods, pxs_Var, pxs_VarList}}
 };
 
 // Allow for the binidngs only
@@ -164,16 +162,13 @@ pub(self) fn get_fn_idx_from_name(name: &str) -> Option<i32> {
 pub(self) fn add_new_defined_object(name: &str) {
     let state = get_py_state();
     let t = state.thread_idx.borrow();
-    let mut names = {
-        if let Some(names) = state.defined_objects.borrow_mut().get(&t).cloned() {
-            names
-        } else {
-            let set = HashSet::new();
-            set
-        }
-    };
-
-    names.insert(name.to_string());
+    if let Some(names) = state.defined_objects.borrow_mut().get_mut(&t) {
+        names.insert(name.to_string());
+    } else {
+        let mut set = HashSet::new();
+        set.insert(name.to_string());
+        state.defined_objects.borrow_mut().insert(*t, set);
+    }
 }
 
 /// Check if a object is already defined

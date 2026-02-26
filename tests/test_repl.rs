@@ -42,83 +42,64 @@ mod tests {
         }};
     }
 
-    struct TodoList {
-        items: Vec<String>,
+
+    struct Diary {
+        owner: String,
+        items: Vec<String>
     }
 
-    impl TodoList {
-        pub fn new(initial_items: Vec<String>) -> Self {
-            TodoList {
-                items: initial_items,
-            }
-        }
-
-        pub fn add_item(&mut self, item: &str) {
-            self.items.push(item.to_string().clone());
-        }
-
-        pub fn get_item(&mut self, index: usize) -> Option<String> {
-            self.items.get(index).cloned()
-        }
-    }
-
-    impl PtrMagic for TodoList {}
-
-    pub extern "C" fn free_todolist(ptr: *mut c_void) {
-        println!("Freeing TODOList!");
-        let _ = unsafe { TodoList::from_borrow(ptr as *mut TodoList) };
-    }
-
-    pub extern "C" fn get_item(args: *mut pxs_Var, _opaque: pxs_Opaque) -> pxs_VarT {
-        unsafe {
-            let pxsobject = borrow_var!(pxs_listget(args, 1));
-
-            // Let index
-            let index = borrow_var!(pxs_listget(args, 2));
-
-            // Get TodoList
-            let todolist =
-                unsafe { TodoList::from_borrow(pxs_gethost(pxsobject) as *mut TodoList) };
-
-            // Get at index
-            let item = todolist.get_item(pxs_getint(index) as usize);
-
-            if let Some(item) = item {
-                let raw_string = create_raw_string!(item);
-                let result = pxs_newstring(raw_string);
-                free_raw_string!(raw_string);
-                result
-            } else {
-                let raw_string = create_raw_string!("");
-                let result = pxs_newstring(raw_string);
-                free_raw_string!(raw_string);
-                result
+    impl Diary {
+        pub fn new(owner: String) -> Self {
+            Diary {
+                owner,
+                items: vec![]
             }
         }
     }
+    impl PtrMagic for Diary {}
 
-    pub extern "C" fn add_item(args: pxs_VarT, _opaque: pxs_Opaque) -> pxs_VarT {
+    pub extern "C" fn free_diary(ptr: *mut c_void) {
+        let _ = unsafe { Diary::from_borrow(ptr as *mut Diary) };
+    }
+
+    extern "C" fn add_item(args: pxs_VarT, _opaque: *mut c_void) -> pxs_VarT {
+        // Deref
         unsafe {
-            let pxsobject = borrow_var!(pxs_listget(args, 1));
-            // item
-            let item = borrow_var!(pxs_listget(args, 2));
+        let pixel_object_var = pxs_Var::from_borrow(pxs_listget(args, 1));
+        let host_ptr = pixel_object_var.get_host_ptr();
+        let d = Diary::from_borrow(host_ptr as *mut Diary);
 
-            // Derefernce
-            let todolist =
-                unsafe { TodoList::from_borrow(pxs_gethost(pxsobject) as *mut TodoList) };
+        let item = pxs_listget(args, 2);
+        let contents = pxs_getstring(item);
+        
+        let str = own_string!(contents);
 
-            // Get string
-            let item_str = pxs_getstring(item);
-            let string = borrow_string!(item_str).to_string().clone();
-            pxs_freestr(item_str);
-
-            // Now add item
-            todolist.add_item(&string);
+            d.items.push(str);
 
             pxs_newnull()
         }
     }
 
+    extern  "C" fn new_diary(args: pxs_VarT, _op: pxs_Opaque) -> pxs_VarT {
+        unsafe {
+                    let p_name = pxs_Var::from_borrow(pxs_listget(args, 1));
+            let p_name = p_name.get_string().unwrap();
+            let p = Diary::new(p_name.clone());
+            let typename = create_raw_string!("Diary");
+
+            let ptr = Diary::into_raw(p) as *mut c_void;
+            let pixel_object = pxs_newobject(ptr, free_diary, typename);
+            let add_item_raw = create_raw_string!("add_item");
+            pxs_object_addfunc(pixel_object, add_item_raw, add_item, _op);
+            // Save...
+            let var = pxs_newhost(pixel_object);
+
+
+            free_raw_string!(add_item_raw);
+            free_raw_string!(typename);
+            var
+        }
+    }
     struct Person {
         name: String,
     }
@@ -370,10 +351,16 @@ mod tests {
         // Add a sub function
         let sub_name = create_raw_string!("sub");
         pxs_addfunc(math_module, sub_name, sub_wrapper, ptr::null_mut());
+        let zero_name = create_raw_string!("ZERO");
+        pxs_addvar(math_module, zero_name, pxs_newint(0));
+        let diary_name = create_raw_string!("Diary");
+        pxs_addobject(math_module, diary_name, new_diary, ptr::null_mut());
 
         pxs_add_submod(module, math_module);
         pxs_addmod(module);
 
+        free_raw_string!(diary_name);
+        free_raw_string!(zero_name);
         free_raw_string!(module_name);
         free_raw_string!(add_name);
         free_raw_string!(n1_name);
@@ -394,7 +381,7 @@ mod tests {
         pxs_set_filereader(file_loader);
         pxs_set_dirreader(dir_reader);
 
-        let runtime = pxs_Runtime::pxs_Python;
+        let runtime = pxs_Runtime::pxs_Lua;
         let mut lines = vec![];
         loop {
             let mut input = String::new(); // Create an empty, mutable String

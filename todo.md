@@ -82,3 +82,8 @@
 - object.call
 - custom imports
 - execute_starlark
+
+
+## Maybes
+- Enums?
+- Removing Strings for internal use. I.e. object ids in Python. Try using i32 instead.

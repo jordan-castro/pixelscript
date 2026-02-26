@@ -245,11 +245,14 @@ mod tests {
 
         // Add a sub function
         let sub_name = create_raw_string!("sub");
+        let zero_name = create_raw_string!("ZERO");
         pxs_addfunc(math_module, sub_name, sub_wrapper, ptr::null_mut());
+        pxs_addvar(math_module, zero_name, pxs_newint(0));
 
         pxs_add_submod(module, math_module);
         pxs_addmod(module);
 
+        free_raw_string!(zero_name);
         free_raw_string!(module_name);
         free_raw_string!(add_name);
         free_raw_string!(n1_name);
@@ -293,6 +296,13 @@ mod tests {
 
             if res ~= 1 then
                 error("Math, Expected 1, got " .. tostring(res))
+            end
+
+            local zero = pxs_math.ZERO
+            if zero ~= 0 then
+                error("Math, Exptected 0, got " .. tostring(zero))
+            else
+                pxs.print("0 is all good my man")
             end
 
             local person = pxs.Person("Jordan")

@@ -55,14 +55,17 @@ def {name}(*args):
 pub(super) fn create_object(idx: i32, source: Arc<pxs_PixelObject>, module_name: &str) {
     pxs_debug!("module name is: {module_name}");
     let rmodule_name = module_name.to_string().clone();
+    let object_name = format!("{rmodule_name}{}", source.type_name);
     // Check if object is defined.
-    let obj_exists = is_object_defined(&source.type_name);
+    let obj_exists = is_object_defined(&object_name);
     if obj_exists {
-        eval_py(
-            format!("_{}({})", source.type_name, idx).as_str(),
-            format!("<create_{}>", &source.type_name).as_str(),
+        pxs_debug!("Object is alredy defined!");
+        let eval_err = eval_py(
+            format!("_{}({})", object_name, idx).as_str(),
+            format!("<create_{}>", &object_name).as_str(),
             module_name,
         );
+        pxs_debug!("Eval err: \"{eval_err}\"");
         return;
     }
     pxs_debug!("module name is: {module_name} 2");
@@ -98,7 +101,7 @@ class _{}:
 
 {}
 "#,
-        source.type_name, methods_str
+        object_name, methods_str
     );
 
     pxs_debug!("{object_string}");
@@ -107,7 +110,7 @@ class _{}:
     // Execute it
     let res = exec_py(
         &object_string,
-        format!("<first_{}>", &source.type_name).as_str(),
+        format!("<first_{}>", &object_name).as_str(),
         module_name,
     );
     if !res.is_empty() {
@@ -117,12 +120,12 @@ class _{}:
 
 
     // add it
-    add_new_defined_object(&source.type_name);
+    add_new_defined_object(&object_name);
 
     // Ok but just create it now
     let res = eval_py(
-        format!("_{}({})", source.type_name, idx).as_str(),
-        format!("<create_{}>", source.type_name).as_str(),
+        format!("_{}({})", object_name, idx).as_str(),
+        format!("<create_{}>", object_name).as_str(),
         &rmodule_name,
     );
     if !res.is_empty() {

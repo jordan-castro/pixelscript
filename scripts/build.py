@@ -67,6 +67,10 @@ if target:
     cmd += [target]
 if len(features) > 1:
     cmd += features
+
+# Run cargo clean before building
+subprocess.call(["cargo", "clean"])
+
 print(" ".join(cmd))
 subprocess.call(cmd)
 

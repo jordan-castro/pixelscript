@@ -20,6 +20,7 @@ fn build_pixelscript_h() {
 #[cfg(feature = "php")]
 fn build_ph7() {
     let mut build = cc::Build::new();
+    build.warnings(false);
 
     // Add source
     build.file("libs/ph7/ph7.c");
@@ -68,6 +69,7 @@ fn build_ph7_bindings() {
 #[cfg(feature = "python")]
 fn build_pocketpy() {
     let mut build = cc::Build::new();
+    build.warnings(false);
 
     // Add sorce
     build.file("libs/pocketpy/pocketpy.c");
