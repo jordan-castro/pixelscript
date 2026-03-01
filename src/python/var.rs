@@ -9,8 +9,8 @@
 use std::{ffi::c_void, sync::Arc};
 
 use crate::{
-    borrow_string, create_raw_string, free_raw_string, python::{
-        func::py_assign,
+    borrow_string, create_raw_string, free_raw_string, pxs_debug, python::{
+        func::{get_string_from_obj, py_assign},
         object::create_object,
         pocketpy::{self},
     }, shared::{
@@ -111,19 +111,20 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var) {
                 if lang_ptr_is_null {
                     // Find current module
                     let cmod = pocketpy::py_inspect_currentmodule();
-                    let c_name = create_raw_string!("__name__");
-                    let pyname = pocketpy::py_name(c_name);
-                    pocketpy::py_getattr(cmod, pyname);
-                    let r0 = pocketpy::py_retval();
-                    let module_name = pocketpy::py_tostr(r0);
-                    let module_name = borrow_string!(module_name);
+                    let module_name = get_string_from_obj(cmod, "__name__".to_string());
+                    let module_pkg = get_string_from_obj(cmod, "__package__".to_string());
+                    let full_module = if module_pkg.len() > 0 {
+                        format!("{module_pkg}.{module_name}")
+                    } else {
+                        module_name
+                    };
+                    pxs_debug!("Full module path: {full_module}");
                     // Create the object for the first time...
-                    create_object(idx, Arc::clone(&pixel_object), module_name);
+                    create_object(idx, Arc::clone(&pixel_object), &full_module);
                     // Get py_retval
                     let pyobj = pocketpy::py_retval();
                     // Set that as the pointer
                     pixel_object.update_lang_ptr(pyobj as *mut c_void);
-                    free_raw_string!(c_name);
                 }
                 // Get PTR again
                 let lang_ptr = pixel_object.lang_ptr.lock().unwrap();

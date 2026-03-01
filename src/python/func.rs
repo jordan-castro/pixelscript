@@ -24,6 +24,20 @@ pub(super) unsafe fn py_assign(left: pocketpy::py_Ref, right: pocketpy::py_Ref) 
     }
 }
 
+pub(super) unsafe fn get_string_from_obj(obj: pocketpy::py_Ref, key: String) -> String {
+    unsafe {
+        let c_key = create_raw_string!(key);
+        let pyname = pocketpy::py_name(c_key);
+        pocketpy::py_getattr(obj, pyname);
+        let r0 = pocketpy::py_retval();
+        let val = pocketpy::py_tostr(r0);
+        let val = borrow_string!(val);
+        free_raw_string!(c_key);
+        val.to_string().clone()
+    }
+}
+
+
 // /// Use instead of py_setattr
 // pub(super) unsafe fn py_setattr(_self: pocketpy::py_Ref, name: &str, val: pocketpy::py_Ref) {
 //     let name = create_raw_string!(name);

@@ -16,7 +16,10 @@ mod tests {
 
     use pixelscript::{
         python::PythonScripting,
-        shared::{PixelScript, PtrMagic, pxs_DirHandle, var::{pxs_Var, pxs_VarT}},
+        shared::{
+            PixelScript, PtrMagic, pxs_DirHandle,
+            var::{pxs_Var, pxs_VarT},
+        },
         *,
     };
     /// Create a raw string from &str.
@@ -39,14 +42,14 @@ mod tests {
 
     struct Diary {
         owner: String,
-        items: Vec<String>
+        items: Vec<String>,
     }
 
     impl Diary {
         pub fn new(owner: String) -> Self {
             Diary {
                 owner,
-                items: vec![]
+                items: vec![],
             }
         }
     }
@@ -59,14 +62,14 @@ mod tests {
     extern "C" fn add_item(args: pxs_VarT, _opaque: *mut c_void) -> pxs_VarT {
         // Deref
         unsafe {
-        let pixel_object_var = pxs_Var::from_borrow(pxs_listget(args, 1));
-        let host_ptr = pixel_object_var.get_host_ptr();
-        let d = Diary::from_borrow(host_ptr as *mut Diary);
+            let pixel_object_var = pxs_Var::from_borrow(pxs_listget(args, 1));
+            let host_ptr = pixel_object_var.get_host_ptr();
+            let d = Diary::from_borrow(host_ptr as *mut Diary);
 
-        let item = pxs_listget(args, 2);
-        let contents = pxs_getstring(item);
-        
-        let str = own_string!(contents);
+            let item = pxs_listget(args, 2);
+            let contents = pxs_getstring(item);
+
+            let str = own_string!(contents);
 
             d.items.push(str);
 
@@ -74,9 +77,9 @@ mod tests {
         }
     }
 
-    extern  "C" fn new_diary(args: pxs_VarT, _op: pxs_Opaque) -> pxs_VarT {
+    extern "C" fn new_diary(args: pxs_VarT, _op: pxs_Opaque) -> pxs_VarT {
         unsafe {
-                    let p_name = pxs_Var::from_borrow(pxs_listget(args, 1));
+            let p_name = pxs_Var::from_borrow(pxs_listget(args, 1));
             let p_name = p_name.get_string().unwrap();
             let p = Diary::new(p_name.clone());
             let typename = create_raw_string!("Diary");
@@ -87,7 +90,6 @@ mod tests {
             pxs_object_addfunc(pixel_object, add_item_raw, add_item, _op);
             // Save...
             let var = pxs_newhost(pixel_object);
-
 
             free_raw_string!(add_item_raw);
             free_raw_string!(typename);
@@ -123,10 +125,7 @@ mod tests {
         let _ = unsafe { Person::from_borrow(ptr as *mut Person) };
     }
 
-    pub extern "C" fn set_name(
-        args: *mut pxs_Var,
-        _opaque: *mut c_void,
-    ) -> *mut pxs_Var {
+    pub extern "C" fn set_name(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
         unsafe {
             // Get ptr
             let pixel_object_var = pxs_Var::from_borrow(pxs_listget(args, 1));
@@ -149,10 +148,7 @@ mod tests {
         }
     }
 
-    pub extern "C" fn get_name(
-        args: *mut pxs_Var,
-        _opaque: *mut c_void,
-    ) -> *mut pxs_Var {
+    pub extern "C" fn get_name(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
         unsafe {
             // Get ptr
             let pixel_object_var = pxs_Var::from_borrow(pxs_listget(args, 1));
@@ -163,10 +159,7 @@ mod tests {
         }
     }
 
-    pub extern "C" fn new_person(
-        args: *mut pxs_Var,
-        opaque: *mut c_void,
-    ) -> *mut pxs_Var {
+    pub extern "C" fn new_person(args: *mut pxs_Var, opaque: *mut c_void) -> *mut pxs_Var {
         unsafe {
             let p_name = pxs_Var::from_borrow(pxs_listget(args, 1));
             let p_name = p_name.get_string().unwrap();
@@ -190,10 +183,7 @@ mod tests {
     }
 
     // Testing callbacks
-    pub extern "C" fn print_wrapper(
-        args: *mut pxs_Var,
-        _opaque: *mut c_void,
-    ) -> *mut pxs_Var {
+    pub extern "C" fn print_wrapper(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
         unsafe {
             let runtime = pxs_listget(args, 0);
 
@@ -212,10 +202,7 @@ mod tests {
         pxs_Var::new_null().into_raw()
     }
 
-    pub extern "C" fn add_wrapper(
-        args: *mut pxs_Var,
-        _opaque: *mut c_void,
-    ) -> *mut pxs_Var {
+    pub extern "C" fn add_wrapper(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
         // Assumes n1 and n2
         unsafe {
             let n1 = pxs_Var::from_borrow(pxs_listget(args, 1));
@@ -225,10 +212,7 @@ mod tests {
         }
     }
 
-    pub extern "C" fn sub_wrapper(
-        args: *mut pxs_Var,
-        _opaque: *mut c_void,
-    ) -> *mut pxs_Var {
+    pub extern "C" fn sub_wrapper(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
         // Assumes n1 and n2
         unsafe {
             let n1 = pxs_Var::from_borrow(pxs_listget(args, 1));
@@ -297,17 +281,18 @@ mod tests {
         }
     }
 
-    unsafe extern "C" fn call_function(
-        args: pxs_VarT,
-        _op: pxs_Opaque
-    ) -> pxs_VarT {
+    unsafe extern "C" fn call_function(args: pxs_VarT, _op: pxs_Opaque) -> pxs_VarT {
         // Assume 1 is a function
         let func = pxs_listget(args, 1);
         // Check for args
         let argc = pxs_listlen(args);
         let res = if argc > 2 {
             // 2 is args
-            pxs_varcall(pxs_listget(args, 0), func, pxs_newcopy(pxs_listget(args, 2)))
+            pxs_varcall(
+                pxs_listget(args, 0),
+                func,
+                pxs_newcopy(pxs_listget(args, 2)),
+            )
         } else {
             pxs_varcall(pxs_listget(args, 0), func, pxs_newlist())
         };
@@ -341,7 +326,7 @@ mod tests {
         let object_name = create_raw_string!("Person");
         pxs_addobject(module, object_name, new_person, ptr::null_mut());
 
-        // Add call 
+        // Add call
         let call_name = create_raw_string!("call_function");
         pxs_addfunc(module, call_name, call_function, ptr::null_mut());
         free_raw_string!(call_name);
@@ -373,7 +358,6 @@ mod tests {
         free_raw_string!(sub_name);
     }
 
-
     #[test]
     fn test_execute() {
         println!("Test starting");
@@ -387,7 +371,7 @@ mod tests {
         let py_code = r#"
 import pxs
 from pad.ft_object import function_from_outside 
-from pxs.math import Diary
+from pxs.math import *
 
 diary = Diary("Jordan")
 diary.add_item("Yo test dog")

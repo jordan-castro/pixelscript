@@ -108,7 +108,7 @@ pub type pxs_Opaque = *mut c_void;
 pub extern "C" fn pxs_version() -> u32 {
     let major = 0;
     let minor = 3;
-    let patch = 4;
+    let patch = 5;
     (major << 16) | (minor << 8) | patch
 }
 
