@@ -350,11 +350,7 @@ mod tests {
         let args = pxs_newlist();
         pxs_listadd(args, pxs_newnull());
         pxs_listadd(args, pxs_Var::new_string("Test".to_string()).into_raw());
-        let obj = new_diary(args, ptr::null_mut());
-
-        pxs_freevar(args);
-        pxs_addvar(math_module, ddiary_name, obj);
-        // pxs_add_varobj()
+        pxs_add_factoryvar(math_module, ddiary_name, new_diary, args);
 
         pxs_add_submod(module, math_module);
         pxs_addmod(module);
@@ -388,6 +384,7 @@ import pxs
 from pad.ft_object import function_from_outside 
 from pxs.math import *
 
+print(f"DDiary: {DDiary}")
 diary = Diary("Jordan")
 diary.add_item("Yo test dog")
 print(diary)

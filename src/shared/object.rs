@@ -110,7 +110,7 @@ impl pxs_PixelObject {
             callbacks: vec![],
             lang_ptr: Mutex::new(ptr::null_mut()),
             type_name: type_name.to_string(),
-            free_lang_ptr: Mutex::new(true)
+            free_lang_ptr: Mutex::new(true),
         }
     }
 
@@ -179,7 +179,7 @@ fn get_object_lookup() -> std::sync::MutexGuard<'static, ObjectLookup> {
     OBJECT_LOOKUP
         .get_or_init(|| {
             Mutex::new(ObjectLookup {
-                object_hash: HashMap::new()
+                object_hash: HashMap::new(),
             })
         })
         .lock()

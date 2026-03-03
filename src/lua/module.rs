@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use crate::{
     lua::{func::internal_add_callback, get_lua_state, into_lua},
-    shared::{PtrMagic, module::pxs_Module, var::pxs_Var},
+    shared::{PtrMagic, module::{ModuleVariable, pxs_Module}, var::pxs_Var},
 };
 use mlua::prelude::*;
 
@@ -18,8 +18,14 @@ use mlua::prelude::*;
 fn create_module(context: &Lua, module: &pxs_Module) -> LuaTable {
     let module_table = context.create_table().expect("Could not create LUA table.");
 
+    let mut variables = vec![];
+    variables.extend(module.variables.iter().cloned());
+    for f in module.factories.iter() {
+        variables.push(ModuleVariable::new(f.name.clone(), unsafe {f.get_result()}));
+    }
+
     // Add variables
-    for variable in module.variables.iter() {
+    for variable in variables.iter() {
         let var = unsafe {pxs_Var::from_borrow(variable.var) };
         module_table
             .set(

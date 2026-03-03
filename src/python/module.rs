@@ -6,7 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-use crate::{create_raw_string, free_raw_string, pxs_debug, python::{add_new_name_idx_fn, exec_py, make_private, pocketpy, pocketpy_bridge, var_to_pocketpyref}, shared::{PtrMagic, module::pxs_Module, var::pxs_Var}};
+use crate::{create_raw_string, free_raw_string, pxs_debug, python::{add_new_name_idx_fn, exec_py, make_private, pocketpy, pocketpy_bridge, var_to_pocketpyref}, shared::{PtrMagic, module::{ModuleVariable, pxs_Module}, var::pxs_Var}};
 
 pub(super) fn create_module(module: &pxs_Module) {
     // Get module name
@@ -29,13 +29,25 @@ pub(super) fn create_module(module: &pxs_Module) {
     if pymodule.is_null() {
         pxs_debug!("module is null");
     }
+    
+    let mut variables = vec![];
+    variables.extend(module.variables.iter().cloned());
+    for fvar in module.factories.iter() {
+        let result = unsafe { 
+            (fvar.callback)(fvar.args, std::ptr::null_mut())
+        };
+        variables.push(ModuleVariable{
+            name: fvar.name.clone(),
+            var: result
+        });
+    }
 
     // Add variables to module
-    for var in module.variables.iter() {
+    for var in variables.iter() {
         let var_name = var.name.clone();
         let c_var_name = create_raw_string!(var_name);
         let tmp = unsafe { pocketpy::py_pushtmp() };
-        var_to_pocketpyref(tmp, unsafe{pxs_Var::from_borrow(var.var)});
+        var_to_pocketpyref(tmp, unsafe{pxs_Var::from_borrow(var.var)}, Some(&module_name));
         
         // Set
         unsafe {

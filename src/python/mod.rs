@@ -319,7 +319,7 @@ fn add_args(args: &Vec<pxs_Var>) {
     // Convert args into py_Ref
     for i in 0..args.len() {
         let pyref = unsafe { pocketpy::py_pushtmp() };
-        var_to_pocketpyref(pyref, &args[i]);
+        var_to_pocketpyref(pyref, &args[i], None);
     }
 }
 
@@ -332,7 +332,7 @@ impl ObjectMethods for PythonScripting {
         // Make a object ref
         let obj_ref = unsafe { pocketpy::py_pushtmp() };
         // Set it
-        var_to_pocketpyref(obj_ref, var);
+        var_to_pocketpyref(obj_ref, var, None);
 
         let method_name = create_raw_string!(method);
         // Call a method on it.
@@ -480,7 +480,7 @@ impl ObjectMethods for PythonScripting {
             free_raw_string!(raw_key);
             // Set
             let tmp = pocketpy::py_pushtmp();
-            var_to_pocketpyref(tmp, value);
+            var_to_pocketpyref(tmp, value, None);
             let res = pocketpy::py_setattr(object, py_key, tmp);
 
             if !res {

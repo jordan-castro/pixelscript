@@ -6,7 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-use crate::{pxs_debug, shared::{PtrMagic, func::pxs_Func, var::pxs_Var}};
+use crate::{pxs_debug, shared::{PtrMagic, func::pxs_Func, var::{pxs_Var, pxs_VarT}}};
 use std::{backtrace::Backtrace, sync::Arc};
 
 /// A Module is a C representation of data that needs to be (imported,required, etc)
@@ -70,6 +70,24 @@ pub struct ModuleFactoryVariable {
     pub name: String,
     pub callback: pxs_Func,
     pub args: *mut pxs_Var
+}
+
+impl ModuleVariable {
+    pub fn new(name:String, var: pxs_VarT) -> Self {
+        Self {
+            name,
+            var
+        }
+    }
+}
+
+impl ModuleFactoryVariable {
+    /// Call the callback with args and null ptr
+    pub unsafe fn get_result(&self) -> pxs_VarT {
+        unsafe{
+            (self.callback)(self.args, std::ptr::null_mut())
+        }
+    }
 }
 
 impl pxs_Module {

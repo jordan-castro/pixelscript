@@ -93,7 +93,7 @@ pub(super) unsafe extern "C" fn pocketpy_bridge(argc: i32, argv: pocketpy::py_St
         let res = call_function(fn_idx, vars);
         let ret_slot = pocketpy::py_retval();
 
-        var_to_pocketpyref(ret_slot, &res);
+        var_to_pocketpyref(ret_slot, &res, None);
     }
     true
 }

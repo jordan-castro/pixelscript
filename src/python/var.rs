@@ -71,7 +71,7 @@ pub(super) fn pocketpyref_to_var(pref: pocketpy::py_Ref) -> pxs_Var {
 }
 
 /// Convert a Var into a PocketPy ref
-pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var) {
+pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_name: Option<&str>) {
     unsafe {
         match var.tag {
             pxs_VarType::pxs_Int64 => {
@@ -113,20 +113,22 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var) {
                 if lang_ptr_is_null {
                     // let module_name = get_module_name_from_obj_idx(id);
                     // Find current module
-                    let cmod = pocketpy::py_inspect_currentmodule();
-                    let mut module_name: String;
-                    if !cmod.is_null() {
-                        module_name = get_string_from_obj(cmod, "__name__".to_string());
-                        let module_pkg = get_string_from_obj(cmod, "__package__".to_string());
-                        if module_pkg.len() > 0 {
-                            module_name = format!("{module_pkg}.{module_name}");
-                        }
+                    let obj_module_name = 
+                    if let Some(module_name) = module_name {
+                        module_name.to_string()
                     } else {
-                        panic!("Python module IS NULL for {}", pixel_object.type_name);
-                    }
-                    pxs_debug!("Full module path: {module_name}");
+                        let cmod = pocketpy::py_inspect_currentmodule();
+                        let name = get_string_from_obj(cmod, "__name__".to_string());
+                        let pkg = get_string_from_obj(cmod, "__package__".to_string());
+                        if pkg.len() > 0 {
+                            format!("{pkg}.{name}")
+                        } else {
+                            name
+                        }
+                    };
+                    pxs_debug!("Full module path: {obj_module_name}");
                     // Create the object for the first time...
-                    create_object(idx, Arc::clone(&pixel_object), &module_name);
+                    create_object(idx, Arc::clone(&pixel_object), &obj_module_name);
                     // Get py_retval
                     let pyobj = pocketpy::py_retval();
                     // Set that as the pointer
@@ -147,7 +149,7 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var) {
                     if let Some(item) = item {
                         // Add it
                         let tmp = pocketpy::py_pushtmp();
-                        var_to_pocketpyref(tmp, item);
+                        var_to_pocketpyref(tmp, item, module_name);
                         pocketpy::py_list_append(out, tmp);
                     }
                 }
