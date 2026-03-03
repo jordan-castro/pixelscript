@@ -1266,6 +1266,8 @@ pub extern "C" fn pxs_eval(script: *const c_char, rt: pxs_Runtime) -> pxs_VarT {
 
 /// Add a factory variable. This variable will be instantiated once at module startup.
 /// 
+/// Args should not contain runtime. It gets added automatically.
+/// 
 /// Basically does:
 /// ```python
 /// var_name = callback(args)

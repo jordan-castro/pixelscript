@@ -311,7 +311,6 @@ mod tests {
         pxs_addvar(math_module, zero_name, pxs_newint(0));
 
         let args = pxs_newlist();
-        pxs_listadd(args, pxs_newnull());
         pxs_listadd(args, pxs_Var::new_string("Test".to_string()).into_raw());
         pxs_addvar(math_module, ddiary_name, pxs_newfactory(new_diary, args));
         // pxs_add_factoryvar(math_module, ddiary_name, new_diary, args);

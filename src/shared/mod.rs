@@ -232,6 +232,17 @@ pub enum pxs_Runtime {
 }
 
 impl pxs_Runtime {
+    pub fn into_i64(&self) -> i64 {
+        match self {
+            pxs_Runtime::pxs_Lua => 0,
+            pxs_Runtime::pxs_Python => 1,
+            pxs_Runtime::pxs_JavaScript => 2,
+            pxs_Runtime::pxs_Easyjs => 3,
+            pxs_Runtime::pxs_RustPython => 4,
+            pxs_Runtime::pxs_PHP => 5,
+        }
+    }
+
     pub fn from_i64(val: i64) -> Option<Self> {
         match val {
             0 => Some(Self::pxs_Lua),

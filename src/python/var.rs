@@ -16,7 +16,7 @@ use crate::{
         pocketpy::{self},
     },
     shared::{
-        PtrMagic, object::get_object, var::{pxs_Var, pxs_VarType}
+        PtrMagic, object::get_object, pxs_Runtime, var::{pxs_Var, pxs_VarType}
     },
 };
 
@@ -166,7 +166,7 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
             pxs_VarType::pxs_Factory => {
                 // Call and return
                 let factory = var.get_factory().unwrap();
-                let raw = factory.get_result();
+                let raw = factory.get_result(pxs_Runtime::pxs_Python);
                 let res = pxs_Var::from_borrow(raw);
                 var_to_pocketpyref(out, res, module_name)
             }

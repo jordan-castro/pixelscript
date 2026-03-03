@@ -15,7 +15,7 @@ use mlua::prelude::*;
 use crate::{
     lua::object::create_object,
     shared::{
-        PtrMagic, object::get_object, var::{pxs_Var, pxs_VarType}
+        PtrMagic, object::get_object, pxs_Runtime, var::{pxs_Var, pxs_VarType}
     },
 };
 
@@ -157,7 +157,7 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
             unsafe {
                 // Call and return
                 let factory = var.get_factory().unwrap();
-                let raw = factory.get_result();
+                let raw = factory.get_result(pxs_Runtime::pxs_Lua);
                 let res = pxs_Var::from_borrow(raw);
                 into_lua(lua, res)
             }

@@ -18,7 +18,7 @@ use crate::{
     borrow_string, create_raw_string,
     shared::{
         PtrMagic,
-        object::{get_object, pxs_PixelObject},
+        object::get_object, pxs_Runtime,
     },
 };
 
@@ -104,15 +104,28 @@ pub enum pxs_VarType {
     pxs_Factory,
 }
 
+/// A Factory variable data holder.
+/// 
+/// Holds a callback for creation. And the arguments to be supplied. 
+/// Runtime will be supplied automatically.
 #[allow(non_camel_case_types)]
 pub struct pxs_FactoryHolder {
     pub callback: super::func::pxs_Func,
     pub args: *mut pxs_Var,
+    pub has_rt: bool
 }
 
 impl pxs_FactoryHolder {
     /// Call the callback with args and null ptr
-    pub unsafe fn get_result(&self) -> pxs_VarT {
+    pub unsafe fn get_result(&mut self, rt: pxs_Runtime) -> pxs_VarT {
+        let args = unsafe{ pxs_Var::from_borrow(self.args) };
+        let list = args.get_list().unwrap();
+        if !self.has_rt {
+            self.has_rt = true;
+            list.vars.insert(0, pxs_Var::new_i64(rt.into_i64()));
+        } else {
+            list.set_item(pxs_Var::new_i64(rt.into_i64()), 0);
+        }
         unsafe { (self.callback)(self.args, std::ptr::null_mut()) }
     }
 }
@@ -200,12 +213,10 @@ impl pxs_VarList {
             return false;
         }
 
-        let r_index = ((self.vars.len() as i32) + index) as usize;
-
-        if self.vars.len() < r_index {
+        if self.vars.len() < r_index as usize {
             false
         } else {
-            self.vars[r_index] = item;
+            self.vars[r_index as usize] = item;
             true
         }
     }
@@ -407,6 +418,7 @@ impl pxs_Var {
         let factory = pxs_FactoryHolder {
             callback: func,
             args,
+            has_rt: false
         };
         pxs_Var {
             tag: pxs_VarType::pxs_Factory,
@@ -667,6 +679,7 @@ impl Clone for pxs_Var {
                     let f = pxs_FactoryHolder {
                         args: new_args.into_raw(),
                         callback: og.callback,
+                        has_rt: og.has_rt
                     };
                     pxs_Var {
                         tag: pxs_VarType::pxs_Factory,

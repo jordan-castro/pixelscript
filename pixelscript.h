@@ -74,6 +74,12 @@ typedef enum pxs_Runtime {
   pxs_PHP = 5,
 } pxs_Runtime;
 
+/**
+ * A Factory variable data holder.
+ *
+ * Holds a callback for creation. And the arguments to be supplied.
+ * Runtime will be supplied automatically.
+ */
 typedef struct pxs_FactoryHolder pxs_FactoryHolder;
 
 /**
@@ -719,6 +725,8 @@ pxs_VarT pxs_eval(const char *script, enum pxs_Runtime rt);
 
 /**
  * Add a factory variable. This variable will be instantiated once at module startup.
+ *
+ * Args should not contain runtime. It gets added automatically.
  *
  * Basically does:
  * ```python
