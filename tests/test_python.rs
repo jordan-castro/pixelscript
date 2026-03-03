@@ -339,12 +339,22 @@ mod tests {
         let sub_name = create_raw_string!("sub");
         let zero_name = create_raw_string!("ZERO");
         let diary_name = create_raw_string!("Diary");
+        let ddiary_name = create_raw_string!("DDiary");
         pxs_addobject(math_module, diary_name, new_diary, ptr::null_mut());
         pxs_addfunc(math_module, sub_name, sub_wrapper, ptr::null_mut());
         pxs_addvar(math_module, zero_name, pxs_newint(0));
+
+        let args = pxs_newlist();
+        pxs_listadd(args, pxs_newnull());
+        pxs_listadd(args, pxs_Var::new_string("Test".to_string()).into_raw());
+        let obj = new_diary(args, ptr::null_mut());
+
+        pxs_freevar(args);
+        pxs_addvar(math_module, ddiary_name, obj);
         pxs_add_submod(module, math_module);
         pxs_addmod(module);
 
+        free_raw_string!(ddiary_name);
         free_raw_string!(diary_name);
         free_raw_string!(zero_name);
         free_raw_string!(module_name);
@@ -376,6 +386,7 @@ from pxs.math import *
 diary = Diary("Jordan")
 diary.add_item("Yo test dog")
 print(diary)
+print(f"DDiary: {DDiary}")
 pxs.print(__name__)
 
 function_from_outside() # Should print something

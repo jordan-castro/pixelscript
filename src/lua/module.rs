@@ -43,14 +43,10 @@ fn create_module(context: &Lua, module: &pxs_Module) -> LuaTable {
 }
 
 /// Add a module to Lua!
-pub fn add_module(module: Arc<pxs_Module>, parent: Option<&str>) {
+pub fn add_module(module: Arc<pxs_Module>) {
     // First get lua state
     let state = get_lua_state();
 
-    let mod_name = match parent {
-        Some(p) => format!("{p}.{}", module.name.clone()),
-        None => module.name.clone(),
-    };
     let module_for_lua = Arc::clone(&module);
 
     // Let's create a table
@@ -66,7 +62,7 @@ pub fn add_module(module: Arc<pxs_Module>, parent: Option<&str>) {
     // Add internal modules.
     for child in module.modules.iter() {
         let child_module = child.clone();
-        add_module(Arc::clone(&child_module), Some(mod_name.as_str()));
+        add_module(Arc::clone(&child_module));
     }
 
     // create the loader function for require()
@@ -81,7 +77,7 @@ pub fn add_module(module: Arc<pxs_Module>, parent: Option<&str>) {
 
     // Pre-load it
     preload
-        .set(mod_name, loader)
+        .set(module.name.clone(), loader)
         .expect("Could not set Lua module loader.");
 
 }

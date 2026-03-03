@@ -302,7 +302,8 @@ pub extern "C" fn pxs_add_submod(parent_ptr: *mut pxs_Module, child_ptr: *mut px
 
     let parent = unsafe { pxs_Module::from_borrow(parent_ptr) };
     // Own child
-    let child = pxs_Module::from_raw(child_ptr);
+    let mut child = pxs_Module::from_raw(child_ptr);
+    child.name = format!("{}.{}", parent.name, child.name);
 
     parent.add_module(Arc::new(child));
 
@@ -348,7 +349,7 @@ pub extern "C" fn pxs_freemod(module_ptr: *mut pxs_Module) {
 ///
 /// This should only be used within a PixelScript function callback. I.e. a constructor.
 ///
-/// This must be wrapped in a `pxs_var_object` before use within a callback. If setting to a variable, this is done automatically for you.
+/// This must be wrapped in a `pxs_newhost` before use within a callback. If setting to a variable, this is done automatically for you.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_newobject(
     ptr: pxs_Opaque,

@@ -16,7 +16,7 @@ use anyhow::{Error, anyhow};
 
 use crate::{
     borrow_string, create_raw_string,
-    shared::{PtrMagic, object::get_object},
+    shared::{PtrMagic, object::{get_object, pxs_PixelObject}},
 };
 
 /// Macro for writing out the Var:: get methods.
@@ -260,6 +260,7 @@ impl pxs_Var {
         unsafe { std::slice::from_raw_parts(argv, argc) }
     }
 
+    /// Get the direct host pointer. (Not the idx)
     pub fn get_host_ptr(&self) -> *mut c_void {
         // TODO: type checks
         let object = get_object(self.get_object_ptr()).unwrap();

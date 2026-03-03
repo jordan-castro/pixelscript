@@ -8,12 +8,9 @@
 //
 use crate::{create_raw_string, free_raw_string, pxs_debug, python::{add_new_name_idx_fn, exec_py, make_private, pocketpy, pocketpy_bridge, var_to_pocketpyref}, shared::{PtrMagic, module::pxs_Module, var::pxs_Var}};
 
-pub(super) fn create_module(module: &pxs_Module, parent: Option<&str>) {
+pub(super) fn create_module(module: &pxs_Module) {
     // Get module name
-    let module_name = match parent {
-        Some(s) => format!("{s}.{}", module.name),
-        None => module.name.clone(),
-    };
+    let module_name = module.name.clone();
 
     pxs_debug!("Creating module for: {module_name}");
 
@@ -79,7 +76,7 @@ def {}(*args):
 
     // Do the same for internal modules
     for im in module.modules.iter() {
-        create_module(im, Some(&module_name));
+        create_module(im);
     }
 
     unsafe {

@@ -397,7 +397,7 @@ void pxs_freemod(struct pxs_Module *module_ptr);
  *
  * This should only be used within a PixelScript function callback. I.e. a constructor.
  *
- * This must be wrapped in a `pxs_var_object` before use within a callback. If setting to a variable, this is done automatically for you.
+ * This must be wrapped in a `pxs_newhost` before use within a callback. If setting to a variable, this is done automatically for you.
  */
 struct pxs_PixelObject *pxs_newobject(pxs_Opaque ptr,
                                       FreeMethod free_method,

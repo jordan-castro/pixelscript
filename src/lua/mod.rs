@@ -128,7 +128,7 @@ pub struct LuaScripting;
 
 impl PixelScript for LuaScripting {
     fn add_module(source: std::sync::Arc<crate::shared::module::pxs_Module>) {
-        module::add_module(source, None);
+        module::add_module(source);
     }
 
     fn execute(code: &str, file_name: &str) -> String {

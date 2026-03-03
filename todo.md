@@ -16,7 +16,7 @@
 
 - Add a LSP
 
-## v0.4.0
+## v0.4
 - Lazy Init
 
 ## LSP
@@ -31,7 +31,6 @@
 
 ## Objects
 <!-- - Use a Vector for lookup. -->
-- Allow to set a variable in a module to a Object. Not working currently for some reason.
 
 ## Vars
 - Add exceptions
