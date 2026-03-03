@@ -153,6 +153,9 @@ impl Drop for pxs_PixelObject {
             }
         }
         *lang_ptr = ptr::null_mut();
+        if self.ptr.is_null() {
+            return;
+        }
         // Free host memory
         unsafe {
             (self.free_method)(self.ptr);

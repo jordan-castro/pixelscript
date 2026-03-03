@@ -46,6 +46,15 @@ fn save_object_function(name: &str, idx: i32, module_name: &str) -> String {
 pub(super) fn create_object(idx: i32, source: Arc<pxs_PixelObject>, module_name: &str) {
     pxs_debug!("create_object start for idx: {idx}, type_name: {} in moudule: {module_name}", source.type_name);
     let rmodule_name = module_name.to_string().clone();
+    // Create the module if it does not already exist
+    unsafe {
+        let c_module_name = create_raw_string!(rmodule_name.clone());
+        let pymodule = pocketpy::py_getmodule(c_module_name);
+        if pymodule.is_null() {
+            pocketpy::py_newmodule(c_module_name);
+        }
+    }
+
     let object_name = format!("{rmodule_name}{}", source.type_name).replace(".", "_");
     // Check if object is defined.
     let obj_exists = is_object_defined(&object_name);

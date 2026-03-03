@@ -6,7 +6,8 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-use crate::shared::{PtrMagic, var::pxs_Var};
+use crate::{pxs_debug, shared::{PtrMagic, var::pxs_Var}};
+use std::{backtrace::Backtrace, sync::Arc};
 
 /// A Module is a C representation of data that needs to be (imported,required, etc)
 ///
@@ -42,7 +43,7 @@ pub struct pxs_Module {
     /// Variables that need to be added.
     pub variables: Vec<ModuleVariable>,
     /// Internal modules
-    pub modules: Vec<pxs_Module>,
+    pub modules: Vec<Arc<pxs_Module>>,
 }
 
 /// Wraps a idx with a name.
@@ -89,7 +90,7 @@ impl pxs_Module {
     }
 
     /// Add a internal module.
-    pub fn add_module(&mut self, child: pxs_Module) {
+    pub fn add_module(&mut self, child: Arc<pxs_Module>) {
         self.modules.push(child);
     }
 }
@@ -107,7 +108,13 @@ unsafe impl Sync for ModuleVariable {}
 
 impl Drop for pxs_Module {
     fn drop(&mut self) {
+        pxs_debug!("Drop triggered for Module: {}", self.name);
+        // pxs_debug!("Stack trace: {}", Backtrace::force_capture());
+
         for var in self.variables.drain(0..self.variables.len()) {
+            if var.var.is_null() {
+                continue;
+            }
             // Drop the variable.
             let _ = pxs_Var::from_raw(var.var);
         }

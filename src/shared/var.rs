@@ -7,7 +7,9 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 use std::{
-    cell::Cell, ffi::{CStr, CString, c_char, c_void}, ptr
+    cell::Cell,
+    ffi::{CStr, CString, c_char, c_void},
+    ptr,
 };
 
 use anyhow::{Error, anyhow};
@@ -145,7 +147,7 @@ impl pxs_VarList {
 
     /// Get a Var from the list. Supports negative based indexes.
     pub fn get_item(&self, index: i32) -> Option<&pxs_Var> {
-        // Get correct negative index. 
+        // Get correct negative index.
         let r_index = {
             if index < 0 {
                 (self.vars.len() as i32) + index
@@ -249,7 +251,7 @@ pub struct pxs_Var {
     pub value: pxs_VarValue,
 
     /// Optional delete method. This is used for Pointers in Objects, and Functions.
-    pub deleter: Cell<pxs_DeleterFn>,
+    pub deleter: Cell<pxs_DeleterFn>
 }
 
 // Rust specific functions
@@ -297,7 +299,7 @@ impl pxs_Var {
             value: pxs_VarValue {
                 string_val: cstr.into_raw(),
             },
-            deleter: Cell::new(default_deleter)
+            deleter: Cell::new(default_deleter),
         }
     }
 
@@ -310,7 +312,7 @@ impl pxs_Var {
             value: pxs_VarValue {
                 null_val: ptr::null(),
             },
-            deleter: Cell::new(default_deleter)
+            deleter: Cell::new(default_deleter),
         }
     }
 
@@ -321,7 +323,7 @@ impl pxs_Var {
             value: pxs_VarValue {
                 host_object_val: ptr,
             },
-            deleter: Cell::new(default_deleter)
+            deleter: Cell::new(default_deleter),
         }
     }
 
@@ -335,7 +337,7 @@ impl pxs_Var {
         pxs_Var {
             tag: pxs_VarType::pxs_Object,
             value: pxs_VarValue { object_val: ptr },
-            deleter: Cell::new(deleter)
+            deleter: Cell::new(deleter),
         }
     }
 
@@ -346,7 +348,7 @@ impl pxs_Var {
             value: pxs_VarValue {
                 list_val: pxs_VarList::new().into_raw(),
             },
-            deleter: Cell::new(default_deleter)
+            deleter: Cell::new(default_deleter),
         }
     }
 
@@ -357,9 +359,9 @@ impl pxs_Var {
         pxs_Var {
             tag: pxs_VarType::pxs_List,
             value: pxs_VarValue {
-                list_val: list.into_raw()
+                list_val: list.into_raw(),
             },
-            deleter: Cell::new(default_deleter)
+            deleter: Cell::new(default_deleter),
         }
     }
 
@@ -374,7 +376,7 @@ impl pxs_Var {
         pxs_Var {
             tag: pxs_VarType::pxs_Function,
             value: pxs_VarValue { function_val: ptr },
-            deleter: Cell::new(deleter)
+            deleter: Cell::new(deleter),
         }
     }
 
@@ -466,12 +468,12 @@ impl pxs_Var {
                     let idx = self.get_object_ptr();
                     let object = get_object(idx).unwrap();
                     object.type_name.to_string()
-                },
+                }
                 pxs_VarType::pxs_List => {
                     let list = self.get_list().unwrap();
                     let t = list.vars.iter().map(|v| v.dbg()).collect();
                     t
-                },
+                }
                 pxs_VarType::pxs_Function => "Function".to_string(),
             }
         }
@@ -512,6 +514,9 @@ impl pxs_Var {
     }
 }
 
+unsafe impl Send for pxs_Var {}
+unsafe impl Sync for pxs_Var {}
+
 impl Drop for pxs_Var {
     fn drop(&mut self) {
         if self.tag == pxs_VarType::pxs_String {
@@ -528,9 +533,19 @@ impl Drop for pxs_Var {
                 pxs_VarList::from_raw(self.value.list_val)
             };
         } else if self.tag == pxs_VarType::pxs_Object {
-            unsafe { (self.deleter.get())(self.value.object_val) };
+            unsafe {
+                if self.value.object_val.is_null() {
+                    return;
+                }
+                (self.deleter.get())(self.value.object_val)
+            };
         } else if self.tag == pxs_VarType::pxs_Function {
-            unsafe { (self.deleter.get())(self.value.object_val) };
+            unsafe {
+                if self.value.object_val.is_null() {
+                    return;
+                }
+                (self.deleter.get())(self.value.object_val)
+            };
         }
     }
 }
@@ -552,25 +567,25 @@ impl Clone for pxs_Var {
                         value: pxs_VarValue {
                             string_val: new_string,
                         },
-                        deleter: Cell::new(default_deleter)
+                        deleter: Cell::new(default_deleter),
                     }
                 }
                 pxs_VarType::pxs_Bool => pxs_Var::new_bool(self.value.bool_val),
                 pxs_VarType::pxs_Float64 => pxs_Var::new_f64(self.value.f64_val),
                 pxs_VarType::pxs_Null => pxs_Var::new_null(),
-                pxs_VarType::pxs_Object =>  {
+                pxs_VarType::pxs_Object => {
                     let r = pxs_Var {
-                    tag: pxs_VarType::pxs_Object,
-                    value: pxs_VarValue {
-                        object_val: self.value.object_val,
-                    },
-                    deleter: Cell::new(self.deleter.get())
-                };
+                        tag: pxs_VarType::pxs_Object,
+                        value: pxs_VarValue {
+                            object_val: self.value.object_val,
+                        },
+                        deleter: Cell::new(self.deleter.get()),
+                    };
 
-                self.deleter.set(default_deleter);
+                    self.deleter.set(default_deleter);
 
-                r
-            },
+                    r
+                }
                 pxs_VarType::pxs_HostObject => pxs_Var::new_host_object(self.value.host_object_val),
                 pxs_VarType::pxs_List => {
                     let mut list = pxs_VarList::new();
@@ -588,21 +603,21 @@ impl Clone for pxs_Var {
                         value: pxs_VarValue {
                             list_val: list.into_raw(),
                         },
-                        deleter: Cell::new(default_deleter)
+                        deleter: Cell::new(default_deleter),
                     }
                 }
                 pxs_VarType::pxs_Function => {
                     let r = pxs_Var {
                         tag: pxs_VarType::pxs_Function,
                         value: pxs_VarValue {
-                            function_val: self.value.function_val
+                            function_val: self.value.function_val,
                         },
-                        deleter: Cell::new(self.deleter.get())
+                        deleter: Cell::new(self.deleter.get()),
                     };
 
                     self.deleter.set(default_deleter);
                     r
-                },
+                }
             }
         }
     }
@@ -610,8 +625,11 @@ impl Clone for pxs_Var {
 
 impl std::fmt::Debug for pxs_Var {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let debug_val: &dyn std::fmt::Debug = unsafe {&self.dbg()};
-        f.debug_struct("pxs_Var").field("tag", &self.tag).field("value", debug_val).finish()
+        let debug_val: &dyn std::fmt::Debug = unsafe { &self.dbg() };
+        f.debug_struct("pxs_Var")
+            .field("tag", &self.tag)
+            .field("value", debug_val)
+            .finish()
     }
 }
 

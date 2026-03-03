@@ -6,22 +6,21 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_lua --no-default-features --features "lua,pxs-debug" -- --nocapture --test-threads=1
+// cargo test --test test_all --no-default-features --features "lua,python,pxs-debug" -- --nocapture --test-threads=1
 
 #[cfg(test)]
 mod tests {
     use std::{
         ffi::{CStr, CString, c_char, c_void},
         ptr,
-        sync::Arc,
     };
 
     use pixelscript::{
-        lua::LuaScripting,
-        shared::{PixelScript, PtrMagic, object::pxs_PixelObject, pxs_Runtime, var::{pxs_Var, pxs_VarT}},
-        *,
+        lua::LuaScripting, python::PythonScripting, shared::{
+            PixelScript, PtrMagic, pxs_DirHandle,
+            var::{pxs_Var, pxs_VarT},
+        }, *
     };
-
     /// Create a raw string from &str.
     ///
     /// Remember to FREE THIS!
@@ -39,6 +38,67 @@ mod tests {
             }
         }};
     }
+
+    struct Diary {
+        owner: String,
+        items: Vec<String>,
+    }
+
+    impl Diary {
+        pub fn new(owner: String) -> Self {
+            Diary {
+                owner,
+                items: vec![],
+            }
+        }
+    }
+    impl PtrMagic for Diary {}
+
+    pub extern "C" fn free_diary(ptr: *mut c_void) {
+        let _ = unsafe { Diary::from_borrow(ptr as *mut Diary) };
+    }
+
+    extern "C" fn add_item(args: pxs_VarT, _opaque: *mut c_void) -> pxs_VarT {
+        // Deref
+        unsafe {
+            let pixel_object_var = pxs_Var::from_borrow(pxs_listget(args, 1));
+            let host_ptr = pixel_object_var.get_host_ptr();
+            let d = Diary::from_borrow(host_ptr as *mut Diary);
+
+            let item = pxs_listget(args, 2);
+            let contents = pxs_getstring(item);
+
+            let str = own_string!(contents);
+
+            d.items.push(str);
+
+            pxs_newnull()
+        }
+    }
+
+    extern "C" fn new_diary(args: pxs_VarT, _op: pxs_Opaque) -> pxs_VarT {
+        unsafe {
+            let p_name = pxs_Var::from_borrow(pxs_listget(args, 1));
+            let p_name = p_name.get_string().unwrap();
+            let p = Diary::new(p_name.clone());
+            let typename = create_raw_string!("Diary");
+
+            let ptr = Diary::into_raw(p) as *mut c_void;
+            let pixel_object = pxs_newobject(ptr, free_diary, typename);
+            let add_item_raw = create_raw_string!("add_item");
+            pxs_object_addfunc(pixel_object, add_item_raw, add_item, _op);
+            // Save...
+            let var = pxs_newhost(pixel_object);
+
+            free_raw_string!(add_item_raw);
+            free_raw_string!(typename);
+            var
+        }
+    }
+    // pub extern "C" fn get_name(
+    //     args: *mut pxs_Var,
+    //     _opaque: *mut c_void,
+    // ) -> *mut pxs_Var {
 
     struct Person {
         name: String,
@@ -64,10 +124,7 @@ mod tests {
         let _ = unsafe { Person::from_borrow(ptr as *mut Person) };
     }
 
-    pub extern "C" fn set_name(
-        args: *mut pxs_Var,
-        _opaque: *mut c_void,
-    ) -> *mut pxs_Var {
+    pub extern "C" fn set_name(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
         unsafe {
             // Get ptr
             let pixel_object_var = pxs_Var::from_borrow(pxs_listget(args, 1));
@@ -90,10 +147,7 @@ mod tests {
         }
     }
 
-    pub extern "C" fn get_name(
-        args: *mut pxs_Var,
-        _opaque: *mut c_void,
-    ) -> *mut pxs_Var {
+    pub extern "C" fn get_name(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
         unsafe {
             // Get ptr
             let pixel_object_var = pxs_Var::from_borrow(pxs_listget(args, 1));
@@ -104,18 +158,15 @@ mod tests {
         }
     }
 
-    pub extern "C" fn new_person(
-        args: *mut pxs_Var,
-        opaque: *mut c_void,
-    ) -> *mut pxs_Var {
+    pub extern "C" fn new_person(args: *mut pxs_Var, opaque: *mut c_void) -> *mut pxs_Var {
         unsafe {
             let p_name = pxs_Var::from_borrow(pxs_listget(args, 1));
             let p_name = p_name.get_string().unwrap();
             let p = Person::new(p_name.clone());
-            let type_name = create_raw_string!("Person");
+            let typename = create_raw_string!("Person");
 
             let ptr = Person::into_raw(p) as *mut c_void;
-            let pixel_object = pxs_newobject(ptr, free_person, type_name);
+            let pixel_object = pxs_newobject(ptr, free_person, typename);
             let set_name_raw = create_raw_string!("set_name");
             let get_name_raw = create_raw_string!("get_name");
             pxs_object_addfunc(pixel_object, set_name_raw, set_name, opaque);
@@ -125,31 +176,32 @@ mod tests {
 
             free_raw_string!(set_name_raw);
             free_raw_string!(get_name_raw);
-            free_raw_string!(type_name);
+            free_raw_string!(typename);
             var
         }
     }
 
     // Testing callbacks
-    pub extern "C" fn print_wrapper(
-        args: *mut pxs_Var,
-        _opaque: *mut c_void,
-    ) -> *mut pxs_Var {
+    pub extern "C" fn print_wrapper(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
         unsafe {
-            let var_ptr = pxs_Var::from_borrow(pxs_listget(args, 1));
+            let runtime = pxs_listget(args, 0);
 
-            if let Ok(msg) = var_ptr.get_string() {
-                println!("Lua sent: {}", msg);
+            let mut string = String::new();
+            for i in 1..pxs_listlen(args) {
+                let var = pxs_tostring(runtime, pxs_listget(args, i));
+                if let Ok(s) = (*var).get_string() {
+                    string.push_str(format!("{s} ").as_str());
+                }
+                pxs_freevar(var);
             }
+
+            println!("From Runtime: {string}");
         }
 
         pxs_Var::new_null().into_raw()
     }
 
-    pub extern "C" fn add_wrapper(
-        args: *mut pxs_Var,
-        _opaque: *mut c_void,
-    ) -> *mut pxs_Var {
+    pub extern "C" fn add_wrapper(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
         // Assumes n1 and n2
         unsafe {
             let n1 = pxs_Var::from_borrow(pxs_listget(args, 1));
@@ -158,16 +210,14 @@ mod tests {
             pxs_Var::new_i64(n1.value.i64_val + n2.value.i64_val).into_raw()
         }
     }
-    pub extern "C" fn sub_wrapper(
-        args: *mut pxs_Var,
-        _opaque: *mut c_void,
-    ) -> *mut pxs_Var {
+
+    pub extern "C" fn sub_wrapper(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
         // Assumes n1 and n2
         unsafe {
             let n1 = pxs_Var::from_borrow(pxs_listget(args, 1));
             let n2 = pxs_Var::from_borrow(pxs_listget(args, 2));
 
-            pxs_Var::new_i64(n2.value.i64_val - n1.value.i64_val).into_raw()
+            pxs_Var::new_i64(n1.value.i64_val - n2.value.i64_val).into_raw()
         }
     }
 
@@ -191,17 +241,57 @@ mod tests {
         create_raw_string!(contents)
     }
 
-    unsafe extern "C" fn call_function(
-        args: pxs_VarT,
-        _op: pxs_Opaque
-    ) -> pxs_VarT {
+    unsafe extern "C" fn dir_reader(dir_path: *const c_char) -> pxs_DirHandle {
+        let dir_path = unsafe { CStr::from_ptr(dir_path).to_str().unwrap() };
+
+        if dir_path.is_empty() {
+            return pxs_DirHandle::empty();
+        }
+
+        // Check if dir exists
+        let dir_exists = std::fs::exists(dir_path).unwrap();
+        if !dir_exists {
+            return pxs_DirHandle::empty();
+        }
+
+        // Load dir
+        let files = std::fs::read_dir(dir_path).unwrap();
+        let mut result = vec![];
+
+        for f in files {
+            let entry = f.unwrap();
+            result.push(entry.file_name().into_string().unwrap());
+        }
+
+        // 1. Convert Strings to CStrings, then to raw pointers
+        // We use .into_raw() so Rust surrenders ownership and doesn't free the memory
+        let mut c_ptrs: Vec<*mut c_char> = result
+            .into_iter()
+            .map(|s| CString::new(s).unwrap().into_raw())
+            .collect();
+
+        // 2. Get a pointer to the array of pointers
+        // We get the pointer to the underlying buffer of the Vec
+        let argv: *mut *mut c_char = c_ptrs.as_mut_ptr();
+        let argc = c_ptrs.len();
+        pxs_DirHandle {
+            length: argc,
+            values: argv,
+        }
+    }
+
+    unsafe extern "C" fn call_function(args: pxs_VarT, _op: pxs_Opaque) -> pxs_VarT {
         // Assume 1 is a function
         let func = pxs_listget(args, 1);
         // Check for args
         let argc = pxs_listlen(args);
         let res = if argc > 2 {
             // 2 is args
-            pxs_varcall(pxs_listget(args, 0), func, pxs_newcopy(pxs_listget(args, 2)))
+            pxs_varcall(
+                pxs_listget(args, 0),
+                func,
+                pxs_newcopy(pxs_listget(args, 2)),
+            )
         } else {
             pxs_varcall(pxs_listget(args, 0), func, pxs_newlist())
         };
@@ -211,6 +301,7 @@ mod tests {
     }
 
     fn test_add_module() {
+        println!("Inside Test add module");
         pxs_initialize();
         let module_name = create_raw_string!("pxs");
         let module = pxs_newmod(module_name);
@@ -227,14 +318,14 @@ mod tests {
         let name = create_raw_string!("print");
         pxs_addfunc(module, name, print_wrapper, ptr::null_mut());
         let var_name = create_raw_string!("name");
-        let jordan = create_raw_string!("Jordan");
+        let jordan = create_raw_string!("Jordan C");
         let var = pxs_newstring(jordan);
         pxs_addvar(module, var_name, var);
 
         let object_name = create_raw_string!("Person");
         pxs_addobject(module, object_name, new_person, ptr::null_mut());
 
-        // Add call 
+        // Add call
         let call_name = create_raw_string!("call_function");
         pxs_addfunc(module, call_name, call_function, ptr::null_mut());
         free_raw_string!(call_name);
@@ -246,12 +337,14 @@ mod tests {
         // Add a sub function
         let sub_name = create_raw_string!("sub");
         let zero_name = create_raw_string!("ZERO");
+        let diary_name = create_raw_string!("Diary");
+        pxs_addobject(math_module, diary_name, new_diary, ptr::null_mut());
         pxs_addfunc(math_module, sub_name, sub_wrapper, ptr::null_mut());
         pxs_addvar(math_module, zero_name, pxs_newint(0));
-
         pxs_add_submod(module, math_module);
         pxs_addmod(module);
 
+        free_raw_string!(diary_name);
         free_raw_string!(zero_name);
         free_raw_string!(module_name);
         free_raw_string!(add_name);
@@ -266,85 +359,92 @@ mod tests {
 
     #[test]
     fn test_execute() {
+        println!("Test starting");
         pxs_initialize();
 
         test_add_module();
 
         pxs_set_filereader(file_loader);
+        pxs_set_dirreader(dir_reader);
+
+        let py_code = r#"
+import pxs
+from pad.ft_object import function_from_outside 
+from pxs.math import *
+
+diary = Diary("Jordan")
+diary.add_item("Yo test dog")
+print(diary)
+pxs.print(__name__)
+
+function_from_outside() # Should print something
+
+msg = "Welcome " + pxs.name
+pxs.print(msg)
+
+result = pxs.add(pxs.n1, pxs.n2)
+pxs.print(f"Module result: {result}")
+
+if result != 3:
+    raise "Math, Expected 3, got " + str(result)
+
+res = pxs.math.sub(2, 1)
+pxs.print(res)
+if res != 1:
+    raise Exception("Math, Expected 1, got " + str(res))
+
+zero = pxs.math.ZERO
+if zero != 0:
+    raise Exception("Math, Expected 0, got " + str(zero))
+
+person = pxs.Person("Jordan")
+person2 = pxs.Person("Evelyn")
+pxs.print(person2.get_name())
+pxs.print(person)
+print(person.get_name())
+person.set_name("Jordan Castro")
+print(person.get_name())
+
+print(type(person).__name__)
+print(type(pxs.Person).__name__)
+
+def hadd(n1, n2):
+    return n1 + n2
+
+print(pxs.call_function(hadd, [1,2]))
+
+def get_pi():
+    return 3.1459
+
+print(pxs.call_function(get_pi))
+        "#;
+        let err = PythonScripting::execute(py_code, "<test>");
+        assert!(err.is_empty(), "Python Error is not empty: {}", err);
 
         let lua_code = r#"
-            local pxs = require('pxs')
-            local pxs_math = require('pxs.math')
-
-            local ft_object = require('pad.ft_object')
-            ft_object.function_from_outside()
-
-            local msg = "Welcome, " .. pxs.name
-            pxs.print(msg)
-
-            local result = pxs.add(pxs.n1, pxs.n2)
-            pxs.print(tostring(pxs.n1))
-            pxs.print(tostring(pxs.n2))
-            pxs.print(tostring(result))
-            pxs.print("Module result: " .. tostring(result))
-
-            if result ~= 3 then
-                error("Math, Expected 3, got " .. tostring(result))
-            end
-
-            local res = pxs_math.sub(1, 2)
-
-            if res ~= 1 then
-                error("Math, Expected 1, got " .. tostring(res))
-            end
-
-            local zero = pxs_math.ZERO
-            if zero ~= 0 then
-                error("Math, Exptected 0, got " .. tostring(zero))
-            else
-                pxs.print("0 is all good my man")
-            end
-
-            local person = pxs.Person("Jordan")
-            pxs.print(person:get_name())
-            person:set_name("Jordan Castro")
-            pxs.print(person:get_name())
-
-            -- Test calling function.
-            function hadd(n1, n2)
-                return n1 + n2
-            end
-            -- Call it
-            pxs.print(tostring(pxs.call_function(hadd, {1,2})))
-            function get_pi()
-                return 3.145
-            end 
-            pxs.print(tostring(pxs.call_function(get_pi)))
-        "#;
-        let err = LuaScripting::execute(lua_code, "<test>");
-
-        assert!(err.is_empty(), "Lua Error is not empty: {}", err);
-
-        // Test eval
-        let script = r#"
 local pxs = require('pxs')
 local pxs_math = require('pxs.math')
-function main()
-    return pxs_math.sub(1,2)
-end
 
-return main()"#;
-        let script_raw = create_raw_string!(script);
+diary = pxs_math.Diary("Jordan")
+diary:add_item("Yo test dog")
+pxs.print(diary)
 
-        let result = pxs_eval(script_raw, pxs_Runtime::pxs_Lua);
-        assert!(!result.is_null(), "Lua result is null.");
-        let str = pxs_tostring(pxs_newint(pxs_Runtime::pxs_Lua as i64), result);
-        assert!(!str.is_null(), "Str is null.");
-        let contents = pxs_getstring(str);
-        assert!(!contents.is_null(), "Contents is null.");
-        let owned = own_string!(contents);
-        println!("{owned}");
-        free_raw_string!(script_raw);
+local ft_object = require('pad.ft_object')
+ft_object.function_from_outside()
+
+local msg = "Welcome " .. pxs.name
+pxs.print(msg)
+
+local result = pxs.add(pxs.n1, pxs.n2)
+pxs.print("Module result: " .. tostring(result))
+        "#;
+        let lua_err = LuaScripting::execute(lua_code, "<test>");
+        assert!(lua_err.is_empty(), "Lua Error is not empty: {}", lua_err);
+
+        pxs_startthread();
+        pxs_startthread();
+        pxs_stopthread();
+        pxs_stopthread();
 
         pxs_finalize();
     }

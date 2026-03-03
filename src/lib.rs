@@ -304,8 +304,8 @@ pub extern "C" fn pxs_add_submod(parent_ptr: *mut pxs_Module, child_ptr: *mut px
     // Own child
     let child = pxs_Module::from_raw(child_ptr);
 
-    parent.add_module(child);
-    
+    parent.add_module(Arc::new(child));
+
     // Child is now owned by parent
 }
 
@@ -393,9 +393,11 @@ pub extern "C" fn pxs_object_addfunc(
 
 /// Add a object to a Module.
 ///
-/// This essentially makes it so that when constructing this Module, this object is instanced.
+/// This essentially makes it so that when constructing this Module, this object is instanced. 
+/// This works by adding a public factory function with the type name. But the type name
+/// is mangled (_module_typename).
 ///
-/// Depending on the language, you may need to wrap the construction. For example lua:
+/// In Lua:
 /// ```lua
 /// -- Let's say we have a object "Person"
 /// local p = Person("Jordan", 23)
@@ -410,12 +412,15 @@ pub extern "C" fn pxs_object_addfunc(
 /// In Python:
 /// ```python
 /// p = Person("Jordan", 23)
+/// # use '.' instead of ':'
 /// # etc
 /// ```
-///
-/// In JS/easyjs:
+/// 
+/// In JS the same as Python and Lua:
 /// ```js
-/// let p = new Person("Jordan", 23);
+/// let p = Person("Jordan", 23);
+/// // Same as Python
+/// // etc
 /// ```
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_addobject(

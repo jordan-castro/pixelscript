@@ -415,8 +415,10 @@ void pxs_object_addfunc(struct pxs_PixelObject *object_ptr,
  * Add a object to a Module.
  *
  * This essentially makes it so that when constructing this Module, this object is instanced.
+ * This works by adding a public factory function with the type name. But the type name
+ * is mangled (_module_typename).
  *
- * Depending on the language, you may need to wrap the construction. For example lua:
+ * In Lua:
  * ```lua
  * -- Let's say we have a object "Person"
  * local p = Person("Jordan", 23)
@@ -431,12 +433,15 @@ void pxs_object_addfunc(struct pxs_PixelObject *object_ptr,
  * In Python:
  * ```python
  * p = Person("Jordan", 23)
+ * # use '.' instead of ':'
  * # etc
  * ```
  *
- * In JS/easyjs:
+ * In JS the same as Python and Lua:
  * ```js
- * let p = new Person("Jordan", 23);
+ * let p = Person("Jordan", 23);
+ * // Same as Python
+ * // etc
  * ```
  */
 void pxs_addobject(struct pxs_Module *module_ptr,

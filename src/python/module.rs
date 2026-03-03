@@ -19,7 +19,15 @@ pub(super) fn create_module(module: &pxs_Module, parent: Option<&str>) {
 
     // Create module
     let c_module_name = create_raw_string!(module_name.clone());
-    let pymodule = unsafe { pocketpy::py_newmodule(c_module_name) };
+    let pymodule = unsafe { 
+        // Check first if module already exists... (in the case of a variable object)
+        let posmodule = pocketpy::py_getmodule(c_module_name);
+        if posmodule.is_null() {
+            pocketpy::py_newmodule(c_module_name) 
+        } else {
+            posmodule
+        }
+    };
 
     if pymodule.is_null() {
         pxs_debug!("module is null");

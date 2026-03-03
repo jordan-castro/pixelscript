@@ -16,6 +16,9 @@
 
 - Add a LSP
 
+## v0.4.0
+- Lazy Init
+
 ## LSP
 - Remove ModuleCallbacks just use Function
 - Remove ModuleVariables just use PixelVariable {name, var}
@@ -87,3 +90,4 @@
 ## Maybes
 - Enums?
 - Removing Strings for internal use. I.e. object ids in Python. Try using i32 instead.
+- Instead of defining everything AOT. Define it JIT for memory.

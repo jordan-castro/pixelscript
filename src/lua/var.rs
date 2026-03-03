@@ -76,7 +76,7 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
         pxs_VarType::pxs_Int64 => Ok(mlua::Value::Integer(var.get_i64().unwrap())),
         pxs_VarType::pxs_UInt64 => Ok(mlua::Value::Integer(var.get_u64().unwrap() as i64)),
         pxs_VarType::pxs_String => {
-            let contents = var.get_string().unwrap();
+            let contents = var.get_string().unwrap().clone();
             let lua_str = lua.create_string(contents).expect("test");
 
             Ok(mlua::Value::String(lua_str))

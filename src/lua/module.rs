@@ -66,7 +66,7 @@ pub fn add_module(module: Arc<pxs_Module>, parent: Option<&str>) {
     // Add internal modules.
     for child in module.modules.iter() {
         let child_module = child.clone();
-        add_module(Arc::new(child_module), Some(mod_name.as_str()));
+        add_module(Arc::clone(&child_module), Some(mod_name.as_str()));
     }
 
     // create the loader function for require()
