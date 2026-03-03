@@ -16,8 +16,7 @@ use crate::{
         pocketpy::{self},
     },
     shared::{
-        object::get_object,
-        var::{pxs_Var, pxs_VarType},
+        PtrMagic, object::get_object, var::{pxs_Var, pxs_VarType}
     },
 };
 
@@ -113,8 +112,7 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
                 if lang_ptr_is_null {
                     // let module_name = get_module_name_from_obj_idx(id);
                     // Find current module
-                    let obj_module_name = 
-                    if let Some(module_name) = module_name {
+                    let obj_module_name = if let Some(module_name) = module_name {
                         module_name.to_string()
                     } else {
                         let cmod = pocketpy::py_inspect_currentmodule();
@@ -164,6 +162,13 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
                     let ptr = var.value.function_val as pocketpy::py_Ref;
                     py_assign(out, ptr);
                 }
+            }
+            pxs_VarType::pxs_Factory => {
+                // Call and return
+                let factory = var.get_factory().unwrap();
+                let raw = factory.get_result();
+                let res = pxs_Var::from_borrow(raw);
+                var_to_pocketpyref(out, res, module_name)
             }
         }
     }

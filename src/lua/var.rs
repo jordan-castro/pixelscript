@@ -15,8 +15,7 @@ use mlua::prelude::*;
 use crate::{
     lua::object::create_object,
     shared::{
-        object::get_object,
-        var::{pxs_Var, pxs_VarType},
+        PtrMagic, object::get_object, var::{pxs_Var, pxs_VarType}
     },
 };
 
@@ -152,6 +151,15 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
                 // Do I need to clone here?
                 // Shouldn't I just return the value? Not sure...
                 Ok(mlua::Value::Function(lua_function))
+            }
+        }
+        pxs_VarType::pxs_Factory => {
+            unsafe {
+                // Call and return
+                let factory = var.get_factory().unwrap();
+                let raw = factory.get_result();
+                let res = pxs_Var::from_borrow(raw);
+                into_lua(lua, res)
             }
         }
     }

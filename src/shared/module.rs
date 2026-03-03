@@ -43,9 +43,7 @@ pub struct pxs_Module {
     /// Variables that need to be added.
     pub variables: Vec<ModuleVariable>,
     /// Internal modules
-    pub modules: Vec<Arc<pxs_Module>>,
-    /// Factory variables
-    pub factories: Vec<ModuleFactoryVariable>
+    pub modules: Vec<Arc<pxs_Module>>
 }
 
 /// Wraps a idx with a name.
@@ -63,29 +61,11 @@ pub struct ModuleVariable {
     pub var: *mut pxs_Var,
 }
 
-/// Wraps a Var with a name and a value from a callback.
-/// Basically a Factory call.
-#[derive(Clone)]
-pub struct ModuleFactoryVariable {
-    pub name: String,
-    pub callback: pxs_Func,
-    pub args: *mut pxs_Var
-}
-
 impl ModuleVariable {
     pub fn new(name:String, var: pxs_VarT) -> Self {
         Self {
             name,
             var
-        }
-    }
-}
-
-impl ModuleFactoryVariable {
-    /// Call the callback with args and null ptr
-    pub unsafe fn get_result(&self) -> pxs_VarT {
-        unsafe{
-            (self.callback)(self.args, std::ptr::null_mut())
         }
     }
 }
@@ -98,7 +78,6 @@ impl pxs_Module {
             callbacks: vec![],
             variables: vec![],
             modules: vec![],
-            factories: vec![]
         }
     }
 
@@ -141,11 +120,6 @@ impl pxs_Module {
             let name = self.get_name();
             self.name.replace(&format!(".{name}"), "")
         }
-    }
-
-    /// Add a Factory variable
-    pub fn add_factory_variable(&mut self, name: String, func: pxs_Func, args: *mut pxs_Var) {
-        self.factories.push(ModuleFactoryVariable { name, callback: func, args });
     }
 }
 

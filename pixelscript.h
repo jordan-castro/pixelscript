@@ -38,6 +38,10 @@ typedef enum pxs_VarType {
    * Lua (Value), Python (def or lambda), JS/easyjs (anon function)
    */
   pxs_Function,
+  /**
+   * Internal object only. It will get converted into the result before hitting the runtime
+   */
+  pxs_Factory,
 } pxs_VarType;
 
 /**
@@ -69,6 +73,8 @@ typedef enum pxs_Runtime {
    */
   pxs_PHP = 5,
 } pxs_Runtime;
+
+typedef struct pxs_FactoryHolder pxs_FactoryHolder;
 
 /**
  * A Module is a C representation of data that needs to be (imported,required, etc)
@@ -212,6 +218,7 @@ typedef union pxs_VarValue {
   int32_t host_object_val;
   struct pxs_VarList *list_val;
   void *function_val;
+  struct pxs_FactoryHolder *factory_val;
 } pxs_VarValue;
 
 typedef void (*pxs_DeleterFn)(void*);
@@ -711,18 +718,14 @@ pxs_Opaque pxs_host_fromidx(int32_t idx);
 pxs_VarT pxs_eval(const char *script, enum pxs_Runtime rt);
 
 /**
- * Add a variable and set its value to a callback. This is called as a function callback.
+ * Add a factory variable. This variable will be instantiated once at module startup.
  *
  * Basically does:
  * ```python
  * var_name = callback(args)
  * ```
- * At module build. The same is done for all runtimes.
  */
-void pxs_add_factoryvar(struct pxs_Module *module_ptr,
-                        const char *name,
-                        pxs_Func func,
-                        struct pxs_Var *args);
+pxs_VarT pxs_newfactory(pxs_Func func, struct pxs_Var *args);
 
 #ifdef __cplusplus
 }  // extern "C"

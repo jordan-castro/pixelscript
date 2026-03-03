@@ -1264,28 +1264,27 @@ pub extern "C" fn pxs_eval(script: *const c_char, rt: pxs_Runtime) -> pxs_VarT {
     }
 }
 
-/// Add a variable and set its value to a callback. This is called as a function callback.
+/// Add a factory variable. This variable will be instantiated once at module startup.
 /// 
 /// Basically does:
 /// ```python
 /// var_name = callback(args)
 /// ```
-/// At module build. The same is done for all runtimes.
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_add_factoryvar(
-    module_ptr: *mut pxs_Module,
-    name: *const c_char,
+pub extern "C" fn pxs_newfactory(
     func: pxs_Func,
     args: *mut pxs_Var
-) {
+) -> pxs_VarT {
     assert_initiated!();
 
-    if module_ptr.is_null() || name.is_null() || args.is_null() {
-        return;
+    if args.is_null() {
+        return ptr::null_mut();
+    }
+    // Check args is string
+    let borrow_args = unsafe{pxs_Var::from_borrow(args)};
+    if !borrow_args.is_list() {
+        return ptr::null_mut();
     }
 
-    let module = unsafe { pxs_Module::from_borrow(module_ptr) };
-    let name = borrow_string!(name).to_string().clone();
-
-    module.add_factory_variable(name, func, args);
+    pxs_Var::new_factory(func, args).into_raw()
 }

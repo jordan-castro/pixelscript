@@ -16,7 +16,10 @@ use anyhow::{Error, anyhow};
 
 use crate::{
     borrow_string, create_raw_string,
-    shared::{PtrMagic, object::{get_object, pxs_PixelObject}},
+    shared::{
+        PtrMagic,
+        object::{get_object, pxs_PixelObject},
+    },
 };
 
 /// Macro for writing out the Var:: get methods.
@@ -97,7 +100,24 @@ pub enum pxs_VarType {
     pxs_List,
     /// Lua (Value), Python (def or lambda), JS/easyjs (anon function)
     pxs_Function,
+    /// Internal object only. It will get converted into the result before hitting the runtime
+    pxs_Factory,
 }
+
+#[allow(non_camel_case_types)]
+pub struct pxs_FactoryHolder {
+    pub callback: super::func::pxs_Func,
+    pub args: *mut pxs_Var,
+}
+
+impl pxs_FactoryHolder {
+    /// Call the callback with args and null ptr
+    pub unsafe fn get_result(&self) -> pxs_VarT {
+        unsafe { (self.callback)(self.args, std::ptr::null_mut()) }
+    }
+}
+
+impl PtrMagic for pxs_FactoryHolder {}
 
 /// Holds data for a pxs_Var of list.
 ///
@@ -205,6 +225,7 @@ pub union pxs_VarValue {
     pub host_object_val: i32,
     pub list_val: *mut pxs_VarList,
     pub function_val: *mut c_void,
+    pub factory_val: *mut pxs_FactoryHolder,
 }
 
 #[allow(non_camel_case_types)]
@@ -251,7 +272,7 @@ pub struct pxs_Var {
     pub value: pxs_VarValue,
 
     /// Optional delete method. This is used for Pointers in Objects, and Functions.
-    pub deleter: Cell<pxs_DeleterFn>
+    pub deleter: Cell<pxs_DeleterFn>,
 }
 
 // Rust specific functions
@@ -381,45 +402,23 @@ impl pxs_Var {
         }
     }
 
-    /// Convert a Vec<Var> into **Var (*const *mut Var)
-    ///
-    /// !Important This will leak memory which MUST BE FREED.
-    /// Usually handled by the library when using within Function callbacks.
-    pub fn make_pointer_array(vars: Vec<Self>) -> *mut *mut Self {
-        // Create a pointer array from Vec
-        let mut pointer_array: Vec<*mut Self> = vars
-            .into_iter()
-            .map(|v| Box::into_raw(Box::new(v)))
-            .collect();
-
-        // Leak array
-        let argv = pointer_array.as_mut_ptr();
-
-        // Forget about it
-        std::mem::forget(pointer_array);
-
-        // listo
-        argv
-    }
-
-    /// Free a pointer array of Vars
-    pub unsafe fn free_pointer_array(argv: *mut *mut pxs_Var, argc: usize) {
-        if argv.is_null() {
-            return;
-        }
-
-        unsafe {
-            // Recover ptr array
-            let ptrs = Vec::from_raw_parts(argv, argc, argc);
-
-            // Drop each with a Box
-            for &ptr in &ptrs {
-                if !ptr.is_null() {
-                    let _ = Box::from_raw(ptr);
-                }
-            }
+    /// Create a new Factory var.
+    pub fn new_factory(func: super::func::pxs_Func, args: pxs_VarT) -> Self {
+        let factory = pxs_FactoryHolder {
+            callback: func,
+            args,
+        };
+        pxs_Var {
+            tag: pxs_VarType::pxs_Factory,
+            value: pxs_VarValue {
+                factory_val: factory.into_raw(),
+            },
+            deleter: Cell::new(default_deleter),
         }
     }
+    //     name: *const c_char,
+    // func: pxs_Func,
+    // args: *mut pxs_Var
 
     /// Get the ptr of the object if Host, i32, i64, u32, u64
     pub fn get_object_ptr(&self) -> i32 {
@@ -431,12 +430,27 @@ impl pxs_Var {
         }
     }
 
-    /// Get the pxs_VarList as a &pxs_VarList.
+    /// Get the pxs_VarList as a &mut pxs_VarList.
     pub fn get_list(&self) -> Option<&mut pxs_VarList> {
         if !self.is_list() {
             None
         } else {
             unsafe { Some(pxs_VarList::from_borrow(self.value.list_val)) }
+        }
+    }
+
+    /// Get the pxs_FactoryHolder as a &mut pxs_FactoryHolder
+    pub fn get_factory(&self) -> Option<&mut pxs_FactoryHolder> {
+        if !self.is_factory() {
+            None
+        } else {
+            unsafe {
+                if self.value.factory_val.is_null() {
+                    None
+                } else {
+                    Some(pxs_FactoryHolder::from_borrow(self.value.factory_val))
+                }
+            }
         }
     }
 
@@ -476,6 +490,7 @@ impl pxs_Var {
                     t
                 }
                 pxs_VarType::pxs_Function => "Function".to_string(),
+                pxs_VarType::pxs_Factory => "Factory".to_string(),
             }
         }
     }
@@ -511,7 +526,8 @@ impl pxs_Var {
         is_object, pxs_VarType::pxs_Object;
         is_host_object, pxs_VarType::pxs_HostObject;
         is_list, pxs_VarType::pxs_List;
-        is_function, pxs_VarType::pxs_Function
+        is_function, pxs_VarType::pxs_Function;
+        is_factory, pxs_VarType::pxs_Factory
     }
 }
 
@@ -547,6 +563,19 @@ impl Drop for pxs_Var {
                 }
                 (self.deleter.get())(self.value.object_val)
             };
+        } else if self.tag == pxs_VarType::pxs_Factory {
+            // Free args
+            unsafe {
+                if self.value.factory_val.is_null() {
+                    return;
+                }
+                let val = pxs_FactoryHolder::from_borrow(self.value.factory_val);
+                if val.args.is_null() {
+                    return;
+                }
+                // Drop list
+                let _ = pxs_Var::from_raw(val.args);
+            }
         }
     }
 }
@@ -618,6 +647,34 @@ impl Clone for pxs_Var {
 
                     self.deleter.set(default_deleter);
                     r
+                }
+                pxs_VarType::pxs_Factory => {
+                    let og = pxs_FactoryHolder::from_borrow(self.value.factory_val);
+                    if og.args.is_null() {
+                        return pxs_Var::new_null();
+                    }
+                    // Clone args
+                    let new_args = pxs_Var::new_list();
+                    let old_args = pxs_Var::from_borrow(og.args);
+                    if !old_args.is_list() {
+                        return pxs_Var::new_null();
+                    }
+                    let old_list = old_args.get_list().unwrap();
+                    let new_list = new_args.get_list().unwrap();
+                    for var in old_list.vars.iter() {
+                        new_list.add_item(var.clone());
+                    }
+                    let f = pxs_FactoryHolder {
+                        args: new_args.into_raw(),
+                        callback: og.callback,
+                    };
+                    pxs_Var {
+                        tag: pxs_VarType::pxs_Factory,
+                        value: pxs_VarValue {
+                            factory_val: f.into_raw(),
+                        },
+                        deleter: Cell::new(default_deleter),
+                    }
                 }
             }
         }

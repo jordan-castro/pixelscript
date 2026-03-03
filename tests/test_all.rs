@@ -350,7 +350,8 @@ mod tests {
         let args = pxs_newlist();
         pxs_listadd(args, pxs_newnull());
         pxs_listadd(args, pxs_Var::new_string("Test".to_string()).into_raw());
-        pxs_add_factoryvar(math_module, ddiary_name, new_diary, args);
+        pxs_addvar(math_module, ddiary_name, pxs_newfactory(new_diary, args));
+        // pxs_add_factoryvar(math_module, ddiary_name, new_diary, args);
 
         pxs_add_submod(module, math_module);
         pxs_addmod(module);

@@ -15,7 +15,7 @@ use anyhow::anyhow;
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
 use crate::{
-    borrow_string, create_raw_string, free_raw_string, own_string, pxs_debug, python::{
+    borrow_string, create_raw_string, free_raw_string, own_string, python::{
         func::pocketpy_bridge,
         module::create_module,
         var::{pocketpyref_to_var, var_to_pocketpyref},
@@ -493,5 +493,4 @@ impl ObjectMethods for PythonScripting {
         }
     }
 
-    
 }
