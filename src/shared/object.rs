@@ -169,9 +169,6 @@ pub struct ObjectLookup {
     ///
     /// Negative numbers are valid here.
     pub object_hash: HashMap<i32, Arc<pxs_PixelObject>>,
-
-    /// Object to Module name.
-    pub object_to_module_name: HashMap<i32, String>
 }
 
 /// The object lookup!
@@ -182,8 +179,7 @@ fn get_object_lookup() -> std::sync::MutexGuard<'static, ObjectLookup> {
     OBJECT_LOOKUP
         .get_or_init(|| {
             Mutex::new(ObjectLookup {
-                object_hash: HashMap::new(),
-                object_to_module_name: HashMap::new()
+                object_hash: HashMap::new()
             })
         })
         .lock()
@@ -193,7 +189,6 @@ fn get_object_lookup() -> std::sync::MutexGuard<'static, ObjectLookup> {
 pub(crate) fn clear_object_lookup() {
     let mut lookup = get_object_lookup();
     lookup.object_hash.clear();
-    lookup.object_to_module_name.clear();
 }
 
 // add_object(Arc::clone(&pixel_arc))
@@ -218,18 +213,4 @@ pub(crate) fn get_object(idx: i32) -> Option<Arc<pxs_PixelObject>> {
     } else {
         None
     }
-}
-
-/// Add a module name to a object.
-pub(crate) fn add_object_to_module(idx: i32, mod_name: String) {
-    let mut lookup = get_object_lookup();
-
-    lookup.object_to_module_name.insert(idx, mod_name);
-} 
-
-/// Get a module name from object idx.
-/// Will return empty string if not found.
-pub(crate) fn get_module_name_from_obj_idx(idx: i32) -> String {
-    let lookup = get_object_lookup();
-    lookup.object_to_module_name.get(&idx).unwrap_or(&String::new()).clone()
 }

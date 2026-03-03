@@ -16,7 +16,7 @@ use crate::{
         pocketpy::{self},
     },
     shared::{
-        object::{get_module_name_from_obj_idx, get_object},
+        object::get_object,
         var::{pxs_Var, pxs_VarType},
     },
 };
@@ -122,7 +122,7 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var) {
                             module_name = format!("{module_pkg}.{module_name}");
                         }
                     } else {
-                        module_name = get_module_name_from_obj_idx(idx);
+                        panic!("Python module IS NULL for {}", pixel_object.type_name);
                     }
                     pxs_debug!("Full module path: {module_name}");
                     // Create the object for the first time...

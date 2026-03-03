@@ -6,7 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-use crate::{pxs_debug, shared::{PtrMagic, object::add_object_to_module, var::pxs_Var}};
+use crate::{pxs_debug, shared::{PtrMagic, func::pxs_Func, var::pxs_Var}};
 use std::{backtrace::Backtrace, sync::Arc};
 
 /// A Module is a C representation of data that needs to be (imported,required, etc)
@@ -44,6 +44,8 @@ pub struct pxs_Module {
     pub variables: Vec<ModuleVariable>,
     /// Internal modules
     pub modules: Vec<Arc<pxs_Module>>,
+    /// Factory variables
+    pub factories: Vec<ModuleFactoryVariable>
 }
 
 /// Wraps a idx with a name.
@@ -61,6 +63,15 @@ pub struct ModuleVariable {
     pub var: *mut pxs_Var,
 }
 
+/// Wraps a Var with a name and a value from a callback.
+/// Basically a Factory call.
+#[derive(Clone)]
+pub struct ModuleFactoryVariable {
+    pub name: String,
+    pub callback: pxs_Func,
+    pub args: *mut pxs_Var
+}
+
 impl pxs_Module {
     /// Create a new module.
     pub fn new(name: String) -> Self {
@@ -69,6 +80,7 @@ impl pxs_Module {
             callbacks: vec![],
             variables: vec![],
             modules: vec![],
+            factories: vec![]
         }
     }
 
@@ -83,14 +95,6 @@ impl pxs_Module {
 
     /// Add a variable to current module.
     pub fn add_variable(&mut self, name: &str, var: *mut pxs_Var) {
-        // borrow var and check if it's a HostObject. Cause if it is we need to
-        // set the module name.
-        let borrow_var = unsafe{pxs_Var::from_borrow(var)};
-        if borrow_var.is_host_object() {
-            let idx = borrow_var.get_object_ptr();
-            add_object_to_module(idx, self.name.clone());
-        }
-
         self.variables.push(ModuleVariable {
             name: name.to_string(),
             var: var,
@@ -99,14 +103,6 @@ impl pxs_Module {
 
     /// Add a internal module.
     pub fn add_module(&mut self, child: Arc<pxs_Module>) {
-        // Update variable hostobject module names
-        for v in child.variables.iter() {
-            let borrow_var = unsafe{pxs_Var::from_borrow(v.var)};
-            if borrow_var.is_host_object() {
-                let idx = borrow_var.get_object_ptr();
-                add_object_to_module(idx, child.name.clone());
-            }
-        }
         self.modules.push(child);
     }
 
@@ -127,6 +123,11 @@ impl pxs_Module {
             let name = self.get_name();
             self.name.replace(&format!(".{name}"), "")
         }
+    }
+
+    /// Add a Factory variable
+    pub fn add_factory_variable(&mut self, name: String, func: pxs_Func, args: *mut pxs_Var) {
+        self.factories.push(ModuleFactoryVariable { name, callback: func, args });
     }
 }
 

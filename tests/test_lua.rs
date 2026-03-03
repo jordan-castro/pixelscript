@@ -39,6 +39,62 @@ mod tests {
             }
         }};
     }
+    struct Diary {
+        owner: String,
+        items: Vec<String>,
+    }
+
+    impl Diary {
+        pub fn new(owner: String) -> Self {
+            Diary {
+                owner,
+                items: vec![],
+            }
+        }
+    }
+    impl PtrMagic for Diary {}
+
+    pub extern "C" fn free_diary(ptr: *mut c_void) {
+        let _ = unsafe { Diary::from_borrow(ptr as *mut Diary) };
+    }
+
+    extern "C" fn add_item(args: pxs_VarT, _opaque: *mut c_void) -> pxs_VarT {
+        // Deref
+        unsafe {
+            let pixel_object_var = pxs_Var::from_borrow(pxs_listget(args, 1));
+            let host_ptr = pixel_object_var.get_host_ptr();
+            let d = Diary::from_borrow(host_ptr as *mut Diary);
+
+            let item = pxs_listget(args, 2);
+            let contents = pxs_getstring(item);
+
+            let str = own_string!(contents);
+
+            d.items.push(str);
+
+            pxs_newnull()
+        }
+    }
+
+    extern "C" fn new_diary(args: pxs_VarT, _op: pxs_Opaque) -> pxs_VarT {
+        unsafe {
+            let p_name = pxs_Var::from_borrow(pxs_listget(args, 1));
+            let p_name = p_name.get_string().unwrap();
+            let p = Diary::new(p_name.clone());
+            let typename = create_raw_string!("Diary");
+
+            let ptr = Diary::into_raw(p) as *mut c_void;
+            let pixel_object = pxs_newobject(ptr, free_diary, typename);
+            let add_item_raw = create_raw_string!("add_item");
+            pxs_object_addfunc(pixel_object, add_item_raw, add_item, _op);
+            // Save...
+            let var = pxs_newhost(pixel_object);
+
+            free_raw_string!(add_item_raw);
+            free_raw_string!(typename);
+            var
+        }
+    }
 
     struct Person {
         name: String,
@@ -248,10 +304,25 @@ mod tests {
         let zero_name = create_raw_string!("ZERO");
         pxs_addfunc(math_module, sub_name, sub_wrapper, ptr::null_mut());
         pxs_addvar(math_module, zero_name, pxs_newint(0));
+        let diary_name = create_raw_string!("Diary");
+        let ddiary_name = create_raw_string!("DDiary");
+        pxs_addobject(math_module, diary_name, new_diary, ptr::null_mut());
+        pxs_addfunc(math_module, sub_name, sub_wrapper, ptr::null_mut());
+        pxs_addvar(math_module, zero_name, pxs_newint(0));
+
+        let args = pxs_newlist();
+        pxs_listadd(args, pxs_newnull());
+        pxs_listadd(args, pxs_Var::new_string("Test".to_string()).into_raw());
+        let obj = new_diary(args, ptr::null_mut());
+
+        pxs_freevar(args);
+        pxs_addvar(math_module, ddiary_name, obj);
 
         pxs_add_submod(module, math_module);
         pxs_addmod(module);
 
+        free_raw_string!(diary_name);
+        free_raw_string!(ddiary_name);
         free_raw_string!(zero_name);
         free_raw_string!(module_name);
         free_raw_string!(add_name);
@@ -275,6 +346,7 @@ mod tests {
         let lua_code = r#"
             local pxs = require('pxs')
             local pxs_math = require('pxs.math')
+            pxs.print("DDiary: " .. tostring(pxs_math.DDiary))
 
             local ft_object = require('pad.ft_object')
             ft_object.function_from_outside()

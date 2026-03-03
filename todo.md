@@ -18,6 +18,7 @@
 
 ## v0.4
 - Lazy Init
+- Deprecate opaque objects. They are not needed because of our HostObject system.
 
 ## LSP
 - Remove ModuleCallbacks just use Function

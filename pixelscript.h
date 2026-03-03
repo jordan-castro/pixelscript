@@ -710,6 +710,20 @@ pxs_Opaque pxs_host_fromidx(int32_t idx);
  */
 pxs_VarT pxs_eval(const char *script, enum pxs_Runtime rt);
 
+/**
+ * Add a variable and set its value to a callback. This is called as a function callback.
+ *
+ * Basically does:
+ * ```python
+ * var_name = callback(args)
+ * ```
+ * At module build. The same is done for all runtimes.
+ */
+void pxs_add_factoryvar(struct pxs_Module *module_ptr,
+                        const char *name,
+                        pxs_Func func,
+                        struct pxs_Var *args);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus

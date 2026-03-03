@@ -55,6 +55,7 @@ mod tests {
     impl PtrMagic for Diary {}
 
     pub extern "C" fn free_diary(ptr: *mut c_void) {
+        println!("DIARY FREED");
         let _ = unsafe { Diary::from_borrow(ptr as *mut Diary) };
     }
 
@@ -341,9 +342,24 @@ mod tests {
         pxs_addobject(math_module, diary_name, new_diary, ptr::null_mut());
         pxs_addfunc(math_module, sub_name, sub_wrapper, ptr::null_mut());
         pxs_addvar(math_module, zero_name, pxs_newint(0));
+        let ddiary_name = create_raw_string!("DDiary");
+        pxs_addobject(math_module, diary_name, new_diary, ptr::null_mut());
+        pxs_addfunc(math_module, sub_name, sub_wrapper, ptr::null_mut());
+        pxs_addvar(math_module, zero_name, pxs_newint(0));
+
+        let args = pxs_newlist();
+        pxs_listadd(args, pxs_newnull());
+        pxs_listadd(args, pxs_Var::new_string("Test".to_string()).into_raw());
+        let obj = new_diary(args, ptr::null_mut());
+
+        pxs_freevar(args);
+        pxs_addvar(math_module, ddiary_name, obj);
+        // pxs_add_varobj()
+
         pxs_add_submod(module, math_module);
         pxs_addmod(module);
 
+        free_raw_string!(ddiary_name);
         free_raw_string!(diary_name);
         free_raw_string!(zero_name);
         free_raw_string!(module_name);
@@ -420,12 +436,14 @@ print(pxs.call_function(get_pi))
         "#;
         let err = PythonScripting::execute(py_code, "<test>");
         assert!(err.is_empty(), "Python Error is not empty: {}", err);
-
+        println!("Here dayo");
         let lua_code = r#"
 local pxs = require('pxs')
 local pxs_math = require('pxs.math')
 
-diary = pxs_math.Diary("Jordan")
+pxs.print("DDiary: " .. tostring(pxs_math.DDiary))
+
+local diary = pxs_math.Diary("Jordan")
 diary:add_item("Yo test dog")
 pxs.print(diary)
 
