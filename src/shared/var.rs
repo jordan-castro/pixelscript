@@ -15,11 +15,10 @@ use std::{
 use anyhow::{Error, anyhow};
 
 use crate::{
-    borrow_string, create_raw_string,
-    shared::{
+    borrow_string, create_raw_string, pxs_debug, shared::{
         PtrMagic,
         object::get_object, pxs_Runtime,
-    },
+    }
 };
 
 /// Macro for writing out the Var:: get methods.
@@ -111,24 +110,45 @@ pub enum pxs_VarType {
 #[allow(non_camel_case_types)]
 pub struct pxs_FactoryHolder {
     pub callback: super::func::pxs_Func,
-    pub args: *mut pxs_Var,
-    pub has_rt: bool
+    pub args: *mut pxs_Var
 }
 
 impl pxs_FactoryHolder {
-    /// Call the callback with args and null ptr
-    pub unsafe fn get_result(&mut self, rt: pxs_Runtime) -> pxs_VarT {
-        let args = unsafe{ pxs_Var::from_borrow(self.args) };
-        let list = args.get_list().unwrap();
-        if !self.has_rt {
-            self.has_rt = true;
-            list.vars.insert(0, pxs_Var::new_i64(rt.into_i64()));
-        } else {
-            list.set_item(pxs_Var::new_i64(rt.into_i64()), 0);
+    /// Get a cloned list of args. This list will include the runtime passed as the
+    /// first item. Returns a owned pxs_Var not a pointer.
+    pub fn get_args(&self, rt: pxs_Runtime) -> pxs_Var {
+        let args = self.args;
+        // Check null
+        assert!(!args.is_null(), "Factory args must not be null");
+        unsafe {
+            // Clone
+            let args_clone = pxs_Var::from_borrow(self.args).clone();
+            // Check list
+            assert!(args_clone.is_list(), "Factory args must be a list");
+            // Get list and add runtime
+            let args_list = args_clone.get_list().unwrap();
+            args_list.vars.insert(0, pxs_Var::new_i64(rt.into_i64()));
+
+            args_clone
         }
-        unsafe { (self.callback)(self.args, std::ptr::null_mut()) }
-    }
+    } 
 }
+// impl pxs_FactoryHolder {
+//     /// Call the callback with args and null ptr
+//     pub unsafe fn get_result(&mut self, rt: pxs_Runtime) -> pxs_VarT {
+//         let args = unsafe{ pxs_Var::from_borrow(self.args) };
+//         let list = args.get_list().unwrap();
+//         if !self.has_rt {
+//             pxs_debug!("Adding the runtime. Current length: {}", list.vars.len());
+//             self.has_rt = true;
+//             list.vars.insert(0, pxs_Var::new_i64(rt.into_i64()));
+//         } else {
+//             pxs_debug!("Resetting the runtime.");
+//             list.set_item(pxs_Var::new_i64(rt.into_i64()), 0);
+//         }
+//         unsafe { (self.callback)(self.args, std::ptr::null_mut()) }
+//     }
+// }
 
 impl PtrMagic for pxs_FactoryHolder {}
 
@@ -294,7 +314,6 @@ impl pxs_Var {
 
     /// Get the direct host pointer. (Not the idx)
     pub fn get_host_ptr(&self) -> *mut c_void {
-        // TODO: type checks
         let object = get_object(self.get_object_ptr()).unwrap();
         object.ptr
     }
@@ -417,8 +436,7 @@ impl pxs_Var {
     pub fn new_factory(func: super::func::pxs_Func, args: pxs_VarT) -> Self {
         let factory = pxs_FactoryHolder {
             callback: func,
-            args,
-            has_rt: false
+            args
         };
         pxs_Var {
             tag: pxs_VarType::pxs_Factory,
@@ -678,8 +696,7 @@ impl Clone for pxs_Var {
                     }
                     let f = pxs_FactoryHolder {
                         args: new_args.into_raw(),
-                        callback: og.callback,
-                        has_rt: og.has_rt
+                        callback: og.callback
                     };
                     pxs_Var {
                         tag: pxs_VarType::pxs_Factory,

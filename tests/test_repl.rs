@@ -142,13 +142,14 @@ mod tests {
                     println!("Arg: {:#?}", arg);
                     // Assume it's a person
                     let arg = pxs_listget(args, 2);
-                    let key = create_raw_string!("_pxs_ptr");
-                    let idx_var = pxs_objectget(pxs_listget(args, 0), arg, key);
-                    let idx = pxs_getint(idx_var);
-                    pxs_freevar(idx_var); 
-                    free_raw_string!(key);
-                    // let idx = pxs_getobject(pxs_listget(args, 2));
-                    let ptr = pxs_host_fromidx(idx as i32);
+                    let ptr = pxs_gethost(pxs_listget(args, 0), arg);
+                    // let key = create_raw_string!("_pxs_ptr");
+                    // let idx_var = pxs_objectget(pxs_listget(args, 0), arg, key);
+                    // let idx = pxs_getint(idx_var);
+                    // pxs_freevar(idx_var); 
+                    // free_raw_string!(key);
+                    // // let idx = pxs_getobject(pxs_listget(args, 2));
+                    // let ptr = pxs_host_fromidx(idx as i32);
                     let np = Person::from_borrow(ptr as *mut Person);
                     np.name.clone()
                 }

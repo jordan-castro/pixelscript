@@ -56,6 +56,7 @@ mod tests {
     impl PtrMagic for Diary {}
 
     pub extern "C" fn free_diary(ptr: *mut c_void) {
+        println!("DIARY FREED");
         let _ = unsafe { Diary::from_borrow(ptr as *mut Diary) };
     }
 
@@ -122,6 +123,7 @@ mod tests {
     impl PtrMagic for Person {}
 
     pub extern "C" fn free_person(ptr: *mut c_void) {
+        println!("PERSON FREED");
         let _ = unsafe { Person::from_borrow(ptr as *mut Person) };
     }
 

@@ -560,13 +560,6 @@ bool pxs_getbool(struct pxs_Var *var);
 char *pxs_getstring(struct pxs_Var *var);
 
 /**
- * Get the pointer of the Host Object
- *
- * This is "potentially" dangerous.
- */
-pxs_Opaque pxs_gethost(struct pxs_Var *var);
-
-/**
  * Check if a variable is of a type.
  */
 bool pxs_varis(struct pxs_Var *var, enum pxs_VarType var_type);
@@ -712,13 +705,6 @@ pxs_VarT pxs_objectget(pxs_VarT runtime, pxs_VarT obj, const char *key);
 bool pxs_objectset(pxs_VarT runtime, pxs_VarT obj, const char *key, pxs_VarT value);
 
 /**
- * Call the opaque pointer of a object based on it's idx from `pxs_getobject`
- * This should only be used when derefing a passed in argument.
- * For `self` use `pxs_listget(args, 1)` and `pxs_gethost`.
- */
-pxs_Opaque pxs_host_fromidx(int32_t idx);
-
-/**
  * Evaluate code. This will return a pxs_Var.
  */
 pxs_VarT pxs_eval(const char *script, enum pxs_Runtime rt);
@@ -734,6 +720,16 @@ pxs_VarT pxs_eval(const char *script, enum pxs_Runtime rt);
  * ```
  */
 pxs_VarT pxs_newfactory(pxs_Func func, struct pxs_Var *args);
+
+/**
+ * Get the HostPointer universally supported for:
+ * - Objects that have `_pxs_ptr` assigned.
+ * - Integers (signed and unsigned)
+ * - HostObjects
+ *
+ * All other types will return NULL.
+ */
+void *pxs_gethost(pxs_VarT runtime, pxs_VarT var);
 
 #ifdef __cplusplus
 }  // extern "C"

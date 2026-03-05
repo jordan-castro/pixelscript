@@ -13,7 +13,7 @@ use std::{
     sync::{Arc, Mutex, OnceLock},
 };
 
-use crate::shared::{PtrMagic, module::ModuleCallback};
+use crate::{pxs_debug, shared::{PtrMagic, module::ModuleCallback}};
 
 pub type FreeMethod = unsafe extern "C" fn(ptr: *mut c_void);
 
@@ -156,6 +156,7 @@ impl Drop for pxs_PixelObject {
         if self.ptr.is_null() {
             return;
         }
+        pxs_debug!("Freeing ptr: {:#?}", self.ptr);
         // Free host memory
         unsafe {
             (self.free_method)(self.ptr);
@@ -166,9 +167,9 @@ impl Drop for pxs_PixelObject {
 /// Lookup state structure
 pub struct ObjectLookup {
     /// Object hash shared between all runtimes.
-    ///
-    /// Negative numbers are valid here.
     pub object_hash: HashMap<i32, Arc<pxs_PixelObject>>,
+    /// next idx avail
+    pub next_idx: i32
 }
 
 /// The object lookup!
@@ -180,14 +181,23 @@ fn get_object_lookup() -> std::sync::MutexGuard<'static, ObjectLookup> {
         .get_or_init(|| {
             Mutex::new(ObjectLookup {
                 object_hash: HashMap::new(),
+                next_idx: 0
             })
         })
         .lock()
         .unwrap()
 }
 
+/// Remove a pxs_Object from the lookup.
+pub(crate) fn clear_object_from_lookup(idx: i32) {
+    let mut lookup = get_object_lookup();
+    pxs_debug!("Clearing object from lookup: {}", idx);
+    lookup.object_hash.remove(&idx);
+}
+
 pub(crate) fn clear_object_lookup() {
     let mut lookup = get_object_lookup();
+    pxs_debug!("Clearing object lookup size: {}", lookup.object_hash.len());
     lookup.object_hash.clear();
 }
 
@@ -195,12 +205,13 @@ pub(crate) fn clear_object_lookup() {
 pub(crate) fn lookup_add_object(pixel_obj: Arc<pxs_PixelObject>) -> i32 {
     let mut lookup = get_object_lookup();
 
-    let idx = lookup.object_hash.len();
+    let idx = lookup.next_idx;
 
     lookup
         .object_hash
         .insert(idx as i32, Arc::clone(&pixel_obj));
 
+    lookup.next_idx += 1;
     idx as i32
 }
 

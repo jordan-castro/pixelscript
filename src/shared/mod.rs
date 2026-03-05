@@ -255,6 +255,7 @@ impl pxs_Runtime {
         }
     }
 
+    /// Gets the runtime from a pxs_Var pointer. The pointer is borrowed.
     pub unsafe fn from_var_ptr(var: *mut pxs_Var) -> Option<Self> {
         let borrow = unsafe { pxs_Var::from_borrow(var) };
         let int_val = borrow.get_i64();

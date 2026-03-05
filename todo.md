@@ -25,13 +25,12 @@
 - Remove ModuleVariables just use PixelVariable {name, var}
 
 ## Functions
-<!-- - Use a Vector for lookup. -->
 - Use VarList instead of argc and argv?
 
 ## Modules
 
 ## Objects
-<!-- - Use a Vector for lookup. -->
+- Drop pxs_Object created from factory in args.
 
 ## Vars
 - Add exceptions

@@ -683,17 +683,17 @@ pub extern "C" fn pxs_getstring(var: *mut pxs_Var) -> *mut c_char {
     }
 }
 
-/// Get the pointer of the Host Object
-///
-/// This is "potentially" dangerous.
-#[unsafe(no_mangle)]
-pub extern "C" fn pxs_gethost(var: *mut pxs_Var) -> pxs_Opaque {
-    if var.is_null() {
-        return ptr::null_mut();
-    }
+// /// Get the pointer of the Host Object
+// ///
+// /// This is "potentially" dangerous.
+// #[unsafe(no_mangle)]
+// pub extern "C" fn pxs_gethost(var: *mut pxs_Var) -> pxs_Opaque {
+//     if var.is_null() {
+//         return ptr::null_mut();
+//     }
 
-    unsafe { pxs_Var::from_borrow(var).get_host_ptr() }
-}
+//     unsafe { pxs_Var::from_borrow(var).get_host_ptr() }
+// }
 
 /// Check if a variable is of a type.
 #[unsafe(no_mangle)]
@@ -1215,23 +1215,23 @@ pub extern "C" fn pxs_objectset(runtime: pxs_VarT, obj: pxs_VarT, key: *const c_
     }
 }
 
-/// Call the opaque pointer of a object based on it's idx from `pxs_getobject`
-/// This should only be used when derefing a passed in argument.
-/// For `self` use `pxs_listget(args, 1)` and `pxs_gethost`.
-#[unsafe(no_mangle)]
-pub extern "C" fn pxs_host_fromidx(idx: i32) -> pxs_Opaque {
-    if idx < 0 {
-        return ptr::null_mut();
-    }
+// /// Call the opaque pointer of a object based on it's idx from `pxs_getobject`
+// /// This should only be used when derefing a passed in argument.
+// /// For `self` use `pxs_listget(args, 1)` and `pxs_gethost`.
+// #[unsafe(no_mangle)]
+// pub extern "C" fn pxs_host_fromidx(idx: i32) -> pxs_Opaque {
+//     if idx < 0 {
+//         return ptr::null_mut();
+//     }
 
-    // Get object
-    let object = get_object(idx);
-    if let Some(object) = object {
-        object.ptr
-    } else {
-        ptr::null_mut()
-    }
-}
+//     // Get object
+//     let object = get_object(idx);
+//     if let Some(object) = object {
+//         object.ptr
+//     } else {
+//         ptr::null_mut()
+//     }
+// }
 
 /// Evaluate code. This will return a pxs_Var.
 #[unsafe(no_mangle)]
@@ -1289,4 +1289,37 @@ pub extern "C" fn pxs_newfactory(
     }
 
     pxs_Var::new_factory(func, args).into_raw()
+}
+
+/// Get the HostPointer universally supported for:
+/// - Objects that have `_pxs_ptr` assigned.
+/// - Integers (signed and unsigned)
+/// - HostObjects
+/// 
+/// All other types will return NULL.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_gethost(runtime: pxs_VarT, var: pxs_VarT) -> *mut c_void {
+    assert_initiated!();
+    if runtime.is_null() || var.is_null() {
+        return ptr::null_mut();
+    }
+
+    let borrow_var = unsafe{pxs_Var::from_borrow(var)};
+    if borrow_var.is_object() {
+        // Check for ptr
+        let key = create_raw_string!("_pxs_ptr");
+        let idx_var = pxs_objectget(runtime, var, key);
+        unsafe{ free_raw_string!(key); }
+        if idx_var.is_null() {
+            return ptr::null_mut();
+        }
+
+        let idx_own = pxs_Var::from_raw(idx_var);
+        idx_own.get_host_ptr()
+    } else if borrow_var.is_i64() || borrow_var.is_u64() || borrow_var.is_host_object() {
+        borrow_var.get_host_ptr()
+    } else {
+        ptr::null_mut()
+    }
+
 }
