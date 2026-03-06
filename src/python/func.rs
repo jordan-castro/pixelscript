@@ -7,9 +7,7 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 use crate::{
-    borrow_string, create_raw_string, free_raw_string,
-    python::{get_fn_idx_from_name, pocketpy, var::pocketpyref_to_var, var_to_pocketpyref},
-    shared::{func::call_function, pxs_Runtime, var::pxs_Var},
+    borrow_string, create_raw_string, free_raw_string, pxs_debug, python::{consume_error, get_fn_idx_from_name, pocketpy, var::pocketpyref_to_var, var_to_pocketpyref}, shared::{func::call_function, pxs_Runtime, var::pxs_Var}
 };
 
 /// Use instead of the py_arg macro.
@@ -28,12 +26,18 @@ pub(super) unsafe fn get_string_from_obj(obj: pocketpy::py_Ref, key: String) -> 
     unsafe {
         let c_key = create_raw_string!(key);
         let pyname = pocketpy::py_name(c_key);
-        pocketpy::py_getattr(obj, pyname);
+        let res = pocketpy::py_getattr(obj, pyname);
+        if res {
         let r0 = pocketpy::py_retval();
         let val = pocketpy::py_tostr(r0);
         let val = borrow_string!(val);
         free_raw_string!(c_key);
         val.to_string().clone()
+        } else {
+            let err = consume_error();
+            pxs_debug!("Python error when trying to get a string from obj: {err}");
+            String::new()
+        }
     }
 }
 

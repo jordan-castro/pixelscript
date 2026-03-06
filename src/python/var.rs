@@ -11,9 +11,7 @@ use std::{ffi::c_void, sync::Arc};
 use crate::{
     borrow_string, create_raw_string, free_raw_string, pxs_debug,
     python::{
-        func::{get_string_from_obj, py_assign},
-        object::create_object,
-        pocketpy::{self},
+        consume_error, func::{get_string_from_obj, py_assign}, object::create_object, pocketpy::{self}
     },
     shared::{
         PtrMagic,
@@ -176,11 +174,11 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
                 let mut pxs_ptrs = vec![];
                 for i in 0..args_list.vars.len() {
                     let arg = &args_list.vars[i];
-                    if arg.is_factory() {
+                    // if arg.is_factory() {
                         let tmp = pocketpy::py_pushtmp();
                         // convert to pocketpy
                         var_to_pocketpyref(tmp, arg, module_name);
-                        // Check if tmp is now a object
+                        // Check if tmp is now a object 
                         if pocketpy::py_isinstance(tmp, pocketpy::py_PredefinedType::tp_object as i16) {
                             pxs_debug!("TMP is a object!");
                             // Get possible ptr
@@ -194,6 +192,10 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
                                     let ptr_val = pocketpy::py_toint(pxs_ptr);
                                     pxs_ptrs.push(ptr_val);
                                 }
+                            } else {
+                                // Carch and print the error. Most likely the error has something to do with
+                                let err = consume_error();
+                                pxs_debug!("ERR in factory to pocketpyref: {err}");
                             }
                             free_raw_string!(ptr_name);
                         }
@@ -205,7 +207,7 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
 
                         // Pop the tmp
                         pocketpy::py_pop();
-                    }
+                    // }
                 }
 
                 let raw_args = args.into_raw();

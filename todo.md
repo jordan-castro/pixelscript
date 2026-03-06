@@ -54,6 +54,7 @@
 ## Python (PocketPy)
 - Make callback global. i.e. one per thread
 - Make object callbacks global. i.e. one per object
+- Add tuple as pxs_List
 
 ## JS
 - add_variable

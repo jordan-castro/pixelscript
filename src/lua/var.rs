@@ -162,7 +162,7 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
                 let mut pxs_ptrs = vec![];
                 for i in 0..args_list.vars.len() {
                     let arg = &args_list.vars[i];
-                    if arg.is_factory() {
+                    // if arg.is_factory() {
                         // Call it!
                         let res = into_lua(lua, arg)?;
                         // Check it is a table
@@ -179,7 +179,7 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
                         let var = from_lua(res).expect("Could not convert lua to pxs");
                         // Save it to args_list
                         args_list.set_item(var, i as i32);
-                    }
+                    // }
                 }
                 // Now call factory
                 let raw_args = args.into_raw();

@@ -15,11 +15,16 @@ use anyhow::anyhow;
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
 use crate::{
-    borrow_string, create_raw_string, free_raw_string, own_string, python::{
+    borrow_string, create_raw_string, free_raw_string, own_string,
+    python::{
         func::pocketpy_bridge,
         module::create_module,
         var::{pocketpyref_to_var, var_to_pocketpyref},
-    }, shared::{PixelScript, read_file, read_file_dir, var::{ObjectMethods, pxs_Var, pxs_VarList}}
+    },
+    shared::{
+        PixelScript, read_file, read_file_dir,
+        var::{ObjectMethods, pxs_Var, pxs_VarList},
+    },
 };
 
 // Allow for the binidngs only
@@ -84,16 +89,26 @@ fn run_py(
         free_raw_string!(c_code);
         free_raw_string!(c_name);
         if !res {
-            let py_res = pocketpy::py_formatexc();
-            let py_res = own_string!(py_res);
-
-            // Clear the exception
-            pocketpy::py_clearexc(std::ptr::null_mut());
-
-            py_res
+            consume_error()
         } else {
             String::new()
         }
+    }
+}
+
+/// Concumes the current py-error/exception and returns it as a string.
+pub(self) fn consume_error() -> String {
+    unsafe {
+        let err = pocketpy::py_formatexc();
+        if err.is_null() {
+            return String::new();
+        }
+
+        let res = own_string!(err);
+
+        // Clear
+        pocketpy::py_clearexc(std::ptr::null_mut());
+        res
     }
 }
 
@@ -282,7 +297,7 @@ impl PixelScript for PythonScripting {
             *(state.thread_idx.borrow_mut()) = idx;
         }
     }
-    
+
     fn clear_state(call_gc: bool) {
         // Drop defined objects
         let state = get_py_state();
@@ -301,17 +316,15 @@ impl PixelScript for PythonScripting {
             }
         }
     }
-    
+
     fn eval(code: &str) -> pxs_Var {
         let res = exec_main_py(code, "eval");
         if res.is_empty() {
-            pocketpyref_to_var(unsafe{ pocketpy::py_retval() })
+            pocketpyref_to_var(unsafe { pocketpy::py_retval() })
         } else {
             pxs_Var::new_string(res)
         }
     }
-
-    
 }
 
 /// Add pxs vars to the stack
@@ -360,10 +373,9 @@ impl ObjectMethods for PythonScripting {
 
             let result_ref = pocketpy::py_retval();
             let final_var = pocketpyref_to_var(result_ref);
-            
+
             Ok(final_var)
         }
-
     }
 
     fn call_method(
@@ -381,7 +393,8 @@ impl ObjectMethods for PythonScripting {
                     global
                 } else {
                     // Then look for a method in current module
-                    let found = pocketpy::py_getattr(pocketpy::py_inspect_currentmodule(), pymethod_name);
+                    let found =
+                        pocketpy::py_getattr(pocketpy::py_inspect_currentmodule(), pymethod_name);
                     if !found {
                         std::ptr::null_mut()
                     } else {
@@ -390,7 +403,7 @@ impl ObjectMethods for PythonScripting {
                 }
             };
             free_raw_string!(method_name);
-            
+
             if pymethod.is_null() {
                 return Ok(pxs_Var::new_null());
             }
@@ -410,11 +423,11 @@ impl ObjectMethods for PythonScripting {
 
             let result_ref = pocketpy::py_retval();
             let final_var = pocketpyref_to_var(result_ref);
-            
+
             Ok(final_var)
         }
     }
-    
+
     fn var_call(method: &pxs_Var, args: &mut pxs_VarList) -> Result<pxs_Var, anyhow::Error> {
         // Make sure it's a function!
         if !method.is_function() {
@@ -442,7 +455,7 @@ impl ObjectMethods for PythonScripting {
 
         unsafe { Ok(pocketpyref_to_var(pocketpy::py_retval())) }
     }
-    
+
     fn get(var: &pxs_Var, key: &str) -> Result<pxs_Var, anyhow::Error> {
         unsafe {
             if var.value.object_val.is_null() {
@@ -460,12 +473,10 @@ impl ObjectMethods for PythonScripting {
             }
 
             // Get value
-            Ok(
-                pocketpyref_to_var(pocketpy::py_retval())
-            )
+            Ok(pocketpyref_to_var(pocketpy::py_retval()))
         }
     }
-    
+
     fn set(var: &pxs_Var, key: &str, value: &pxs_Var) -> Result<pxs_Var, anyhow::Error> {
         unsafe {
             if var.value.object_val.is_null() {
@@ -484,13 +495,10 @@ impl ObjectMethods for PythonScripting {
             let res = pocketpy::py_setattr(object, py_key, tmp);
 
             if !res {
-                return Err(anyhow!("var.{} = {:#?} could not be done.", key, value))
+                return Err(anyhow!("var.{} = {:#?} could not be done.", key, value));
             }
 
-            Ok(
-                pocketpyref_to_var(pocketpy::py_retval())
-            )
+            Ok(pocketpyref_to_var(pocketpy::py_retval()))
         }
     }
-
 }
