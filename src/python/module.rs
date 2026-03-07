@@ -57,6 +57,7 @@ pub(super) fn create_module(module: &pxs_Module) {
         let var_name = var.name.clone();
         let c_var_name = create_raw_string!(var_name);
         let tmp = unsafe { pocketpy::py_pushtmp() };
+        pxs_debug!("|MODULEVARIABLE| {}", var.name);
         var_to_pocketpyref(
             tmp,
             unsafe { pxs_Var::from_borrow(var.var) },

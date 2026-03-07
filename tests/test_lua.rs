@@ -55,7 +55,7 @@ mod tests {
     impl PtrMagic for Diary {}
 
     pub extern "C" fn free_diary(ptr: *mut c_void) {
-        let _ = unsafe { Diary::from_borrow(ptr as *mut Diary) };
+        let _ = unsafe { Diary::from_raw(ptr as *mut Diary) };
     }
 
     extern "C" fn add_item(args: pxs_VarT, _opaque: *mut c_void) -> pxs_VarT {
@@ -117,7 +117,7 @@ mod tests {
     impl PtrMagic for Person {}
 
     pub extern "C" fn free_person(ptr: *mut c_void) {
-        let _ = unsafe { Person::from_borrow(ptr as *mut Person) };
+        let _ = unsafe { Person::from_raw(ptr as *mut Person) };
     }
 
     pub extern "C" fn set_name(

@@ -1295,6 +1295,7 @@ pub extern "C" fn pxs_newfactory(
 /// - Objects that have `_pxs_ptr` assigned.
 /// - Integers (signed and unsigned)
 /// - HostObjects
+/// - Factories (this will call it on the fly.)
 /// 
 /// All other types will return NULL.
 #[unsafe(no_mangle)]
@@ -1305,6 +1306,7 @@ pub extern "C" fn pxs_gethost(runtime: pxs_VarT, var: pxs_VarT) -> *mut c_void {
     }
 
     let borrow_var = unsafe{pxs_Var::from_borrow(var)};
+
     if borrow_var.is_object() {
         // Check for ptr
         let key = create_raw_string!("_pxs_ptr");
@@ -1318,8 +1320,34 @@ pub extern "C" fn pxs_gethost(runtime: pxs_VarT, var: pxs_VarT) -> *mut c_void {
         idx_own.get_host_ptr()
     } else if borrow_var.is_i64() || borrow_var.is_u64() || borrow_var.is_host_object() {
         borrow_var.get_host_ptr()
+    } else if borrow_var.is_factory() {
+        // Get the factory
+        let factory = borrow_var.get_factory().unwrap();
+        // Call the function
+        let res = factory.call(unsafe {pxs_Runtime::from_var_ptr(runtime)}.unwrap());
+        // Now we should have our object, so just call pxs_gethost on it again
+        let res_raw = res.into_raw();
+        let host = pxs_gethost(runtime, res_raw);
+        // Free res_raw
+        let _ = pxs_Var::from_raw(res_raw);
+        // return host
+        host
     } else {
         ptr::null_mut()
     }
 
+}
+
+/// Return a string rep of the `pxs_Var`.
+/// 
+/// String must be freed via `pxs_freestr`.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_debugvar(var: pxs_VarT) -> *mut c_char {
+    if var.is_null() {
+        create_raw_string!("NULL")
+    } else {
+        let borrow_var = unsafe{pxs_Var::from_borrow(var)};
+        let str = format!("{:#?}", borrow_var);
+        create_raw_string!(str)
+    }
 }

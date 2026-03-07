@@ -65,28 +65,6 @@
 - module_add_callback
 - module_add_module
 
-## easyjs
-- add_variable
-- add_callback
-- add_module
-- execute_easyjs
-- module_add_variable
-- module_add_callback
-- module_add_module
-
-## Starlark ([url](https://github.com/facebook/starlark-rust))
-- add_variable
-- add_callback
-- add_module
-- add_object
-- module_add_variable
-- module_add_callback
-- module_add_object
-- object.call
-- custom imports
-- execute_starlark
-
-
 ## Maybes
 - Enums?
 - Removing Strings for internal use. I.e. object ids in Python. Try using i32 instead.

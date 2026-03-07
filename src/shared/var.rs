@@ -131,7 +131,26 @@ impl pxs_FactoryHolder {
 
             args_clone
         }
-    } 
+    }
+
+    /// Call the FactoryHolder function with the args!
+    pub fn call(&self, rt: pxs_Runtime) -> pxs_Var {
+        let args = self.get_args(rt);
+        // Create raw memory that lasts for the direction of this call.
+        let args_raw = args.into_raw();
+
+        let res = unsafe {(self.callback)(args_raw, ptr::null_mut()) };
+        let var = if res.is_null() {
+            pxs_Var::new_null()
+        } else {
+            pxs_Var::from_raw(res)
+        };
+        // Drop raw args memory
+        let _ = pxs_Var::from_raw(args_raw);
+
+        // Return the variable result
+        var
+    }
 }
 // impl pxs_FactoryHolder {
 //     /// Call the callback with args and null ptr
@@ -501,7 +520,7 @@ impl pxs_Var {
     /// Debug struct
     unsafe fn dbg(&self) -> String {
         unsafe {
-            match self.tag {
+            let details = match self.tag {
                 pxs_VarType::pxs_Int64 => self.value.i64_val.to_string(),
                 pxs_VarType::pxs_UInt64 => self.value.u64_val.to_string(),
                 pxs_VarType::pxs_String => borrow_string!(self.value.string_val).to_string(),
@@ -516,13 +535,21 @@ impl pxs_Var {
                 }
                 pxs_VarType::pxs_List => {
                     let list = self.get_list().unwrap();
-                    let t = list.vars.iter().map(|v| v.dbg()).collect();
-                    t
+                    let t: String = list.vars.iter().map(|v| format!("{},", v.dbg())).collect();
+                    format!("[{t}]")
                 }
                 pxs_VarType::pxs_Function => "Function".to_string(),
                 pxs_VarType::pxs_Factory => "Factory".to_string(),
-            }
+            };
+
+            format!("{details} :: {:p}", self)
         }
+    }
+
+    /// Remove the deleter on current pxs_Var.
+    pub fn remove_deleter(mut self) -> Self {
+        self.deleter = Cell::new(default_deleter);
+        self
     }
 
     write_func!(
@@ -566,6 +593,7 @@ unsafe impl Sync for pxs_Var {}
 
 impl Drop for pxs_Var {
     fn drop(&mut self) {
+        pxs_debug!("|psx_Var DROP| {}", unsafe {self.dbg() });
         if self.tag == pxs_VarType::pxs_String {
             unsafe {
                 // Free the mem

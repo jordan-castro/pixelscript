@@ -13,18 +13,36 @@ use mlua::prelude::*;
 
 // Pure Rust goes here
 use crate::{
-    lua::object::create_object, pxs_debug, shared::{
-        PtrMagic, object::{clear_object_from_lookup, get_object}, pxs_Runtime, var::{pxs_Var, pxs_VarType}
-    }
+    lua::object::create_object,
+    pxs_debug,
+    shared::{
+        PtrMagic,
+        object::{clear_object_from_lookup, get_object},
+        pxs_Runtime,
+        var::{pxs_Var, pxs_VarType},
+    },
 };
 
-/// Lua Function for freeing memory
 unsafe extern "C" fn free_lua_mem(ptr: *mut c_void) {
     if ptr.is_null() {
         return;
     }
+    let _ = Box::from(ptr);
+}
+
+/// Lua Function for freeing memory
+unsafe extern "C" fn free_lua_object(ptr: *mut c_void) {
+    if ptr.is_null() {
+        return;
+    }
     unsafe {
-        let _ = Box::from_raw(ptr);
+        let table: LuaTable = *Box::from_raw(ptr as *mut LuaTable);
+        let pxs_ptr: LuaInteger = table.get("_pxs_ptr").unwrap_or(-1);
+        if pxs_ptr >= 0 {
+            // Free it
+            clear_object_from_lookup(pxs_ptr as i32);
+        }
+        // Table gets dropped here
     }
 }
 
@@ -50,7 +68,7 @@ pub(super) fn from_lua(value: LuaValue) -> Result<pxs_Var, anyhow::Error> {
             if t_length == 0 {
                 // Regular table
                 let obj = Box::into_raw(Box::new(t));
-                Ok(pxs_Var::new_object(obj as *mut c_void, Some(free_lua_mem)))
+                Ok(pxs_Var::new_object(obj as *mut c_void, Some(free_lua_object)))
             } else {
                 // It's a list.
                 let mut values = vec![];
@@ -153,50 +171,34 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
             }
         }
         pxs_VarType::pxs_Factory => {
-            unsafe {
-                // Call and return
-                let factory = var.get_factory().unwrap();
-                let args = factory.get_args(pxs_Runtime::pxs_Lua);
-                // Convert factory args to lua and back from lua.
-                let args_list = args.get_list().unwrap();
-                let mut pxs_ptrs = vec![];
-                for i in 0..args_list.vars.len() {
-                    let arg = &args_list.vars[i];
-                    // if arg.is_factory() {
-                        // Call it!
-                        let res = into_lua(lua, arg)?;
-                        // Check it is a table
-                        if res.is_table() {
-                            pxs_debug!("LUA TABLE FOUND FOR FACTORY");
-                            // Get the ptr
-                            let res_table = res.as_table().unwrap();
-                            let pxs_ptr: LuaValue = res_table.get("_pxs_ptr").unwrap_or_default();
-                            if pxs_ptr.is_integer() {
-                                pxs_ptrs.push(pxs_ptr.as_integer().unwrap());
-                            }
-                        }
-                        // Conver it back into pxs
-                        let var = from_lua(res).expect("Could not convert lua to pxs");
-                        // Save it to args_list
-                        args_list.set_item(var, i as i32);
-                    // }
-                }
-                // Now call factory
-                let raw_args = args.into_raw();
-                let fres = (factory.callback)(raw_args, std::ptr::null_mut());
-                let res = pxs_Var::from_borrow(fres);
-                // Free mem
-                let _ = pxs_Var::from_raw(raw_args);
+            // Call and return
+            let factory = var.get_factory().unwrap();
+            let res = factory.call(pxs_Runtime::pxs_Lua);
+            // convert into lua
+            into_lua(lua, &res)
+            // let args = factory.get_args(pxs_Runtime::pxs_Lua);
+            // // Convert factory args to lua and back from lua.
+            // let args_list = args.get_list().unwrap();
+            // for i in 0..args_list.vars.len() {
+            //     let arg = &args_list.vars[i];
+            //     // if arg.is_factory() {
+            //         // Call it!
+            //         let res = into_lua(lua, arg)?;
+            //         // Conver it back into pxs
+            //         let var = from_lua(res).expect("Could not convert lua to pxs");
+            //         // Save it to args_list
+            //         args_list.set_item(var, i as i32);
+            //     // }
+            // }
+            // // Now call factory
+            // let raw_args = args.into_raw();
+            // let fres = (factory.callback)(raw_args, std::ptr::null_mut());
+            // let res = pxs_Var::from_borrow(fres);
+            // // Free mem
+            // let _ = pxs_Var::from_raw(raw_args);
 
-                // free ptrs
-                for ptr in pxs_ptrs {
-                    pxs_debug!("ptr: {ptr}");
-                    clear_object_from_lookup(ptr as i32);
-                }
-                
-                // Return lua res
-                into_lua(lua, res)
-            }
+            // // Return lua res
+            // into_lua(lua, res)
         }
     }
 }

@@ -89,7 +89,7 @@ pub(super) unsafe extern "C" fn pocketpy_bridge(argc: i32, argv: pocketpy::py_St
     // Convert py_Ref into pxs_Var.
     for i in 1..argc {
         let arg_ref = unsafe { py_get_arg(argv, i as usize) };
-        vars.push(pocketpyref_to_var(arg_ref));
+        vars.push(pocketpyref_to_var(arg_ref).remove_deleter());
     }
 
     // Call internal function

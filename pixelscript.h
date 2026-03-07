@@ -726,10 +726,18 @@ pxs_VarT pxs_newfactory(pxs_Func func, struct pxs_Var *args);
  * - Objects that have `_pxs_ptr` assigned.
  * - Integers (signed and unsigned)
  * - HostObjects
+ * - Factories (this will call it on the fly.)
  *
  * All other types will return NULL.
  */
 void *pxs_gethost(pxs_VarT runtime, pxs_VarT var);
+
+/**
+ * Return a string rep of the `pxs_Var`.
+ *
+ * String must be freed via `pxs_freestr`.
+ */
+char *pxs_debugvar(pxs_VarT var);
 
 #ifdef __cplusplus
 }  // extern "C"

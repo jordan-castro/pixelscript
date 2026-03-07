@@ -179,6 +179,7 @@ pub trait PtrMagic: Sized {
 
     /// Safety: Only call this on a pointer created via `into_raw`.
     fn from_raw(ptr: *mut Self) -> Self {
+        assert!(!ptr.is_null(), "Attempted to own a null pointer.");
         unsafe { *Box::from_raw(ptr) }
     }
 

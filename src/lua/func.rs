@@ -28,7 +28,7 @@ pub(super) fn internal_add_callback(lua: &Lua, fn_idx: i32) -> LuaFunction {
         // }
 
         for arg in args {
-            argv.push(from_lua(arg).expect("Could not convert value into Var from Lua."));
+            argv.push(from_lua(arg).expect("Could not convert value into pxs_Var from Lua.").remove_deleter());
         }        
 
         unsafe {

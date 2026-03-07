@@ -21,6 +21,36 @@ use crate::{
     },
 };
 
+/// Python Function for freeing object memory.
+unsafe extern "C" fn free_py_mem(ptr: *mut c_void) {
+    if ptr.is_null() {
+        return;
+    }
+    unsafe {
+        // Deref
+        let pyref = ptr as pocketpy::py_Ref;
+        // Check for _pxs_ptr
+        let name = create_raw_string!("_pxs_ptr");
+        let res = pocketpy::py_getattr(pyref, pocketpy::py_name(name));
+        free_raw_string!(name);
+        if res {
+            let pxs_ptr_ref = pocketpy::py_retval();
+            let pxs_ptr = pocketpy::py_toint(pxs_ptr_ref);
+            clear_object_from_lookup(pxs_ptr as i32);
+        } else {
+            let err = consume_error();
+        }
+        // let table: LuaTable = *Box::from_raw(ptr as *mut LuaTable);
+        // let pxs_ptr: LuaInteger = table.get("_pxs_ptr").unwrap_or(-1);
+        // if pxs_ptr >= 0 {
+            // Free it
+            // clear_object_from_lookup(pxs_ptr as i32);
+        // }
+        // Table gets dropped here
+    }
+}
+
+
 /// Convert a PocketPy ref into a Var
 pub(super) fn pocketpyref_to_var(pref: pocketpy::py_Ref) -> pxs_Var {
     let tp = unsafe { pocketpy::py_typeof(pref) } as i32;
@@ -66,7 +96,7 @@ pub(super) fn pocketpyref_to_var(pref: pocketpy::py_Ref) -> pxs_Var {
         // Just like object, save the raw pointer
         pxs_Var::new_function(pref as *mut c_void, None)
     } else {
-        pxs_Var::new_object(pref as *mut c_void, None)
+        pxs_Var::new_object(pref as *mut c_void, Some(free_py_mem))
     }
 }
 
@@ -167,62 +197,43 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
             pxs_VarType::pxs_Factory => {
                 // Call and return
                 let factory = var.get_factory().unwrap();
-                let args = factory.get_args(pxs_Runtime::pxs_Python);
+                let result = factory.call(pxs_Runtime::pxs_RustPython);
+                pxs_debug!("|FACTORY| result: {:#?}", result);
+                // Convert to pocketpy
+                var_to_pocketpyref(out, &result, module_name);
+                // let args = factory.get_args(pxs_Runtime::pxs_Python);
+                // let args_raw = args.into_raw();
+                // let res = (factory.callback)(args_raw, std::ptr::null_mut());
+                // let _ = pxs_Var::from_raw(args_raw);
                 // Convert Factories to pocketpy and back.
-                let args_list = args.get_list().unwrap();
-                // Ptrs to remove
-                let mut pxs_ptrs = vec![];
-                for i in 0..args_list.vars.len() {
-                    let arg = &args_list.vars[i];
-                    // if arg.is_factory() {
-                        let tmp = pocketpy::py_pushtmp();
-                        // convert to pocketpy
-                        var_to_pocketpyref(tmp, arg, module_name);
-                        // Check if tmp is now a object 
-                        if pocketpy::py_isinstance(tmp, pocketpy::py_PredefinedType::tp_object as i16) {
-                            pxs_debug!("TMP is a object!");
-                            // Get possible ptr
-                            let ptr_name = create_raw_string!("_pxs_ptr");
-                            let res = pocketpy::py_getattr(tmp, pocketpy::py_name(ptr_name));
-                            if res {
-                                pxs_debug!("PXS PTR EXIST!");
-                                let pxs_ptr = pocketpy::py_retval();
-                                if !pxs_ptr.is_null() && pocketpy::py_istype(pxs_ptr, pocketpy::py_PredefinedType::tp_int as i16) {
-                                    pxs_debug!("WAS ABLE TO GET PTR");
-                                    let ptr_val = pocketpy::py_toint(pxs_ptr);
-                                    pxs_ptrs.push(ptr_val);
-                                }
-                            } else {
-                                // Carch and print the error. Most likely the error has something to do with
-                                let err = consume_error();
-                                pxs_debug!("ERR in factory to pocketpyref: {err}");
-                            }
-                            free_raw_string!(ptr_name);
-                        }
+                // let args_list = args.get_list().unwrap();
+                // pxs_debug!("|FACTORY| args_list len: {}", args_list.vars.len());
+                // for i in 0..args_list.vars.len() {
+                //     let arg = &args_list.vars[i];
+                //     // if arg.is_factory() {
+                //         let tmp = pocketpy::py_pushtmp();
+                //         // convert to pocketpy
+                //         var_to_pocketpyref(tmp, arg, module_name);
+                //         // convert back to pxs
+                //         let var = pocketpyref_to_var(tmp);
+                //         pxs_debug!("|FACTORY| var is: {:#?}", var);
+                //         let res = args_list.set_item(var, i as i32);
+                //         pxs_debug!("|FACTORY ARG SET| {}", res);
 
-                        // convert back to pxs
-                        let var = pocketpyref_to_var(tmp);
-                        pxs_debug!("var obj: {:#?}", var);
-                        args_list.set_item(var, i as i32);
+                //         // Pop the tmp
+                //         pocketpy::py_pop();
+                //     // }
+                // }
 
-                        // Pop the tmp
-                        pocketpy::py_pop();
-                    // }
-                }
+                // let raw_args = args.into_raw();
 
-                let raw_args = args.into_raw();
+                // // Now call factory
+                // let raw = (factory.callback)(raw_args, std::ptr::null_mut());
+                // let res = pxs_Var::from_borrow(raw);
+                // var_to_pocketpyref(out, res, module_name);
 
-                // Now call factory
-                let raw = (factory.callback)(raw_args, std::ptr::null_mut());
-                let res = pxs_Var::from_borrow(raw);
-                var_to_pocketpyref(out, res, module_name);
-
-                // Free args
-                let _ = pxs_Var::from_raw(raw_args);
-                // Free ptrs
-                for ptr in pxs_ptrs {
-                    clear_object_from_lookup(ptr as i32);
-                }
+                // // Free args
+                // let _ = pxs_Var::from_raw(raw_args);
             }
         }
     }
