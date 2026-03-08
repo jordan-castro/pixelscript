@@ -235,6 +235,24 @@ unsafe extern "C" fn import_file(arg1: *const std::ffi::c_char) -> *mut std::ffi
     }
 }
 
+/// Do some python setup. This needs to be called for every thread too
+unsafe fn python_setup() {
+    unsafe { setup_module_loader(); }
+
+    // Set a new function (_pxs_items)
+    let python_code = r#"
+def _pxs_items(d):
+    if not type(d) is dict:
+        return []
+    return list(d.items())
+"#;
+
+    let res = exec_main_py(python_code, "<globals>");
+    if !res.is_empty() {
+        panic!("Python setup error: {res}");
+    }
+}
+
 /// This needs to be called in every PKPY VM.
 unsafe fn setup_module_loader() {
     unsafe {
@@ -254,7 +272,8 @@ impl PixelScript for PythonScripting {
             // Create _pxs_globals
             // let pxs_name = create_raw_string!("_pxs_globals");
             // pxs_globals = pocketpy::py_newmodule(pxs_name);
-            setup_module_loader();
+            python_setup();
+            // setup_module_loader();
         }
         // let _s = exec_main_py("1 + 1", "<init>");
         let _state = get_py_state();
@@ -279,7 +298,8 @@ impl PixelScript for PythonScripting {
         unsafe {
             let idx = pocketpy::py_currentvm() + 1;
             pocketpy::py_switchvm(idx);
-            setup_module_loader();
+            python_setup();
+            // setup_module_loader();
             let state = get_py_state();
             *(state.thread_idx.borrow_mut()) = idx;
         }

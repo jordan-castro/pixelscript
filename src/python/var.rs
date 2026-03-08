@@ -11,7 +11,10 @@ use std::{ffi::c_void, sync::Arc};
 use crate::{
     borrow_string, create_raw_string, free_raw_string, pxs_debug,
     python::{
-        consume_error, func::{get_string_from_obj, py_assign}, object::create_object, pocketpy::{self}
+        consume_error,
+        func::{get_string_from_obj, py_assign},
+        object::create_object,
+        pocketpy::{self},
     },
     shared::{
         PtrMagic,
@@ -43,7 +46,6 @@ use crate::{
 //     }
 // }
 
-
 /// Convert a PocketPy ref into a Var
 pub(super) fn pocketpyref_to_var(pref: pocketpy::py_Ref) -> pxs_Var {
     let tp = unsafe { pocketpy::py_typeof(pref) } as i32;
@@ -64,11 +66,14 @@ pub(super) fn pocketpyref_to_var(pref: pocketpy::py_Ref) -> pxs_Var {
         pxs_Var::new_string(r_str)
     } else if tp == pocketpy::py_PredefinedType::tp_NoneType as i32 || pref.is_null() {
         pxs_Var::new_null()
-    } else if tp == pocketpy::py_PredefinedType::tp_list as i32 {
+    } else if tp == pocketpy::py_PredefinedType::tp_list as i32
+        || tp == pocketpy::py_PredefinedType::tp_tuple as i32
+    {
         // We have to get all items in the list
         let mut vars = vec![];
         let ok = unsafe { pocketpy::py_len(pref) };
         if !ok {
+            let _ = consume_error();
             return pxs_Var::new_null();
         }
 
@@ -76,7 +81,12 @@ pub(super) fn pocketpyref_to_var(pref: pocketpy::py_Ref) -> pxs_Var {
         let list_len = unsafe { pocketpy::py_toint(pocketpy::py_retval()) };
 
         for i in 0..list_len {
-            let item = unsafe { pocketpy::py_list_getitem(pref, i as i32) };
+            let item = if tp == pocketpy::py_PredefinedType::tp_list as i32 {
+                unsafe { pocketpy::py_list_getitem(pref, i as i32) }
+            } else {
+                // is tuple
+                unsafe { pocketpy::py_tuple_getitem(pref, i as i32) }
+            };
             if item.is_null() {
                 continue;
             }

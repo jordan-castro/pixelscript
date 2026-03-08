@@ -17,7 +17,7 @@ use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 use std::{cell::RefCell, collections::HashMap};
 
 use crate::{
-    lua::var::{from_lua, into_lua},
+    lua::{self, var::{from_lua, into_lua}},
     shared::{PixelScript, read_file, var::{ObjectMethods, pxs_Var}},
 };
 
@@ -35,8 +35,30 @@ struct State {
 
 /// Initialize Lua state per thread.
 fn init_state() -> State {
+    // Define a global function in engine
+    let engine = Lua::new();
+
+    // Load in the lua_globals methods.
+    let lua_globals = r#"
+function _pxs_items(t)
+    -- Get keys and values of a table and return them 
+    -- as a table list of {{key, item}, ...}
+    local items = {}
+    local keys = {}
+    for key in pairs(t) do
+        table.insert(keys, key)
+    end
+    table.sort(keys) -- Sort keys to ensure consistent order
+    for _, key in ipairs(keys) do
+        table.insert(items, { key, t[key] })
+    end
+    return items
+end
+    "#;
+    engine.load(lua_globals).exec().expect("Could not set lua global functions.");
+
     State {
-        engine: Lua::new(),
+        engine: engine,
         tables: RefCell::new(HashMap::new()),
     }
 }
@@ -157,7 +179,7 @@ impl PixelScript for LuaScripting {
     }
 
     fn stop_thread() {
-        // Run the stop logic.
+        // LUA does not need this.
     }
     
     fn clear_state(call_gc: bool) {

@@ -45,6 +45,7 @@
 
 ## Lua
 - Remove io, os, and hackable modules.
+- Add _pxs_items global
 
 ## Python (rustpython)
 - Eventually look back at this
@@ -53,6 +54,7 @@
 - Make callback global. i.e. one per thread
 - Make object callbacks global. i.e. one per object
 - Add tuple as pxs_List
+- Add _pxs_items global
 
 ## JS
 - add_variable
