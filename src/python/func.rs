@@ -28,11 +28,11 @@ pub(super) unsafe fn get_string_from_obj(obj: pocketpy::py_Ref, key: String) -> 
         let pyname = pocketpy::py_name(c_key);
         let res = pocketpy::py_getattr(obj, pyname);
         if res {
-        let r0 = pocketpy::py_retval();
-        let val = pocketpy::py_tostr(r0);
-        let val = borrow_string!(val);
-        free_raw_string!(c_key);
-        val.to_string().clone()
+            let r0 = pocketpy::py_retval();
+            let val = pocketpy::py_tostr(r0);
+            let val = borrow_string!(val);
+            free_raw_string!(c_key);
+            val.to_string().clone()
         } else {
             let err = consume_error();
             pxs_debug!("Python error when trying to get a string from obj: {err}");
@@ -40,7 +40,6 @@ pub(super) unsafe fn get_string_from_obj(obj: pocketpy::py_Ref, key: String) -> 
         }
     }
 }
-
 
 // /// Use instead of py_setattr
 // pub(super) unsafe fn py_setattr(_self: pocketpy::py_Ref, name: &str, val: pocketpy::py_Ref) {

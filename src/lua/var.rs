@@ -30,21 +30,21 @@ unsafe extern "C" fn free_lua_mem(ptr: *mut c_void) {
     let _ = Box::from(ptr);
 }
 
-/// Lua Function for freeing memory
-unsafe extern "C" fn free_lua_object(ptr: *mut c_void) {
-    if ptr.is_null() {
-        return;
-    }
-    unsafe {
-        let table: LuaTable = *Box::from_raw(ptr as *mut LuaTable);
-        let pxs_ptr: LuaInteger = table.get("_pxs_ptr").unwrap_or(-1);
-        if pxs_ptr >= 0 {
-            // Free it
-            clear_object_from_lookup(pxs_ptr as i32);
-        }
-        // Table gets dropped here
-    }
-}
+// /// Lua Function for freeing memory
+// unsafe extern "C" fn free_lua_object(ptr: *mut c_void) {
+//     if ptr.is_null() {
+//         return;
+//     }
+//     unsafe {
+//         let table: LuaTable = *Box::from_raw(ptr as *mut LuaTable);
+//         let pxs_ptr: LuaInteger = table.get("_pxs_ptr").unwrap_or(-1);
+//         if pxs_ptr >= 0 {
+//             // Free it
+//             clear_object_from_lookup(pxs_ptr as i32);
+//         }
+//         // Table gets dropped here
+//     }
+// }
 
 /// Convert a Lua value to a Var.
 pub(super) fn from_lua(value: LuaValue) -> Result<pxs_Var, anyhow::Error> {
@@ -68,7 +68,7 @@ pub(super) fn from_lua(value: LuaValue) -> Result<pxs_Var, anyhow::Error> {
             if t_length == 0 {
                 // Regular table
                 let obj = Box::into_raw(Box::new(t));
-                Ok(pxs_Var::new_object(obj as *mut c_void, Some(free_lua_object)))
+                Ok(pxs_Var::new_object(obj as *mut c_void, Some(free_lua_mem)))
             } else {
                 // It's a list.
                 let mut values = vec![];

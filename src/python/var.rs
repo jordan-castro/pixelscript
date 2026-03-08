@@ -21,34 +21,27 @@ use crate::{
     },
 };
 
-/// Python Function for freeing object memory.
-unsafe extern "C" fn free_py_mem(ptr: *mut c_void) {
-    if ptr.is_null() {
-        return;
-    }
-    unsafe {
-        // Deref
-        let pyref = ptr as pocketpy::py_Ref;
-        // Check for _pxs_ptr
-        let name = create_raw_string!("_pxs_ptr");
-        let res = pocketpy::py_getattr(pyref, pocketpy::py_name(name));
-        free_raw_string!(name);
-        if res {
-            let pxs_ptr_ref = pocketpy::py_retval();
-            let pxs_ptr = pocketpy::py_toint(pxs_ptr_ref);
-            clear_object_from_lookup(pxs_ptr as i32);
-        } else {
-            let err = consume_error();
-        }
-        // let table: LuaTable = *Box::from_raw(ptr as *mut LuaTable);
-        // let pxs_ptr: LuaInteger = table.get("_pxs_ptr").unwrap_or(-1);
-        // if pxs_ptr >= 0 {
-            // Free it
-            // clear_object_from_lookup(pxs_ptr as i32);
-        // }
-        // Table gets dropped here
-    }
-}
+// /// Python Function for freeing object memory.
+// unsafe extern "C" fn free_py_mem(ptr: *mut c_void) {
+//     if ptr.is_null() {
+//         return;
+//     }
+//     unsafe {
+//         // Deref
+//         let pyref = ptr as pocketpy::py_Ref;
+//         // Check for _pxs_ptr
+//         let name = create_raw_string!("_pxs_ptr");
+//         let res = pocketpy::py_getattr(pyref, pocketpy::py_name(name));
+//         free_raw_string!(name);
+//         if res {
+//             let pxs_ptr_ref = pocketpy::py_retval();
+//             let pxs_ptr = pocketpy::py_toint(pxs_ptr_ref);
+//             clear_object_from_lookup(pxs_ptr as i32);
+//         } else {
+//             let err = consume_error();
+//         }
+//     }
+// }
 
 
 /// Convert a PocketPy ref into a Var
@@ -96,7 +89,7 @@ pub(super) fn pocketpyref_to_var(pref: pocketpy::py_Ref) -> pxs_Var {
         // Just like object, save the raw pointer
         pxs_Var::new_function(pref as *mut c_void, None)
     } else {
-        pxs_Var::new_object(pref as *mut c_void, Some(free_py_mem))
+        pxs_Var::new_object(pref as *mut c_void, None)
     }
 }
 

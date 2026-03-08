@@ -30,12 +30,11 @@
 ## Modules
 
 ## Objects
-- Drop pxs_Object created from factory in args.
+- Drop pxs_Object created from factory when it's no longer needed.
 
 ## Vars
 - Add exceptions
 - Add Map
-- Wrap `pxs_Var` in a rust `Var` that contains the deleter via a Option.
 
 ## STD
 - Add std library via pixelscript runtime. These are optional and handled via features
@@ -45,8 +44,7 @@
     - os
 
 ## Lua
-- Add Object.get
-- Add Object.set
+- Remove io, os, and hackable modules.
 
 ## Python (rustpython)
 - Eventually look back at this

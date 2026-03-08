@@ -593,7 +593,7 @@ unsafe impl Sync for pxs_Var {}
 
 impl Drop for pxs_Var {
     fn drop(&mut self) {
-        pxs_debug!("|psx_Var DROP| {}", unsafe {self.dbg() });
+        // pxs_debug!("|psx_Var DROP| {}", unsafe {self.dbg() });
         if self.tag == pxs_VarType::pxs_String {
             unsafe {
                 // Free the mem
