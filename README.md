@@ -38,10 +38,17 @@ For rust based use I will be adding a Rust wrapper, which is funny because this 
 When including `easyjs` make sure to also include a JavaScript feature otherwise it will not work.
 
 ## CoreLib
-To include the PixelScript core API, add the `include-core` feature.
-| Module name | Module purpose | Languages Type | Notes |
+To include the PixelScript core API, add the `include-core` feature. Or include the specific modules as feature tags.
+| Module name | Module purpose | Notes |
 |-------------|----------------|-------------------|-------|
-| `ps_json`   | Adds JSON encoding, decoding, and .* properties. | Lua(Tree), Python(object), JS(Prototype), easyjs(struct) | Requires a loader function. Set via `pxs_set_file_reader` and a writer function via `pxs_set_file_writer` |
+| `pxs_json`   | Adds JSON encoding, decoding, and .* properties. | Requires a loader function. Set via `pxs_set_file_reader` and a writer function via `pxs_set_file_writer` |
+|`pxs_utils` | Adds helpful functions and objects to the std lib. | Check `pxs_utils` for included functions and objects. |
+
+### pxs_utils
+Overview of what is incldued in `pxs_utils` module.
+| Name | Type | Doc Comment |
+|------|------|-------------|
+|`_pxs_items`|Function(dict/object/tree) -> returns Array[Array(key, value)]| Converts the key and values of a dictionary (python), object (js), tree (lua) into a list of key,value items.|
 
 <!-- ### Examples
 `ps_json` In lua

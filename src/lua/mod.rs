@@ -18,7 +18,7 @@ use std::{cell::RefCell, collections::HashMap};
 
 use crate::{
     lua::{self, var::{from_lua, into_lua}},
-    shared::{PixelScript, read_file, var::{ObjectMethods, pxs_Var}},
+    shared::{PixelScript, read_file, var::{ObjectMethods, pxs_Var}}, with_feature,
 };
 
 thread_local! {
@@ -38,8 +38,9 @@ fn init_state() -> State {
     // Define a global function in engine
     let engine = Lua::new();
 
-    // Load in the lua_globals methods.
-    let lua_globals = r#"
+    with_feature!("pxs_utils", {
+        // Load in the lua_globals methods.
+        let lua_globals = r#"
 function _pxs_items(t)
     -- Get keys and values of a table and return them 
     -- as a table list of {{key, item}, ...}
@@ -54,8 +55,9 @@ function _pxs_items(t)
     end
     return items
 end
-    "#;
-    engine.load(lua_globals).exec().expect("Could not set lua global functions.");
+        "#;
+        engine.load(lua_globals).exec().expect("Could not set lua global functions.");
+    });
 
     State {
         engine: engine,

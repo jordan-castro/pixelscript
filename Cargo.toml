@@ -1,6 +1,6 @@
 [package]
 name = "pixelscript"
-version = "0.4.6"
+version = "0.4.7"
 edition = "2024"
 license = "Apache-2.0"
 authors = ["Jordan Castro jordan@grupojvm.com"]
@@ -35,8 +35,13 @@ php = []
 # Include Python scripting. via rustpython
 # rustpython = ["dep:rustpython-vm", "dep:rustpython-compiler"]
 
-# Include core libs like pxs-json, pxs-io, pxs-os
-include-core = []
+# Core libs
+pxs_utils = []
+# Include all core libs
+include-core = [
+    "pxs_utils"
+]
+
 
 # Compile pixel script to debug in a "release" enviroment
 pxs-debug = []

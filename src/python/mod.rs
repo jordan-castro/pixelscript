@@ -24,7 +24,7 @@ use crate::{
     shared::{
         PixelScript, read_file, read_file_dir,
         var::{ObjectMethods, pxs_Var, pxs_VarList},
-    },
+    }, with_feature,
 };
 
 // Allow for the binidngs only
@@ -239,18 +239,20 @@ unsafe extern "C" fn import_file(arg1: *const std::ffi::c_char) -> *mut std::ffi
 unsafe fn python_setup() {
     unsafe { setup_module_loader(); }
 
-    // Set a new function (_pxs_items)
-    let python_code = r#"
+    with_feature!("pxs_utils", {
+        // Set a new function (_pxs_items)
+        let python_code = r#"
 def _pxs_items(d):
     if not type(d) is dict:
         return []
     return list(d.items())
 "#;
 
-    let res = exec_main_py(python_code, "<globals>");
-    if !res.is_empty() {
-        panic!("Python setup error: {res}");
-    }
+        let res = exec_main_py(python_code, "<pxs_utils>");
+        if !res.is_empty() {
+            panic!("Python setup error: {res}");
+        }
+    });
 }
 
 /// This needs to be called in every PKPY VM.
