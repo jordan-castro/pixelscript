@@ -352,6 +352,7 @@ pub extern "C" fn pxs_newobject(
 pub extern "C" fn pxs_object_addfunc(
     object_ptr: *mut pxs_PixelObject,
     name: *const c_char,
+    is_id: bool,
     callback: pxs_Func,
     opaque: pxs_Opaque,
 ) {
@@ -369,7 +370,7 @@ pub extern "C" fn pxs_object_addfunc(
     let full_name = format!("_{}{}", object_borrow.type_name, name_borrow);
     let idx = lookup_add_function(full_name.as_str(), callback, opaque);
 
-    object_borrow.add_callback(name_borrow, full_name.as_str(), idx);
+    object_borrow.add_callback(name_borrow, full_name.as_str(), idx, is_id);
 }
 
 /// Add a object to a Module.

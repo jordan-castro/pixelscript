@@ -158,7 +158,7 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
                             name
                         }
                     };
-                    pxs_debug!("Full module path: {obj_module_name}");
+                    // pxs_debug!("Full module path: {obj_module_name}");
                     // Create the object for the first time...
                     create_object(idx, Arc::clone(&pixel_object), &obj_module_name);
                     // Get py_retval
@@ -201,7 +201,7 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
                 // Call and return
                 let factory = var.get_factory().unwrap();
                 let result = factory.call(pxs_Runtime::pxs_RustPython);
-                pxs_debug!("|FACTORY| result: {:#?}", result);
+                // pxs_debug!("|FACTORY| result: {:#?}", result);
                 // Convert to pocketpy
                 var_to_pocketpyref(out, &result, module_name);
                 // let args = factory.get_args(pxs_Runtime::pxs_Python);

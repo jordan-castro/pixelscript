@@ -136,7 +136,7 @@ unsafe impl Sync for ModuleVariable {}
 
 impl Drop for pxs_Module {
     fn drop(&mut self) {
-        pxs_debug!("Drop triggered for Module: {}", self.name);
+        // pxs_debug!("Drop triggered for Module: {}", self.name);
         // pxs_debug!("Stack trace: {}", Backtrace::force_capture());
 
         for var in self.variables.drain(0..self.variables.len()) {

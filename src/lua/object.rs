@@ -10,11 +10,11 @@ use std::sync::Arc;
 
 use crate::{
     lua::{from_lua, get_metatable, into_lua, store_metatable},
-    shared::{pxs_Runtime, func::call_function, object::pxs_PixelObject, var::pxs_Var},
+    shared::{func::call_function, object::pxs_PixelObject, pxs_Runtime, var::pxs_Var},
 };
 use mlua::prelude::*;
 
-fn create_object_callback(lua: &Lua, fn_idx: i32) -> LuaFunction {
+fn create_object_callback(lua: &Lua, fn_idx: i32, is_id: bool) -> LuaFunction {
     lua.create_function(
         move |lua, (internal_obj, args): (LuaTable, LuaMultiValue)| {
             let mut argv = vec![];
@@ -22,14 +22,21 @@ fn create_object_callback(lua: &Lua, fn_idx: i32) -> LuaFunction {
             // Add runtime
             argv.push(pxs_Var::new_i64(pxs_Runtime::pxs_Lua as i64));
 
-            // Get obj id
-            let obj_id: i64 = internal_obj
-                .get("_pxs_ptr")
-                .expect("Could not grab ID from Object.");
+            // Check whether to pass id or not
+            if (is_id) {
+                // Get obj id
+                let obj_id: i64 = internal_obj
+                    .get("_pxs_ptr")
+                    .expect("Could not grab ID from Object.");
 
-            // Add object id
-            argv.push(pxs_Var::new_i64(obj_id));
-
+                // Add object id
+                argv.push(pxs_Var::new_i64(obj_id));
+            } else {
+                argv.push(
+                    from_lua(internal_obj.to_value())
+                        .expect("Could not convert object into lua value."),
+                );
+            }
             // Add args
             for arg in args {
                 argv.push(from_lua(arg).expect("Could not convert Lua Value into Var."));
@@ -64,8 +71,8 @@ pub(super) fn create_object(lua: &Lua, idx: i32, source: Arc<pxs_PixelObject>) -
         let mt = lua.create_table().expect("Could not create Metatable");
         // Add methods
         for method in source.callbacks.iter() {
-            let func = create_object_callback(lua, method.idx);
-            mt.set(method.name.clone(), func)
+            let func = create_object_callback(lua, method.cbk.idx, method.is_id);
+            mt.set(method.cbk.name.clone(), func)
                 .expect("Could not set method");
         }
 

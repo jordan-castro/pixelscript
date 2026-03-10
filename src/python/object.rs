@@ -28,9 +28,9 @@ fn save_object_function(name: &str, idx: i32, module_name: &str) -> String {
     unsafe {
         let scope = pocketpy::py_getmodule(c_main);
 
-        if scope.is_null() {
-            pxs_debug!("scope is null for : {module_name}");
-        }
+        // if scope.is_null() {
+        //     pxs_debug!("scope is null for : {module_name}");
+        // }
 
         pocketpy::py_bindfunc(scope, c_name, Some(pocketpy_bridge));
         free_raw_string!(c_main);
@@ -44,7 +44,7 @@ fn save_object_function(name: &str, idx: i32, module_name: &str) -> String {
 /// idx: is the saved object.
 /// source: is the object methods
 pub(super) fn create_object(idx: i32, source: Arc<pxs_PixelObject>, module_name: &str) {
-    pxs_debug!("create_object start for idx: {idx}, type_name: {} in moudule: {module_name}", source.type_name);
+    // pxs_debug!("create_object start for idx: {idx}, type_name: {} in moudule: {module_name}", source.type_name);
     let rmodule_name = module_name.to_string().clone();
     // Create the module if it does not already exist
     unsafe {
@@ -59,15 +59,15 @@ pub(super) fn create_object(idx: i32, source: Arc<pxs_PixelObject>, module_name:
     // Check if object is defined.
     let obj_exists = is_object_defined(&object_name);
     if obj_exists {
-        pxs_debug!("Object is alredy defined!");
+        // pxs_debug!("Object is alredy defined!");
         let eval_err = eval_py(
             format!("_{}({})", object_name, idx).as_str(),
             format!("<create_{}>", &object_name).as_str(),
             module_name,
         );
-        if eval_err.len() > 0 {
-            pxs_debug!("Eval err: \"{eval_err}\"");
-        }
+        // if eval_err.len() > 0 {
+        //     pxs_debug!("Eval err: \"{eval_err}\"");
+        // }
         return;
     }
 
@@ -75,18 +75,23 @@ pub(super) fn create_object(idx: i32, source: Arc<pxs_PixelObject>, module_name:
     // First register callbacks
     let mut methods_str = String::new();
     for method in source.callbacks.iter() {
-        let method_name = format!("{}{}", object_name, method.name);
-        pxs_debug!("Adding method name: {method_name}");
+        let method_name = format!("{}{}", object_name, method.cbk.name);
+        // pxs_debug!("Adding method name: {method_name}");
         // let private_name = make_private(&method.name);
-        let private_name = save_object_function(&method_name, method.idx, module_name);
+        let private_name = save_object_function(&method_name, method.cbk.idx, module_name);
+        let input = if method.is_id {
+            "._pxs_ptr"
+        } else {
+            ""
+        };
         methods_str.push_str(
             format!(
                 r#"
     def {}(self, *args):
-        return {}('{}', self._pxs_ptr, *args)
+        return {}('{}', self{}, *args)
         
 "#,
-                method.name, private_name, method_name
+                method.cbk.name, private_name, method_name, input
             )
             .as_str(),
         );

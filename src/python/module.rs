@@ -22,7 +22,7 @@ pub(super) fn create_module(module: &pxs_Module) {
     // Get module name
     let module_name = module.name.clone();
 
-    pxs_debug!("Creating module for: {module_name}");
+    // pxs_debug!("Creating module for: {module_name}");
 
     // Create module
     let c_module_name = create_raw_string!(module_name.clone());
@@ -36,9 +36,9 @@ pub(super) fn create_module(module: &pxs_Module) {
         }
     };
 
-    if pymodule.is_null() {
-        pxs_debug!("module is null");
-    }
+    // if pymodule.is_null() {
+    //     pxs_debug!("module is null");
+    // }
 
     // let mut variables = vec![];
     // variables.extend(module.variables.iter().cloned());
@@ -57,7 +57,7 @@ pub(super) fn create_module(module: &pxs_Module) {
         let var_name = var.name.clone();
         let c_var_name = create_raw_string!(var_name);
         let tmp = unsafe { pocketpy::py_pushtmp() };
-        pxs_debug!("|MODULEVARIABLE| {}", var.name);
+        // pxs_debug!("|MODULEVARIABLE| {}", var.name);
         var_to_pocketpyref(
             tmp,
             unsafe { pxs_Var::from_borrow(var.var) },

@@ -17,6 +17,13 @@ use crate::{pxs_debug, shared::{PtrMagic, module::ModuleCallback}};
 
 pub type FreeMethod = unsafe extern "C" fn(ptr: *mut c_void);
 
+pub struct ObjectCallback {
+    /// The internal callback structure (same as module.)
+    pub cbk: ModuleCallback,
+    /// Whether or not this callback takes in the ID or the actual reference.
+    pub is_id: bool
+}
+
 /// A PixelScript Object.
 ///
 /// The way this works is via the host, a Pseudo type can be created. So when the scripting
@@ -98,7 +105,7 @@ pub struct pxs_PixelObject {
     /// Important to note that a PixelObject can not have `static` callbacks.
     ///
     /// The first Var will always be the ptr.
-    pub callbacks: Vec<ModuleCallback>,
+    pub callbacks: Vec<ObjectCallback>,
     // PixelObject does not hold variables. They are all getters/setters
 }
 
@@ -114,12 +121,14 @@ impl pxs_PixelObject {
         }
     }
 
-    pub fn add_callback(&mut self, name: &str, full_name: &str, idx: i32) {
-        self.callbacks.push(ModuleCallback {
+    pub fn add_callback(&mut self, name: &str, full_name: &str, idx: i32, is_id: bool) {
+        self.callbacks.push(
+            ObjectCallback {
+                cbk: ModuleCallback {
             name: name.to_string(),
             full_name: full_name.to_string(),
             idx,
-        });
+        }, is_id});
     }
 
     pub fn update_lang_ptr(&self, n_ptr: *mut c_void) {
@@ -156,7 +165,7 @@ impl Drop for pxs_PixelObject {
         if self.ptr.is_null() {
             return;
         }
-        pxs_debug!("Freeing ptr: {:#?}", self.ptr);
+        // pxs_debug!("Freeing ptr: {:#?}", self.ptr);
         // Free host memory
         unsafe {
             (self.free_method)(self.ptr);

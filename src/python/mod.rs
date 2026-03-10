@@ -15,16 +15,14 @@ use anyhow::anyhow;
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
 use crate::{
-    borrow_string, create_raw_string, free_raw_string, own_string,
-    python::{
-        func::pocketpy_bridge,
+    borrow_string, create_raw_string, free_raw_string, own_string, pxs_debug, python::{
+        func::{get_string_from_obj, pocketpy_bridge},
         module::create_module,
         var::{pocketpyref_to_var, var_to_pocketpyref},
-    },
-    shared::{
+    }, shared::{
         PixelScript, read_file, read_file_dir,
         var::{ObjectMethods, pxs_Var, pxs_VarList},
-    }, with_feature,
+    }, with_feature
 };
 
 // Allow for the binidngs only
@@ -414,10 +412,14 @@ impl ObjectMethods for PythonScripting {
                 if !global.is_null() {
                     global
                 } else {
+                    let cmod = pocketpy::py_inspect_currentmodule();
                     // Then look for a method in current module
                     let found =
-                        pocketpy::py_getattr(pocketpy::py_inspect_currentmodule(), pymethod_name);
+                        pocketpy::py_getattr(cmod, pymethod_name);
                     if !found {
+                        let err = consume_error();
+                        let cmod_name = get_string_from_obj(cmod, "__name__".to_string());
+                        pxs_debug!("Error in python::call_method: {err} {cmod_name}");
                         std::ptr::null_mut()
                     } else {
                         pocketpy::py_retval()
@@ -451,6 +453,7 @@ impl ObjectMethods for PythonScripting {
     }
 
     fn var_call(method: &pxs_Var, args: &mut pxs_VarList) -> Result<pxs_Var, anyhow::Error> {
+        pxs_debug!("PYTHON VAR CALL IS GETTING CALLED");
         // Make sure it's a function!
         if !method.is_function() {
             return Err(anyhow!("Expected Function, found: {:#?}", method.tag));
@@ -472,6 +475,8 @@ impl ObjectMethods for PythonScripting {
         // Call it via vectrocall
         let ok = unsafe { pocketpy::py_vectorcall(args.vars.len() as u16, 0) };
         if !ok {
+            let err = consume_error();
+            pxs_debug!("calling function failed. Error: {err}");
             return Ok(pxs_Var::new_null());
         }
 

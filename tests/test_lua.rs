@@ -61,8 +61,8 @@ mod tests {
     extern "C" fn add_item(args: pxs_VarT, _opaque: *mut c_void) -> pxs_VarT {
         // Deref
         unsafe {
-            let pixel_object_var = pxs_Var::from_borrow(pxs_listget(args, 1));
-            let host_ptr = pixel_object_var.get_host_ptr();
+            let pixel_object_var = pxs_listget(args, 1);
+            let host_ptr = pxs_gethost(pxs_listget(args, 0), pixel_object_var);
             let d = Diary::from_borrow(host_ptr as *mut Diary);
 
             let item = pxs_listget(args, 2);
@@ -86,7 +86,7 @@ mod tests {
             let ptr = Diary::into_raw(p) as *mut c_void;
             let pixel_object = pxs_newobject(ptr, free_diary, typename);
             let add_item_raw = create_raw_string!("add_item");
-            pxs_object_addfunc(pixel_object, add_item_raw, add_item, _op);
+            pxs_object_addfunc(pixel_object, add_item_raw, false, add_item, _op);
             // Save...
             let var = pxs_newhost(pixel_object);
 
@@ -126,8 +126,8 @@ mod tests {
     ) -> *mut pxs_Var {
         unsafe {
             // Get ptr
-            let pixel_object_var = pxs_Var::from_borrow(pxs_listget(args, 1));
-            let host_ptr = pixel_object_var.get_host_ptr();
+            let pixel_object_var = pxs_listget(args, 1);
+            let host_ptr = pxs_gethost(pxs_listget(args, 0), pixel_object_var);
             let p = Person::from_borrow(host_ptr as *mut Person);
 
             // Check if first arg is self or nme
@@ -152,8 +152,8 @@ mod tests {
     ) -> *mut pxs_Var {
         unsafe {
             // Get ptr
-            let pixel_object_var = pxs_Var::from_borrow(pxs_listget(args, 1));
-            let host_ptr = pixel_object_var.get_host_ptr();
+            let pixel_object_var = pxs_listget(args, 1);
+            let host_ptr = pxs_gethost(pxs_listget(args, 0), pixel_object_var);
             let p = Person::from_borrow(host_ptr as *mut Person);
 
             pxs_Var::new_string(p.get_name().clone()).into_raw()
@@ -174,8 +174,8 @@ mod tests {
             let pixel_object = pxs_newobject(ptr, free_person, type_name);
             let set_name_raw = create_raw_string!("set_name");
             let get_name_raw = create_raw_string!("get_name");
-            pxs_object_addfunc(pixel_object, set_name_raw, set_name, opaque);
-            pxs_object_addfunc(pixel_object, get_name_raw, get_name, opaque);
+            pxs_object_addfunc(pixel_object, set_name_raw, false, set_name, opaque);
+            pxs_object_addfunc(pixel_object, get_name_raw, false, get_name, opaque);
             // Save...
             let var = pxs_newhost(pixel_object);
 

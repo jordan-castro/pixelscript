@@ -48,7 +48,8 @@ if len(sys.argv) > 0:
 
 target = ""
 rtarget = ""
-features = ["--no-default-features"]
+features = ["--no-default-features", "--features", "python,lua,php"]
+run_clear = False
 
 for arg in argv:
     if "target" in arg:
@@ -58,18 +59,21 @@ for arg in argv:
     elif "features" in arg:
         # Split features
         features_ = arg.split("=")[-1]
-        features += ["--features", f'{features_}']
+        features[2] += "," + features_
+    elif arg == "clear":
+        run_clear = True
+
 
 # Build in release mode
 cmd = ["cargo", "build", "--release"]
 # Grab target and features if passed
 if target:
     cmd += [target]
-if len(features) > 1:
-    cmd += features
+cmd += features
 
-# Run cargo clean before building
-subprocess.call(["cargo", "clean"])
+if run_clear:
+    # Run cargo clean before building
+    subprocess.call(["cargo", "clean"])
 
 print(" ".join(cmd))
 subprocess.call(cmd)

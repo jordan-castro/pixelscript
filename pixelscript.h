@@ -421,6 +421,7 @@ struct pxs_PixelObject *pxs_newobject(pxs_Opaque ptr,
  */
 void pxs_object_addfunc(struct pxs_PixelObject *object_ptr,
                         const char *name,
+                        bool is_id,
                         pxs_Func callback,
                         pxs_Opaque opaque);
 
