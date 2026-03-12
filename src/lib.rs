@@ -261,7 +261,7 @@ pub extern "C" fn pxs_addvar(
 
     if name.is_null() {
         return;
-    } 
+    }
 
     let module = unsafe { pxs_Module::from_borrow(module_ptr) };
     let name_str = borrow_string!(name);
@@ -375,7 +375,7 @@ pub extern "C" fn pxs_object_addfunc(
 
 /// Add a object to a Module.
 ///
-/// This essentially makes it so that when constructing this Module, this object is instanced. 
+/// This essentially makes it so that when constructing this Module, this object is instanced.
 /// This works by adding a public factory function with the type name. But the type name
 /// is mangled (_module_typename).
 ///
@@ -397,7 +397,7 @@ pub extern "C" fn pxs_object_addfunc(
 /// # use '.' instead of ':'
 /// # etc
 /// ```
-/// 
+///
 /// In JS the same as Python and Lua:
 /// ```js
 /// let p = Person("Jordan", 23);
@@ -760,7 +760,7 @@ pub extern "C" fn pxs_stopthread() {
 }
 
 /// Clear the current threads state for all languages.
-/// 
+///
 /// Optionally, if you want to run the garbage collector.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_clearstate(gc_collect: bool) {
@@ -775,7 +775,7 @@ pub extern "C" fn pxs_clearstate(gc_collect: bool) {
     });
     with_feature!("python", {
         PythonScripting::clear_state(gc_collect);
-    }); 
+    });
 }
 
 /// Call a method within a specifed runtime.
@@ -1155,7 +1155,7 @@ pub extern "C" fn pxs_objectget(runtime:pxs_VarT, obj: pxs_VarT, key: *const c_c
 }
 
 /// Call a objects setter.
-/// 
+///
 /// value ownership is transfered.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_objectset(runtime: pxs_VarT, obj: pxs_VarT, key: *const c_char, value: pxs_VarT) -> bool {
@@ -1246,9 +1246,9 @@ pub extern "C" fn pxs_eval(script: *const c_char, rt: pxs_Runtime) -> pxs_VarT {
 }
 
 /// Add a factory variable. This variable will be instantiated once at module startup.
-/// 
+///
 /// Args should not contain runtime. It gets added automatically.
-/// 
+///
 /// Basically does:
 /// ```python
 /// var_name = callback(args)
@@ -1277,7 +1277,7 @@ pub extern "C" fn pxs_newfactory(
 /// - Integers (signed and unsigned)
 /// - HostObjects
 /// - Factories (this will call it on the fly.)
-/// 
+///
 /// All other types will return NULL.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_gethost(runtime: pxs_VarT, var: pxs_VarT) -> *mut c_void {
@@ -1320,7 +1320,7 @@ pub extern "C" fn pxs_gethost(runtime: pxs_VarT, var: pxs_VarT) -> *mut c_void {
 }
 
 /// Return a string rep of the `pxs_Var`.
-/// 
+///
 /// String must be freed via `pxs_freestr`.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_debugvar(var: pxs_VarT) -> *mut c_char {

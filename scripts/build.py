@@ -48,7 +48,7 @@ if len(sys.argv) > 0:
 
 target = ""
 rtarget = ""
-features = ["--no-default-features", "--features", "python,lua,php"]
+features = ["--no-default-features", "--features", "python,lua"]
 run_clear = False
 
 for arg in argv:

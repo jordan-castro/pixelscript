@@ -404,23 +404,41 @@ impl ObjectMethods for PythonScripting {
     ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
         // Convert methods to pocketpy
         let method_name = create_raw_string!(method);
+        pxs_debug!("Calling call_method in Python");
         unsafe {
             let pymethod_name = pocketpy::py_name(method_name);
             let pymethod = {
                 // Try a builtin first
                 let global = pocketpy::py_getbuiltin(pymethod_name);
                 if !global.is_null() {
+                    pxs_debug!("Global was found");
                     global
                 } else {
+                    pxs_debug!("Global was not found");
+                    // Look for in current module
                     let cmod = pocketpy::py_inspect_currentmodule();
                     // Then look for a method in current module
                     let found =
                         pocketpy::py_getattr(cmod, pymethod_name);
                     if !found {
-                        let err = consume_error();
-                        let cmod_name = get_string_from_obj(cmod, "__name__".to_string());
-                        pxs_debug!("Error in python::call_method: {err} {cmod_name}");
-                        std::ptr::null_mut()
+                        pxs_debug!("Did not foud function {method} in current module");
+                        // Consume the error (we don't care about it anymore)
+                        let _ = consume_error();
+                        // Check in __main__
+                        let main_name = create_raw_string!("__main__");
+                        let main_module = pocketpy::py_getmodule(main_name);
+                        // Check here too!
+                        let found = pocketpy::py_getattr(main_module, pymethod_name);
+                        let res= if found {
+                            pocketpy::py_retval()
+                        } else {
+                            let err = consume_error();
+                            pxs_debug!("Function: {method}, not found in globals, current mod, OR __main__. Err is: {err}");
+                            std::ptr::null_mut()
+                        };
+                        free_raw_string!(main_name);
+
+                        res
                     } else {
                         pocketpy::py_retval()
                     }

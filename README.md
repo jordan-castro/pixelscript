@@ -10,12 +10,11 @@ Because most games pick only one language for scripting. PixelScript gives modde
 - Performance? Go with Lua.
 - Data/science/prototyping? Choose Python.
 - Web developers? You got JavaScript.
-- Love easyjs? You got it!
 
 Each language runtime uses the same PixelScript bindings.
 
 ## Version
-pixelscript crate is currently at version 0.2.0.
+pixelscript crate is currently at version 0.4.8.
 
 ## How to use
 To use Pixel Script, you will have to clone this repository.
@@ -30,7 +29,6 @@ For rust based use I will be adding a Rust wrapper, which is funny because this 
 | `lua`            | Lua               | mlua                  | Fast, battle-tested, v5.4       |
 | `python`         | Python            | pocketpy              | Requires MSVC on Windows        |
 | `js`             | JavaScript        | rquickjs              | Quickjs, C library              |
-| `easyjs`         | EasyJS            | easyjsc               | Requires a JS feature           |
 | `php`            | PHP               | PH7                   | Only supports v5.3 and the engine is not maintained anymore |
 | `rustpython`     | Python (CPython compatible)    | rustpython              | Larger binary, Full Python library support, currently leaking memory.                  |
 <!-- | `js-quick`       | JavaScript        | rquickjs              | QuickJS, more complete          | -->

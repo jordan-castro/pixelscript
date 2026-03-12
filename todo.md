@@ -16,9 +16,13 @@
 
 - Add a LSP
 
-## v0.4
+## v0.5
 - Lazy Init
 - Deprecate opaque objects. They are not needed because of our HostObject system.
+- Reference counting for PixelScript object
+
+## v0.6
+- pxs DSL
 
 ## LSP
 - Remove ModuleCallbacks just use Function

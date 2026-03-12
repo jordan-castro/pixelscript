@@ -11,21 +11,24 @@
 #[cfg(test)]
 mod tests {
     use pixelscript::{
-        create_raw_string, free_raw_string, own_string, pxs_Opaque, pxs_addfunc, pxs_addmod, pxs_call, pxs_execlua, pxs_execpython, pxs_finalize, pxs_initialize, pxs_listadd, pxs_listget, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, shared::var::pxs_VarT
+        create_raw_string, free_raw_string, own_string, pxs_Opaque, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_execlua, pxs_execpython, pxs_finalize, pxs_freevar, pxs_getint, pxs_initialize, pxs_listadd, pxs_listget, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, shared::var::pxs_VarT
     };
 
     extern "C" fn anything(args: pxs_VarT, _op: pxs_Opaque) -> pxs_VarT {
         let mn = create_raw_string!("add");
-        let iargs =pxs_newlist();
+        let iargs = pxs_newlist();
         pxs_listadd(iargs, pxs_newint(1));
         pxs_listadd(iargs, pxs_newint(2));
-        pxs_call(pxs_listget(args, 0), mn, iargs);
+        let res = pxs_call(pxs_listget(args, 0), mn, iargs);
+        
+        assert!(pxs_getint(res) == 3, "We could not run the add function");
+        pxs_freevar(res);
         unsafe {free_raw_string!(mn); }
         return pxs_newnull();
     }
 
     #[test]
-    fn test_globals() {
+    fn test_call() {
         pxs_initialize();
 
         let mod_name = create_raw_string!("pxs");

@@ -32,6 +32,8 @@ fn build_ph7() {
     if builder == "msvc" {
         build.flag("/Ox");
         build.flag("/fp:fast");
+        // Compile as a static lib
+        build.static_crt(true);
     } else {
         // GCC/Clang
         build.flag("-Wunused");
@@ -85,6 +87,8 @@ fn build_pocketpy() {
     if builder == "msvc" {
         build.flag("/utf-8");
         build.flag("/experimental:c11atomics");
+        // Compile as a static lib
+        build.static_crt(true);
     } else if compiler.is_like_gnu() {
         build.flag("-O3");
         build.flag("-fPIC");

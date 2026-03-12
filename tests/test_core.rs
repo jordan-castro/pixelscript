@@ -11,18 +11,48 @@
 #[cfg(test)]
 mod tests {
     use pixelscript::{
-        create_raw_string, free_raw_string, own_string, pxs_execlua, pxs_execpython, pxs_finalize, pxs_initialize
+        create_raw_string, free_raw_string, own_string, pxs_Opaque, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_execlua, pxs_execpython, pxs_finalize, pxs_initialize, pxs_listadd, pxs_listget, pxs_newcopy, pxs_newlist, pxs_newmod, pxs_newnull, shared::var::pxs_VarT
     };
+
+    extern "C" fn call_pxs_items(args: pxs_VarT, _op: pxs_Opaque) -> pxs_VarT {
+        println!("Did we get here? {}", own_string!(pxs_debugvar(args)));
+        let mname = create_raw_string!("_pxs_items");
+        let nargs = pxs_newlist();
+        pxs_listadd(nargs, pxs_newcopy(pxs_listget(args, 1)));
+        println!("here?");
+        let res = pxs_call(pxs_listget(args, 0), mname, nargs);
+        unsafe{
+            free_raw_string!(mname);
+        }
+
+        return res;
+    }
 
     #[test]
     fn test_globals() {
+        println!("starting");
         pxs_initialize();
+        let mname = create_raw_string!("pxs");
+        let module = pxs_newmod(mname);
+        let fname = create_raw_string!("call_pxs_items");
+        pxs_addfunc(module, fname, call_pxs_items, std::ptr::null_mut());
+        pxs_addmod(module);
+        unsafe {
+            free_raw_string!(mname);
+            free_raw_string!(fname);
+        }
+
         let pyscript = r#"
+from pxs import *
+
 obj = {"one": 1, "two": 2}
 items = _pxs_items(obj)
 
 if items != [("one", 1), ("two", 2)]:
     raise "_pxs_items did not work in Python"
+    
+# Test calling too
+print(f"res: {call_pxs_items(obj)}")
 "#;
 
         let luascript = r#"

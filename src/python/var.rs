@@ -6,7 +6,11 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-use std::{ffi::c_void, sync::Arc};
+use std::{
+    any::{Any, TypeId},
+    ffi::c_void,
+    sync::Arc,
+};
 
 use crate::{
     borrow_string, create_raw_string, free_raw_string, pxs_debug,
@@ -23,6 +27,96 @@ use crate::{
         var::{pxs_Var, pxs_VarType},
     },
 };
+
+/// Wrap a pointer with a Box!
+pub(super) struct PythonPointer {
+    /// Whether or not this is a index on the pocketpy stack
+    pub is_index: bool,
+    /// The raw pointer.
+    pub ptr: *mut c_void
+}
+impl PtrMagic for PythonPointer {}
+impl PythonPointer {
+    fn with_index(index: i32) -> Self {
+        println!("Making index ptr: {index}");
+        PythonPointer { is_index: true, ptr: index as usize as *mut c_void }
+    }
+
+    fn with_ref(py_ref: pocketpy::py_Ref) -> Self {
+        println!("Making non index ptr");
+        PythonPointer { is_index: false, ptr: py_ref as *mut c_void }
+    }
+
+    /// Get the Index pointer if `is_index` is `true`
+    fn get_int(&self) -> i32 {
+        if !self.is_index {
+            -1
+        } else {
+            self.ptr as usize as i32 
+        }
+    }
+
+    /// Get the `py_Ref` pointer if `is_index` is `false`
+    fn get_ptr(&self) -> pocketpy::py_Ref {
+        if self.is_index {
+            std::ptr::null_mut()
+        } else {
+            self.ptr as pocketpy::py_Ref
+        }
+    }
+}
+
+/// Get a raw python pointer. Either a Boxed i32 or a py_ref pointer
+unsafe fn make_python_pointer(ptr: pocketpy::py_Ref) -> PythonPointer {
+    // Get the function as a IDX. If -1, save raw pointer instead.
+    let idx = unsafe { get_py_stack(ptr) };
+    if idx == -1 {
+        PythonPointer::with_ref(ptr)
+    } else {
+        PythonPointer::with_index(idx)
+    }
+}
+
+/// Get the python stack position as IDX.
+/// -1 is a non stack ref.
+unsafe fn get_py_stack(py_ref: pocketpy::py_Ref) -> i32 {
+    unsafe {
+        let stack_start = pocketpy::py_getreg(0);
+        let stack_end = pocketpy::py_peek(-1);
+
+        if py_ref >= stack_start && py_ref <= stack_end {
+            // On the stack
+            let index = py_ref.offset_from(stack_start);
+            index as i32
+        } else {
+            // Off stack (global, constant)
+            -1
+        }
+    }
+}
+
+/// Get the python reference from a stack IDX.
+unsafe fn get_ref_from_idx(idx: i32) -> pocketpy::py_Ref {
+    if idx == -1 {
+        std::ptr::null_mut()
+    } else {
+        unsafe {
+            // it was on the stack so we need pointer arithmetic
+            let base = pocketpy::py_getreg(0);
+            base.add(idx as usize)
+        }
+    }
+}
+
+/// Frees a function and object memory.
+/// This works via a stack IDX.
+unsafe extern "C" fn free_py_mem(ptr: *mut c_void) {
+    if ptr.is_null() {
+        return;
+    }
+    let _ = PythonPointer::from_raw(ptr as *mut PythonPointer);
+    // TODO: Reference counting
+}
 
 // /// Python Function for freeing object memory.
 // unsafe extern "C" fn free_py_mem(ptr: *mut c_void) {
@@ -96,10 +190,9 @@ pub(super) fn pocketpyref_to_var(pref: pocketpy::py_Ref) -> pxs_Var {
 
         pxs_Var::new_list_with(vars)
     } else if tp == pocketpy::py_PredefinedType::tp_function as i32 {
-        // Just like object, save the raw pointer
-        pxs_Var::new_function(pref as *mut c_void, None)
+        pxs_Var::new_function(unsafe { make_python_pointer(pref).into_raw() as *mut c_void }, Some(free_py_mem))
     } else {
-        pxs_Var::new_object(pref as *mut c_void, None)
+        pxs_Var::new_object(unsafe { make_python_pointer(pref).into_raw() as *mut c_void }, Some(free_py_mem))
     }
 }
 
@@ -132,7 +225,14 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
                     pocketpy::py_newnone(out);
                 } else {
                     // This is a Python object that already exists, just that it's pointer was passed around.
-                    let ptr = var.value.object_val as pocketpy::py_Ref;
+                    // Check first the pointer type because it coule be index
+                    let python_ptr = PythonPointer::from_borrow(var.value.object_val as *mut PythonPointer);
+                    let index = python_ptr.get_int();
+                    let ptr = if index == -1 {
+                        python_ptr.get_ptr()
+                    } else {
+                        get_ref_from_idx(index)
+                    };
                     py_assign(out, ptr);
                     // UNSAFE UNSAFE UNSAFE UNSAFE!!!!
                 }
@@ -193,7 +293,13 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
                     pocketpy::py_newnone(out);
                 } else {
                     // Python function that already exists. Just a pointer passed around
-                    let ptr = var.value.function_val as pocketpy::py_Ref;
+                    let python_ptr = PythonPointer::from_borrow(var.value.function_val as *mut PythonPointer);
+                    let index = python_ptr.get_int();
+                    let ptr = if index == -1 {
+                        python_ptr.get_ptr()
+                    } else {
+                        get_ref_from_idx(index)
+                    };
                     py_assign(out, ptr);
                 }
             }

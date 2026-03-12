@@ -5,13 +5,15 @@ import sys
 
 
 # Get skipped tests
-skipped_tests = sys.argv[1:]
-skipped_tests.append("test_repl.rs")
+included_tests = sys.argv[1:]
+skip_tests = ["test_repl.rs"]
 
 
-tests = os.listdir("tests")
-for t in tests:
-    if t in skipped_tests:
+if len(included_tests) == 0:
+    included_tests = os.listdir("tests")
+
+for t in included_tests:
+    if t in skip_tests:
         continue
     
     # Get line 9
@@ -24,9 +26,5 @@ for t in tests:
     
     # Get cmd
     command = line.split("// ")[-1]
-    # for i in range(len(command)):
-        # if command[i].startswith('"'):
-            # command[i] = command[i][1:-1]
     print(command)
     os.system(command)
-    # subprocess.call(command)
