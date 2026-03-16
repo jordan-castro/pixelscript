@@ -23,7 +23,7 @@ fn create_object_callback(lua: &Lua, fn_idx: i32, is_id: bool) -> LuaFunction {
             argv.push(pxs_Var::new_i64(pxs_Runtime::pxs_Lua as i64));
 
             // Check whether to pass id or not
-            if (is_id) {
+            if is_id {
                 // Get obj id
                 let obj_id: i64 = internal_obj
                     .get("_pxs_ptr")

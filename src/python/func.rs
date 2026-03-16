@@ -64,7 +64,6 @@ pub(super) unsafe fn raise(msg: &str) -> bool {
 
 /// The pocketpy bridge
 pub(super) unsafe extern "C" fn pocketpy_bridge(argc: i32, argv: pocketpy::py_StackRef) -> bool {
-    // let pyref_size = pocketpy::get_py_TValue_size();
     if argc < 1 {
         unsafe {
             return raise("Python: argc < 1");
@@ -88,15 +87,21 @@ pub(super) unsafe extern "C" fn pocketpy_bridge(argc: i32, argv: pocketpy::py_St
     // Convert py_Ref into pxs_Var.
     for i in 1..argc {
         let arg_ref = unsafe { py_get_arg(argv, i as usize) };
-        vars.push(pocketpyref_to_var(arg_ref).remove_deleter());
+        vars.push(pocketpyref_to_var(arg_ref));
     }
 
     // Call internal function
+    let mut success = true;
     unsafe {
         let res = call_function(fn_idx, vars);
         let ret_slot = pocketpy::py_retval();
 
         var_to_pocketpyref(ret_slot, &res, None);
+
+        if res.is_exception() {
+            success = false;
+        }
     }
-    true
+
+    success
 }

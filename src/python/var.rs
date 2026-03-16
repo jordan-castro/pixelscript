@@ -13,22 +13,19 @@ use std::{
 };
 
 use crate::{
-    borrow_string, create_raw_string, free_raw_string, pxs_debug,
-    python::{
-        consume_error,
-        func::{get_string_from_obj, py_assign},
-        object::create_object,
-        pocketpy::{self},
-    },
-    shared::{
+    borrow_string, create_raw_string, free_raw_string, pxs_debug, pxs_newstring, python::{
+        consume_error, func::{get_string_from_obj, py_assign}, object::create_object, pocketpy::{self}, python_pxs_get_register, python_pxs_new_register, python_pxs_remove_ref
+    }, shared::{
         PtrMagic,
         object::{clear_object_from_lookup, get_object},
         pxs_Runtime,
         var::{pxs_Var, pxs_VarType},
-    },
+    }
 };
 
 /// Wrap a pointer with a Box!
+/// 
+/// This makes it possible to keep references to fun
 pub(super) struct PythonPointer {
     /// Whether or not this is a index on the pocketpy stack
     pub is_index: bool,
@@ -38,17 +35,15 @@ pub(super) struct PythonPointer {
 impl PtrMagic for PythonPointer {}
 impl PythonPointer {
     fn with_index(index: i32) -> Self {
-        println!("Making index ptr: {index}");
         PythonPointer { is_index: true, ptr: index as usize as *mut c_void }
     }
 
-    fn with_ref(py_ref: pocketpy::py_Ref) -> Self {
-        println!("Making non index ptr");
-        PythonPointer { is_index: false, ptr: py_ref as *mut c_void }
-    }
+    // fn with_ref(py_ref: pocketpy::py_Ref) -> Self {
+    //     PythonPointer { is_index: false, ptr: py_ref as *mut c_void }
+    // }
 
     /// Get the Index pointer if `is_index` is `true`
-    fn get_int(&self) -> i32 {
+    pub fn get_int(&self) -> i32 {
         if !self.is_index {
             -1
         } else {
@@ -56,56 +51,30 @@ impl PythonPointer {
         }
     }
 
-    /// Get the `py_Ref` pointer if `is_index` is `false`
-    fn get_ptr(&self) -> pocketpy::py_Ref {
+    /// Get the `py_Ref` pointer.
+    /// 
+    /// Wrap this in a `PyStackGuard` if not null.
+    pub fn get_ptr(&self) -> pocketpy::py_Ref {
         if self.is_index {
-            std::ptr::null_mut()
+            let ok = python_pxs_get_register(self.get_int());
+            if !ok {
+                std::ptr::null_mut()
+            } else {
+                unsafe{
+                    pocketpy::py_retval()
+                }
+            }
         } else {
             self.ptr as pocketpy::py_Ref
         }
     }
 }
 
-/// Get a raw python pointer. Either a Boxed i32 or a py_ref pointer
+/// Create a internal PythonPointer. This uses integer references.
 unsafe fn make_python_pointer(ptr: pocketpy::py_Ref) -> PythonPointer {
-    // Get the function as a IDX. If -1, save raw pointer instead.
-    let idx = unsafe { get_py_stack(ptr) };
-    if idx == -1 {
-        PythonPointer::with_ref(ptr)
-    } else {
-        PythonPointer::with_index(idx)
-    }
-}
-
-/// Get the python stack position as IDX.
-/// -1 is a non stack ref.
-unsafe fn get_py_stack(py_ref: pocketpy::py_Ref) -> i32 {
-    unsafe {
-        let stack_start = pocketpy::py_getreg(0);
-        let stack_end = pocketpy::py_peek(-1);
-
-        if py_ref >= stack_start && py_ref <= stack_end {
-            // On the stack
-            let index = py_ref.offset_from(stack_start);
-            index as i32
-        } else {
-            // Off stack (global, constant)
-            -1
-        }
-    }
-}
-
-/// Get the python reference from a stack IDX.
-unsafe fn get_ref_from_idx(idx: i32) -> pocketpy::py_Ref {
-    if idx == -1 {
-        std::ptr::null_mut()
-    } else {
-        unsafe {
-            // it was on the stack so we need pointer arithmetic
-            let base = pocketpy::py_getreg(0);
-            base.add(idx as usize)
-        }
-    }
+    // Get the object/function/list/set/tuple/dict/whatever as a IDX.
+    let index = python_pxs_new_register(ptr);
+    PythonPointer::with_index(index)
 }
 
 /// Frees a function and object memory.
@@ -114,8 +83,10 @@ unsafe extern "C" fn free_py_mem(ptr: *mut c_void) {
     if ptr.is_null() {
         return;
     }
-    let _ = PythonPointer::from_raw(ptr as *mut PythonPointer);
-    // TODO: Reference counting
+    let pp = PythonPointer::from_raw(ptr as *mut PythonPointer);
+    // Pop stack
+    python_pxs_remove_ref(pp.get_int());
+    // TODO: Reference counting 
 }
 
 // /// Python Function for freeing object memory.
@@ -143,7 +114,7 @@ unsafe extern "C" fn free_py_mem(ptr: *mut c_void) {
 /// Convert a PocketPy ref into a Var
 pub(super) fn pocketpyref_to_var(pref: pocketpy::py_Ref) -> pxs_Var {
     let tp = unsafe { pocketpy::py_typeof(pref) } as i32;
-    // let tp_enum = pocketpy::py_PredefinedType::from(tp);
+
     if tp == pocketpy::py_PredefinedType::tp_int as i32 {
         let val = unsafe { pocketpy::py_toint(pref) };
         pxs_Var::new_i64(val)
@@ -160,38 +131,64 @@ pub(super) fn pocketpyref_to_var(pref: pocketpy::py_Ref) -> pxs_Var {
         pxs_Var::new_string(r_str)
     } else if tp == pocketpy::py_PredefinedType::tp_NoneType as i32 || pref.is_null() {
         pxs_Var::new_null()
-    } else if tp == pocketpy::py_PredefinedType::tp_list as i32
-        || tp == pocketpy::py_PredefinedType::tp_tuple as i32
-    {
+    } else if tp == pocketpy::py_PredefinedType::tp_list as i32 || tp == pocketpy::py_PredefinedType::tp_tuple as i32 {
+        // Have a guard
+        let safe_ref = unsafe {pocketpy::py_pushtmp()};
+        unsafe {py_assign(safe_ref, pref);}
+        // Now go as normal.
         // We have to get all items in the list
         let mut vars = vec![];
-        let ok = unsafe { pocketpy::py_len(pref) };
+        // Get len
+        let ok = unsafe {pocketpy::py_len(safe_ref)};
         if !ok {
-            let _ = consume_error();
-            return pxs_Var::new_null();
+            return pxs_Var::new_exception(consume_error());
         }
+        let len = unsafe{pocketpy::py_toint(pocketpy::py_retval())};
 
-        // Get list
-        let list_len = unsafe { pocketpy::py_toint(pocketpy::py_retval()) };
+        // Parse through collection
+        for i in 0..len {
+            unsafe {
+                // A tmp var for index
+                let tmp = pocketpy::py_pushtmp();
+                pocketpy::py_newint(tmp, i);
 
-        for i in 0..list_len {
-            let item = if tp == pocketpy::py_PredefinedType::tp_list as i32 {
-                unsafe { pocketpy::py_list_getitem(pref, i as i32) }
-            } else {
-                // is tuple
-                unsafe { pocketpy::py_tuple_getitem(pref, i as i32) }
-            };
-            if item.is_null() {
-                continue;
+                let ok = pocketpy::py_getitem(safe_ref, tmp);
+                if !ok {
+                    return pxs_Var::new_exception(consume_error());
+                }
+
+                // We have a item!
+                vars.push(pocketpyref_to_var(pocketpy::py_retval()));
+                pocketpy::py_pop();
             }
-
-            vars.push(pocketpyref_to_var(item));
         }
-
+        // Pop list
+        unsafe{ pocketpy::py_pop(); }
+        
         pxs_Var::new_list_with(vars)
     } else if tp == pocketpy::py_PredefinedType::tp_function as i32 {
         pxs_Var::new_function(unsafe { make_python_pointer(pref).into_raw() as *mut c_void }, Some(free_py_mem))
-    } else {
+    } else if tp == pocketpy::py_PredefinedType::tp_Exception as i32 {
+        let msg = consume_error();
+        pxs_Var::new_exception(msg)
+    } 
+    // else if tp == pocketpy::py_PredefinedType::tp_tuple as i32 {
+    //     // We have to get all items in the tuple
+    //     let mut vars = vec![];
+    //     let tuple_len = unsafe{pocketpy::py_tuple_len(pref)};
+
+    //     // Parse
+    //     for i in 0..tuple_len {
+    //         let item = unsafe{pocketpy::py_tuple_getitem(pref, i)};
+    //         if item.is_null() {
+    //             continue;
+    //         }
+    //         vars.push(pocketpyref_to_var(item));
+    //     }
+
+    //     pxs_Var::new_list_with(vars)
+    // } 
+    else {
         pxs_Var::new_object(unsafe { make_python_pointer(pref).into_raw() as *mut c_void }, Some(free_py_mem))
     }
 }
@@ -227,12 +224,7 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
                     // This is a Python object that already exists, just that it's pointer was passed around.
                     // Check first the pointer type because it coule be index
                     let python_ptr = PythonPointer::from_borrow(var.value.object_val as *mut PythonPointer);
-                    let index = python_ptr.get_int();
-                    let ptr = if index == -1 {
-                        python_ptr.get_ptr()
-                    } else {
-                        get_ref_from_idx(index)
-                    };
+                    let ptr = python_ptr.get_ptr();
                     py_assign(out, ptr);
                     // UNSAFE UNSAFE UNSAFE UNSAFE!!!!
                 }
@@ -283,6 +275,7 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
                         let tmp = pocketpy::py_pushtmp();
                         var_to_pocketpyref(tmp, item, module_name);
                         pocketpy::py_list_append(out, tmp);
+                        pocketpy::py_pop();
                     }
                 }
 
@@ -294,12 +287,7 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
                 } else {
                     // Python function that already exists. Just a pointer passed around
                     let python_ptr = PythonPointer::from_borrow(var.value.function_val as *mut PythonPointer);
-                    let index = python_ptr.get_int();
-                    let ptr = if index == -1 {
-                        python_ptr.get_ptr()
-                    } else {
-                        get_ref_from_idx(index)
-                    };
+                    let ptr = python_ptr.get_ptr();
                     py_assign(out, ptr);
                 }
             }
@@ -310,39 +298,22 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
                 // pxs_debug!("|FACTORY| result: {:#?}", result);
                 // Convert to pocketpy
                 var_to_pocketpyref(out, &result, module_name);
-                // let args = factory.get_args(pxs_Runtime::pxs_Python);
-                // let args_raw = args.into_raw();
-                // let res = (factory.callback)(args_raw, std::ptr::null_mut());
-                // let _ = pxs_Var::from_raw(args_raw);
-                // Convert Factories to pocketpy and back.
-                // let args_list = args.get_list().unwrap();
-                // pxs_debug!("|FACTORY| args_list len: {}", args_list.vars.len());
-                // for i in 0..args_list.vars.len() {
-                //     let arg = &args_list.vars[i];
-                //     // if arg.is_factory() {
-                //         let tmp = pocketpy::py_pushtmp();
-                //         // convert to pocketpy
-                //         var_to_pocketpyref(tmp, arg, module_name);
-                //         // convert back to pxs
-                //         let var = pocketpyref_to_var(tmp);
-                //         pxs_debug!("|FACTORY| var is: {:#?}", var);
-                //         let res = args_list.set_item(var, i as i32);
-                //         pxs_debug!("|FACTORY ARG SET| {}", res);
+            }
+            pxs_VarType::pxs_Exception => {
+                // Raise exception
+                let s = var.get_string().unwrap();
+                let c_str = create_raw_string!(s);
 
-                //         // Pop the tmp
-                //         pocketpy::py_pop();
-                //     // }
-                // }
+                pocketpy::py_newstr(out, c_str);
+                let ok = pocketpy::py_tpcall(pocketpy::py_PredefinedType::tp_BaseException as i16, 1, out);
+                if !ok {
+                    let err = consume_error();
+                    pxs_debug!("Exception could not be raised: {err}");
+                    pocketpy::py_newnone(out);
+                }
 
-                // let raw_args = args.into_raw();
-
-                // // Now call factory
-                // let raw = (factory.callback)(raw_args, std::ptr::null_mut());
-                // let res = pxs_Var::from_borrow(raw);
-                // var_to_pocketpyref(out, res, module_name);
-
-                // // Free args
-                // let _ = pxs_Var::from_raw(raw_args);
+                py_assign(out, pocketpy::py_retval());
+                pocketpy::py_raise(out);
             }
         }
     }

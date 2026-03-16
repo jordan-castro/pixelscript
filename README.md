@@ -27,10 +27,11 @@ For rust based use I will be adding a Rust wrapper, which is funny because this 
 | Feature flag     | Language          | Engine                | Notes                           |
 |------------------|-------------------|-----------------------|---------------------------------|
 | `lua`            | Lua               | mlua                  | Fast, battle-tested, v5.4       |
-| `python`         | Python            | pocketpy              | Requires MSVC on Windows        |
+| `python`         | Python            | pocketpy V2.1.8       | Requires MSVC on Windows        |
 | `js`             | JavaScript        | rquickjs              | Quickjs, C library              |
 | `php`            | PHP               | PH7                   | Only supports v5.3 and the engine is not maintained anymore |
 | `rustpython`     | Python (CPython compatible)    | rustpython              | Larger binary, Full Python library support, currently leaking memory.                  |
+<!-- | `cpython`        | Python (CPython)  | python.h              | Supports all Python libraries   |  -->
 <!-- | `js-quick`       | JavaScript        | rquickjs              | QuickJS, more complete          | -->
 
 When including `easyjs` make sure to also include a JavaScript feature otherwise it will not work.
@@ -38,7 +39,7 @@ When including `easyjs` make sure to also include a JavaScript feature otherwise
 ## CoreLib
 To include the PixelScript core API, add the `include-core` feature. Or include the specific modules as feature tags.
 | Module name | Module purpose | Notes |
-|-------------|----------------|-------------------|-------|
+|-------------|----------------|-------|
 | `pxs_json`   | Adds JSON encoding, decoding, and .* properties. | Requires a loader function. Set via `pxs_set_file_reader` and a writer function via `pxs_set_file_writer` |
 |`pxs_utils` | Adds helpful functions and objects to the std lib. | Check `pxs_utils` for included functions and objects. |
 

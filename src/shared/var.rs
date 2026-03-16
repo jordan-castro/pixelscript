@@ -101,6 +101,8 @@ pub enum pxs_VarType {
     pxs_Function,
     /// Internal object only. It will get converted into the result before hitting the runtime
     pxs_Factory,
+    /// Exception is any exception happening at the language level. Pixel Script errors will be caught with pxs_Error in a future release
+    pxs_Exception
 }
 
 /// A Factory variable data holder.
@@ -333,13 +335,15 @@ impl pxs_Var {
 
     /// Get the direct host pointer. (Not the idx)
     pub fn get_host_ptr(&self) -> *mut c_void {
-        let object = get_object(self.get_object_ptr()).unwrap();
+        let object = get_object(self.get_host_idx()).unwrap();
         object.ptr
     }
 
     /// Get the Rust string from the Var.
+    /// 
+    /// Works for pxs_String and pxs_Exception
     pub fn get_string(&self) -> Result<String, Error> {
-        if self.tag == pxs_VarType::pxs_String {
+        if self.tag == pxs_VarType::pxs_String || self.tag == pxs_VarType::pxs_Exception {
             unsafe {
                 if self.value.string_val.is_null() {
                     return Err(anyhow!("String pointer is null"));
@@ -465,17 +469,36 @@ impl pxs_Var {
             deleter: Cell::new(default_deleter),
         }
     }
+
+    /// Create a new Exception var.
+    pub fn new_exception(msg: String) -> Self {
+        pxs_Var {
+            tag: pxs_VarType::pxs_Exception,
+            value: pxs_VarValue {
+                string_val: create_raw_string!(msg)
+            },
+            deleter: Cell::new(default_deleter)
+        }
+    }
     //     name: *const c_char,
     // func: pxs_Func,
     // args: *mut pxs_Var
 
-    /// Get the ptr of the object if Host, i32, i64, u32, u64
-    pub fn get_object_ptr(&self) -> i32 {
+    /// Get the IDX of the object if Host, i64, u64
+    pub fn get_host_idx(&self) -> i32 {
         match self.tag {
             pxs_VarType::pxs_Int64 => self.get_i64().unwrap() as i32,
             pxs_VarType::pxs_UInt64 => self.get_u64().unwrap() as i32,
             pxs_VarType::pxs_HostObject => unsafe { self.value.host_object_val },
             _ => -1,
+        }
+    }
+
+    /// Get the raw pointer to a `pxs_Object` type
+    pub fn get_object_ptr(&self) -> *mut c_void {
+        match self.tag {
+            pxs_VarType::pxs_Object => unsafe {self.value.object_val },
+            _ => std::ptr::null_mut()
         }
     }
 
@@ -529,7 +552,7 @@ impl pxs_Var {
                 pxs_VarType::pxs_Null => "Null".to_string(),
                 pxs_VarType::pxs_Object => "Object".to_string(),
                 pxs_VarType::pxs_HostObject => {
-                    let idx = self.get_object_ptr();
+                    let idx = self.get_host_idx();
                     let object = get_object(idx).unwrap();
                     object.type_name.to_string()
                 }
@@ -540,17 +563,18 @@ impl pxs_Var {
                 }
                 pxs_VarType::pxs_Function => "Function".to_string(),
                 pxs_VarType::pxs_Factory => "Factory".to_string(),
+                pxs_VarType::pxs_Exception => borrow_string!(self.value.string_val).to_string()
             };
 
             format!("{details} :: {:p}", self)
         }
     }
 
-    /// Remove the deleter on current pxs_Var.
-    pub fn remove_deleter(mut self) -> Self {
-        self.deleter = Cell::new(default_deleter);
-        self
-    }
+    // /// Remove the deleter on current pxs_Var.
+    // pub fn remove_deleter(mut self) -> Self {
+    //     self.deleter = Cell::new(default_deleter);
+    //     self
+    // }
 
     write_func!(
         (get_i64, i64_val, i64, pxs_VarType::pxs_Int64),
@@ -584,7 +608,8 @@ impl pxs_Var {
         is_host_object, pxs_VarType::pxs_HostObject;
         is_list, pxs_VarType::pxs_List;
         is_function, pxs_VarType::pxs_Function;
-        is_factory, pxs_VarType::pxs_Factory
+        is_factory, pxs_VarType::pxs_Factory;
+        is_exception, pxs_VarType::pxs_Exception
     }
 }
 
@@ -594,7 +619,7 @@ unsafe impl Sync for pxs_Var {}
 impl Drop for pxs_Var {
     fn drop(&mut self) {
         // pxs_debug!("|psx_Var DROP| {}", unsafe {self.dbg() });
-        if self.tag == pxs_VarType::pxs_String {
+        if self.tag == pxs_VarType::pxs_String || self.tag == pxs_VarType::pxs_Exception {
             unsafe {
                 // Free the mem
                 if !self.value.string_val.is_null() {
@@ -730,6 +755,18 @@ impl Clone for pxs_Var {
                         tag: pxs_VarType::pxs_Factory,
                         value: pxs_VarValue {
                             factory_val: f.into_raw(),
+                        },
+                        deleter: Cell::new(default_deleter),
+                    }
+                }
+                pxs_VarType::pxs_Exception => {
+                    let string = borrow_string!(self.value.string_val);
+                    let cloned_string = string.to_string().clone();
+                    let new_string = create_raw_string!(cloned_string);
+                    pxs_Var {
+                        tag: pxs_VarType::pxs_Exception,
+                        value: pxs_VarValue {
+                            string_val: new_string,
                         },
                         deleter: Cell::new(default_deleter),
                     }

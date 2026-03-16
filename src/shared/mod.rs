@@ -8,7 +8,7 @@
 //
 use std::{
     cell::RefCell,
-    ffi::{CStr, CString, c_char},
+    ffi::{CStr, CString, c_char, c_void},
     sync::{Arc, OnceLock},
 };
 
@@ -98,10 +98,10 @@ pub(crate) struct PixelState {
     pub read_dir: RefCell<Option<ReadDirFn>>,
 }
 
-/// The State static variable for Lua.
+/// The State static variable for PixelScript.
 static PIXEL_STATE: OnceLock<ReentrantMutex<PixelState>> = OnceLock::new();
 
-/// Get the state of LUA.
+/// Get the state of PixelScript.
 pub(crate) fn get_pixel_state() -> ReentrantMutexGuard<'static, PixelState> {
     let mutex = PIXEL_STATE.get_or_init(|| {
         ReentrantMutex::new(PixelState {
@@ -188,6 +188,13 @@ pub trait PtrMagic: Sized {
         unsafe {
             assert!(!ptr.is_null(), "Attempted to borrow a null pointer.");
             &mut *ptr
+        }
+    }
+
+    /// Completely unsafe and should only be used when cerrtain that type can be cast to Self
+    unsafe fn from_borrow_void<'a>(ptr: *mut c_void) -> &'a mut Self {
+        unsafe {
+            Self::from_borrow(ptr as *mut Self)
         }
     }
 }

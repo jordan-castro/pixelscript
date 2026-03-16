@@ -20,15 +20,8 @@ pub(super) fn internal_add_callback(lua: &Lua, fn_idx: i32) -> LuaFunction {
         // Pass in the runtime type
         argv.push(pxs_Var::new_i64(pxs_Runtime::pxs_Lua as i64));
 
-        // Objects are handled a little differently know. It's kinda repeated code but oh well.
-        // // If a obj is passed
-        // if let Some(obj) = obj {
-        //     // Add the pointer.
-        //     argv.push(Var::new_i64(obj as i64));
-        // }
-
         for arg in args {
-            argv.push(from_lua(arg).expect("Could not convert value into pxs_Var from Lua.").remove_deleter());
+            argv.push(from_lua(arg).expect("Could not convert value into pxs_Var from Lua."));
         }        
 
         unsafe {

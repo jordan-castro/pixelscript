@@ -6,7 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-use std::{ffi::c_void, sync::Arc};
+use std::{ffi::c_void, fmt::Debug, sync::Arc};
 
 // use mlua::{IntoLua, Lua};
 use mlua::prelude::*;
@@ -81,6 +81,10 @@ pub(super) fn from_lua(value: LuaValue) -> Result<pxs_Var, anyhow::Error> {
                 // let values = t.
                 Ok(list_var)
             }
+        }
+        LuaValue::Error(error) => {
+            let msg = error.to_string();
+            Ok(pxs_Var::new_exception(msg))
         }
         _ => Ok(pxs_Var::new_null()),
     }
@@ -176,29 +180,13 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
             let res = factory.call(pxs_Runtime::pxs_Lua);
             // convert into lua
             into_lua(lua, &res)
-            // let args = factory.get_args(pxs_Runtime::pxs_Lua);
-            // // Convert factory args to lua and back from lua.
-            // let args_list = args.get_list().unwrap();
-            // for i in 0..args_list.vars.len() {
-            //     let arg = &args_list.vars[i];
-            //     // if arg.is_factory() {
-            //         // Call it!
-            //         let res = into_lua(lua, arg)?;
-            //         // Conver it back into pxs
-            //         let var = from_lua(res).expect("Could not convert lua to pxs");
-            //         // Save it to args_list
-            //         args_list.set_item(var, i as i32);
-            //     // }
-            // }
-            // // Now call factory
-            // let raw_args = args.into_raw();
-            // let fres = (factory.callback)(raw_args, std::ptr::null_mut());
-            // let res = pxs_Var::from_borrow(fres);
-            // // Free mem
-            // let _ = pxs_Var::from_raw(raw_args);
-
-            // // Return lua res
-            // into_lua(lua, res)
+        }
+        pxs_VarType::pxs_Exception => {
+            // Get msg and error it
+            let msg = var.get_string().expect("Could not get lua string from exception");
+            let error : Box<dyn std::error::Error + Send + Sync> = Box::from(msg);
+            // let lua_string = 
+            Ok(LuaValue::Error(Box::new(LuaError::ExternalError(error.into()))))
         }
     }
 }

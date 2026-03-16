@@ -20,7 +20,7 @@ mod tests {
         pxs_listadd(iargs, pxs_newint(1));
         pxs_listadd(iargs, pxs_newint(2));
         let res = pxs_call(pxs_listget(args, 0), mn, iargs);
-        
+        println!("{}", own_string!(pxs_debugvar(res)));
         assert!(pxs_getint(res) == 3, "We could not run the add function");
         pxs_freevar(res);
         unsafe {free_raw_string!(mn); }

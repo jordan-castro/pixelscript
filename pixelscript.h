@@ -42,6 +42,10 @@ typedef enum pxs_VarType {
    * Internal object only. It will get converted into the result before hitting the runtime
    */
   pxs_Factory,
+  /**
+   * Exception is any exception happening at the language level. Pixel Script errors will be caught with pxs_Error in a future release
+   */
+  pxs_Exception,
 } pxs_VarType;
 
 /**

@@ -6,21 +6,20 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_core --no-default-features --features "lua,python,pxs-debug,include-core" -- --nocapture --test-threads=1
+// cargo test --test test_core --lib --no-default-features --features "lua,python,pxs-debug,include-core" -- --nocapture --test-threads=1
 
 #[cfg(test)]
 mod tests {
     use pixelscript::{
-        create_raw_string, free_raw_string, own_string, pxs_Opaque, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_execlua, pxs_execpython, pxs_finalize, pxs_initialize, pxs_listadd, pxs_listget, pxs_newcopy, pxs_newlist, pxs_newmod, pxs_newnull, shared::var::pxs_VarT
+        create_raw_string, free_raw_string, own_string, pxs_Opaque, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_execlua, pxs_execpython, pxs_finalize, pxs_getstring, pxs_initialize, pxs_listadd, pxs_listget, pxs_newcopy, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_tostring, shared::var::pxs_VarT
     };
 
     extern "C" fn call_pxs_items(args: pxs_VarT, _op: pxs_Opaque) -> pxs_VarT {
-        println!("Did we get here? {}", own_string!(pxs_debugvar(args)));
         let mname = create_raw_string!("_pxs_items");
         let nargs = pxs_newlist();
         pxs_listadd(nargs, pxs_newcopy(pxs_listget(args, 1)));
-        println!("here?");
         let res = pxs_call(pxs_listget(args, 0), mname, nargs);
+        println!("res: {}", own_string!(pxs_debugvar(res)));
         unsafe{
             free_raw_string!(mname);
         }
@@ -30,7 +29,6 @@ mod tests {
 
     #[test]
     fn test_globals() {
-        println!("starting");
         pxs_initialize();
         let mname = create_raw_string!("pxs");
         let module = pxs_newmod(mname);
@@ -50,9 +48,10 @@ items = _pxs_items(obj)
 
 if items != [("one", 1), ("two", 2)]:
     raise "_pxs_items did not work in Python"
-    
+
 # Test calling too
-print(f"res: {call_pxs_items(obj)}")
+res = call_pxs_items(obj)
+print(f"res: {res}")
 "#;
 
         let luascript = r#"
@@ -118,7 +117,7 @@ end"#;
             unsafe { free_raw_string!(raw_file_name) };
         }
 
-        assert!(err.is_empty(), "{err}");
+        assert!(err.is_empty(), "Python error is not empty{err}");
 
         let raw_luascript = create_raw_string!(luascript);
         let err = own_string!(pxs_execlua(raw_luascript, raw_file_name));
@@ -128,7 +127,7 @@ end"#;
         if !err.is_empty() {
             unsafe { free_raw_string!(raw_file_name) };
         }
-        assert!(err.is_empty(), "{err}");
+        assert!(err.is_empty(), "Lua error is not empty {err}");
 
         unsafe {
             free_raw_string!(raw_file_name);

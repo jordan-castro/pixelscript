@@ -14,11 +14,11 @@ mod tests {
         ptr,
     };
 
+    use mlua::Function;
     use pixelscript::{
         python::PythonScripting,
         shared::{
-            PixelScript, PtrMagic, pxs_DirHandle,
-            var::{pxs_Var, pxs_VarT},
+            PixelScript, PtrMagic, func::pxs_Func, pxs_DirHandle, var::{pxs_Var, pxs_VarT}
         },
         *,
     };
@@ -429,7 +429,15 @@ def get_pi():
 
 print(pxs.call_function(get_pi))
         "#;
-        let err = PythonScripting::execute(py_code, "<test>");
+        let code = create_raw_string!(py_code);
+        let file_name = create_raw_string!("<test>");
+        let err = own_string!(pxs_execpython(code, file_name));
+
+        unsafe {
+            free_raw_string!(code);
+            free_raw_string!(file_name);
+        }
+        // let err = PythonScripting::execute(py_code, "<test>");
 
         pxs_startthread();
         pxs_startthread();

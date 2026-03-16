@@ -1,13 +1,19 @@
-#[cfg(feature = "pxs-debug")]
+/// A useful macro for debuggin in pixelscript.
 #[macro_export]
 macro_rules! pxs_debug {
-    ($($arg:tt)*) => { eprintln!("[PXS_DEBUG] {}", format_args!($($arg)*)); }
-}
-
-#[cfg(not(feature = "pxs-debug"))]
-#[macro_export]
-macro_rules! pxs_debug {
-    ($($arg:tt)*) => {};
+    ($($arg:tt)*) =>
+    { 
+        #[cfg(feature = "pxs-debug")] 
+        {
+            let loc = std::panic::Location::caller();
+            eprintln!(
+                "[PXS_DEBUG {}:{}] {}", 
+                loc.file(),
+                loc.line(),
+                format_args!($($arg)*)
+            ); 
+        }
+    }
 }
 
 #[macro_export]

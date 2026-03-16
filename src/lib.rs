@@ -43,9 +43,6 @@ macro_rules! assert_initiated {
     () => {{
         unsafe {
             assert!(IS_INIT, "Pixel script library is not initialized.");
-            // if !IS_INIT {
-            // panic!("Pixel Script library is not initialized.");
-            // }
         }
     }};
 }
@@ -86,6 +83,7 @@ pub type pxs_Opaque = *mut c_void;
 /// Current pixelscript version.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_version() -> u32 {
+    pxs_debug!("pxs_version");
     let major = 0;
     let minor = 3;
     let patch = 5;
@@ -95,6 +93,7 @@ pub extern "C" fn pxs_version() -> u32 {
 /// Initialize the PixelScript runtime.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_initialize() {
+    pxs_debug!("pxs_initialize");
     unsafe {
         if IS_KILLED {
             panic!("Once finalized, PixelScript can not be initalized again.");
@@ -115,6 +114,7 @@ pub extern "C" fn pxs_initialize() {
 /// Finalize the PixelScript runtime.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_finalize() {
+    pxs_debug!("pxs_finalize");
     assert_initiated!();
 
     unsafe {
@@ -145,6 +145,7 @@ pub extern "C" fn pxs_finalize() {
 #[unsafe(no_mangle)]
 #[cfg(feature = "lua")]
 pub extern "C" fn pxs_execlua(code: *const c_char, file_name: *const c_char) -> *mut c_char {
+    pxs_debug!("pxs_execlua");
     assert_initiated!();
     // First convert code and file_name to rust strs
     let code_str = borrow_string!(code);
@@ -168,6 +169,7 @@ pub extern "C" fn pxs_execlua(code: *const c_char, file_name: *const c_char) -> 
 #[unsafe(no_mangle)]
 #[cfg(feature = "python")]
 pub extern "C" fn pxs_execpython(code: *const c_char, file_name: *const c_char) -> *mut c_char {
+    pxs_debug!("pxs_execpython");
     assert_initiated!();
 
     // Borrow code and name
@@ -189,6 +191,7 @@ pub extern "C" fn pxs_execpython(code: *const c_char, file_name: *const c_char) 
 /// Free the string created by the pixelscript library
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_freestr(string: *mut c_char) {
+    pxs_debug!("pxs_freestr");
     assert_initiated!();
     if !string.is_null() {
         unsafe {
@@ -201,6 +204,7 @@ pub extern "C" fn pxs_freestr(string: *mut c_char) {
 /// Create a new pixelscript Module.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_newmod(name: *const c_char) -> *mut pxs_Module {
+    pxs_debug!("pxs_newmod");
     assert_initiated!();
     if name.is_null() {
         return ptr::null_mut();
@@ -220,6 +224,7 @@ pub extern "C" fn pxs_addfunc(
     func: pxs_Func,
     opaque: pxs_Opaque,
 ) {
+    pxs_debug!("pxs_addfunc");
     assert_initiated!();
     if module_ptr.is_null() {
         return;
@@ -254,6 +259,7 @@ pub extern "C" fn pxs_addvar(
     name: *const c_char,
     variable: *mut pxs_Var,
 ) {
+    pxs_debug!("pxs_addvar");
     assert_initiated!();
     if module_ptr.is_null() {
         return;
@@ -275,6 +281,8 @@ pub extern "C" fn pxs_addvar(
 /// This transfers ownership.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_add_submod(parent_ptr: *mut pxs_Module, child_ptr: *mut pxs_Module) {
+    pxs_debug!("pxs_add_submod");
+
     assert_initiated!();
     if parent_ptr.is_null() || child_ptr.is_null() {
         return;
@@ -295,6 +303,8 @@ pub extern "C" fn pxs_add_submod(parent_ptr: *mut pxs_Module, child_ptr: *mut px
 /// After this you can forget about the ptr since PM handles it.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_addmod(module_ptr: *mut pxs_Module) {
+    pxs_debug!("pxs_addmod");
+
     assert_initiated!();
     if module_ptr.is_null() {
         return;
@@ -316,6 +326,7 @@ pub extern "C" fn pxs_addmod(module_ptr: *mut pxs_Module) {
 /// Optionally free a module if you changed your mind.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_freemod(module_ptr: *mut pxs_Module) {
+    pxs_debug!("pxs_freemod");
     assert_initiated!();
 
     if module_ptr.is_null() {
@@ -336,6 +347,7 @@ pub extern "C" fn pxs_newobject(
     free_method: FreeMethod,
     type_name: *const c_char,
 ) -> *mut pxs_PixelObject {
+    pxs_debug!("pxs_newobject");
     assert_initiated!();
     if ptr.is_null() || type_name.is_null() {
         return ptr::null_mut();
@@ -356,6 +368,7 @@ pub extern "C" fn pxs_object_addfunc(
     callback: pxs_Func,
     opaque: pxs_Opaque,
 ) {
+    pxs_debug!("pxs_object_addfunc");
     assert_initiated!();
 
     if object_ptr.is_null() || name.is_null() {
@@ -411,6 +424,7 @@ pub extern "C" fn pxs_addobject(
     object_constructor: pxs_Func,
     opaque: pxs_Opaque,
 ) {
+    pxs_debug!("pxs_addobject");
     // Save module to object
     pxs_addfunc(module_ptr, name, object_constructor, opaque);
 }
@@ -418,6 +432,7 @@ pub extern "C" fn pxs_addobject(
 /// Make a new Var string.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_newstring(str: *const c_char) -> *mut pxs_Var {
+    pxs_debug!("pxs_newstring");
     let val = borrow_string!(str);
     // Clone string
     pxs_Var::new_string(val.to_string().clone()).into_raw()
@@ -426,6 +441,7 @@ pub extern "C" fn pxs_newstring(str: *const c_char) -> *mut pxs_Var {
 /// Make a new Null var.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_newnull() -> *mut pxs_Var {
+    pxs_debug!("pxs_newnull");
     pxs_Var::new_null().into_raw()
 }
 
@@ -436,6 +452,7 @@ pub extern "C" fn pxs_newnull() -> *mut pxs_Var {
 /// Transfers ownership
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_newhost(pixel_object: *mut pxs_PixelObject) -> *mut pxs_Var {
+    pxs_debug!("pxs_newhost");
     assert_initiated!();
 
     if pixel_object.is_null() {
@@ -457,22 +474,26 @@ pub extern "C" fn pxs_newhost(pixel_object: *mut pxs_PixelObject) -> *mut pxs_Va
 /// Create a new variable int. (i64)
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_newint(val: i64) -> *mut pxs_Var {
+    pxs_debug!("pxs_newint");
     pxs_Var::new_i64(val).into_raw()
 }
 /// Create a new variable uint. (u64)
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_newuint(val: u64) -> *mut pxs_Var {
+    pxs_debug!("pxs_newuint");
     pxs_Var::new_u64(val).into_raw()
 }
 /// Create a new variable bool.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_newbool(val: bool) -> *mut pxs_Var {
+    pxs_debug!("pxs_newbool");
     pxs_Var::new_bool(val).into_raw()
 }
 
 /// Create a new variable float. (f64)
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_newfloat(val: f64) -> *mut pxs_Var {
+    pxs_debug!("pxs_newfloat");
     pxs_Var::new_f64(val).into_raw()
 }
 
@@ -486,6 +507,7 @@ pub extern "C" fn pxs_object_callrt(
     method: *const c_char,
     args: *mut pxs_Var,
 ) -> *mut pxs_Var {
+    pxs_debug!("pxs_object_callrt");
     pxs_objectcall(
         pxs_Var::new_i64(runtime as i64).into_raw(),
         var,
@@ -513,6 +535,7 @@ pub extern "C" fn pxs_objectcall(
     method: *const c_char,
     args: *mut pxs_Var,
 ) -> pxs_VarT {
+    pxs_debug!("pxs_objectcall");
     assert_initiated!();
 
     if var.is_null() || method.is_null() || args.is_null() || runtime.is_null() {
@@ -580,6 +603,7 @@ pub extern "C" fn pxs_objectcall(
 /// Get a int (i64) from a var.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_getint(var: *mut pxs_Var) -> i64 {
+    pxs_debug!("pxs_getint");
     if var.is_null() {
         return -1;
     }
@@ -600,6 +624,7 @@ pub extern "C" fn pxs_getint(var: *mut pxs_Var) -> i64 {
 /// Get a uint (u64)
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_getuint(var: *mut pxs_Var) -> u64 {
+    pxs_debug!("pxs_getuint");
     if var.is_null() {
         return 0;
     }
@@ -620,6 +645,7 @@ pub extern "C" fn pxs_getuint(var: *mut pxs_Var) -> u64 {
 /// Get a float (f64)
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_getfloat(var: *mut pxs_Var) -> f64 {
+    pxs_debug!("pxs_getfloat");
     if var.is_null() {
         return -1.0;
     }
@@ -640,6 +666,7 @@ pub extern "C" fn pxs_getfloat(var: *mut pxs_Var) -> f64 {
 /// Get a Bool
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_getbool(var: *mut pxs_Var) -> bool {
+    pxs_debug!("pxs_getbool");
     if var.is_null() {
         return false;
     }
@@ -654,6 +681,7 @@ pub extern "C" fn pxs_getbool(var: *mut pxs_Var) -> bool {
 /// You have to free this memory by calling `pxs_free_str`
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_getstring(var: *mut pxs_Var) -> *mut c_char {
+    pxs_debug!("pxs_getstring");
     if var.is_null() {
         return ptr::null_mut();
     }
@@ -679,6 +707,7 @@ pub extern "C" fn pxs_getstring(var: *mut pxs_Var) -> *mut c_char {
 /// Check if a variable is of a type.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_varis(var: *mut pxs_Var, var_type: pxs_VarType) -> bool {
+    pxs_debug!("pxs_varis");
     if var.is_null() {
         return false;
     }
@@ -693,6 +722,7 @@ pub extern "C" fn pxs_varis(var: *mut pxs_Var, var_type: pxs_VarType) -> bool {
 /// This is used to load files via import, require, etc
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_set_filereader(func: LoadFileFn) {
+    pxs_debug!("pxs_set_filereader");
     assert_initiated!();
     let state = get_pixel_state();
     let mut load_file = state.load_file.borrow_mut();
@@ -704,6 +734,7 @@ pub extern "C" fn pxs_set_filereader(func: LoadFileFn) {
 /// This is used to write files via pxs_json
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_set_filewriter(func: WriteFileFn) {
+    pxs_debug!("pxs_set_filewriter");
     assert_initiated!();
     let state = get_pixel_state();
     let mut write_file = state.write_file.borrow_mut();
@@ -715,6 +746,7 @@ pub extern "C" fn pxs_set_filewriter(func: WriteFileFn) {
 /// This is used to read a dir.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_set_dirreader(func: ReadDirFn) {
+    pxs_debug!("pxs_set_dirreader");
     assert_initiated!();
     let state = get_pixel_state();
     let mut read_dir = state.read_dir.borrow_mut();
@@ -726,6 +758,7 @@ pub extern "C" fn pxs_set_dirreader(func: ReadDirFn) {
 /// You should only free results from `pxs_object_call`
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_freevar(var: *mut pxs_Var) {
+    pxs_debug!("pxs_freevar");
     assert_initiated!();
 
     if var.is_null() {
@@ -738,6 +771,7 @@ pub extern "C" fn pxs_freevar(var: *mut pxs_Var) {
 /// Tells PixelScript that we are in a new thread.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_startthread() {
+    pxs_debug!("pxs_startthread");
     assert_initiated!();
     with_feature!("lua", {
         LuaScripting::start_thread();
@@ -750,6 +784,7 @@ pub extern "C" fn pxs_startthread() {
 /// Tells PixelScript that we just stopped the most recent thread.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_stopthread() {
+    pxs_debug!("pxs_stopthread");
     assert_initiated!();
     with_feature!("lua", {
         LuaScripting::stop_thread();
@@ -764,6 +799,7 @@ pub extern "C" fn pxs_stopthread() {
 /// Optionally, if you want to run the garbage collector.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_clearstate(gc_collect: bool) {
+    pxs_debug!("pxs_clearstate");
     assert_initiated!();
     // Drop function lookup
     clear_function_lookup();
@@ -789,6 +825,7 @@ pub extern "C" fn pxs_call(
     method: *const c_char,
     args: *mut pxs_Var,
 ) -> *mut pxs_Var {
+    pxs_debug!("pxs_call");
     assert_initiated!();
 
     if runtime.is_null() || method.is_null() || args.is_null() {
@@ -839,6 +876,7 @@ pub extern "C" fn pxs_call(
 /// Host must free this memory with `pxs_free_var`
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_tostring(runtime: *mut pxs_Var, var: *mut pxs_Var) -> *mut pxs_Var {
+    pxs_debug!("pxs_tostring");
     assert_initiated!();
 
     if var.is_null() || runtime.is_null() {
@@ -912,6 +950,7 @@ return std::ptr::null_mut();
 /// This does not take any arguments. To add to a list, you must call `pxs_var_list_add(ptr, item)`
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_newlist() -> *mut pxs_Var {
+    pxs_debug!("pxs_newlist");
     assert_initiated!();
 
     pxs_Var::new_list().into_raw()
@@ -926,6 +965,7 @@ pub extern "C" fn pxs_newlist() -> *mut pxs_Var {
 /// Will return the index added at.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_listadd(list: *mut pxs_Var, item: *mut pxs_Var) -> i32 {
+    pxs_debug!("pxs_listadd");
     assert_initiated!();
 
     // Check null
@@ -958,6 +998,7 @@ pub extern "C" fn pxs_listadd(list: *mut pxs_Var, item: *mut pxs_Var) -> i32 {
 /// This will NOT return a cloned variable, you must NOT free it.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_listget(list: *mut pxs_Var, index: i32) -> *mut pxs_Var {
+    pxs_debug!("pxs_listget");
     assert_initiated!();
 
     if list.is_null() {
@@ -989,6 +1030,7 @@ pub extern "C" fn pxs_listget(list: *mut pxs_Var, index: i32) -> *mut pxs_Var {
 /// This will return a boolean for success = true, or failure = false.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_listset(list: *mut pxs_Var, index: i32, item: *mut pxs_Var) -> bool {
+    pxs_debug!("pxs_listset");
     assert_initiated!();
 
     if list.is_null() || item.is_null() {
@@ -1015,6 +1057,7 @@ pub extern "C" fn pxs_listset(list: *mut pxs_Var, index: i32, item: *mut pxs_Var
 /// Expects a pointer to a pxs_VarList
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_listlen(list: *mut pxs_Var) -> i32 {
+    pxs_debug!("pxs_listlen");
     assert_initiated!();
 
     if list.is_null() {
@@ -1042,6 +1085,7 @@ pub extern "C" fn pxs_varcall(
     var_func: *mut pxs_Var,
     args: *mut pxs_Var,
 ) -> *mut pxs_Var {
+    pxs_debug!("pxs_varcall");
     assert_initiated!();
 
     if runtime.is_null() || var_func.is_null() || args.is_null() {
@@ -1099,6 +1143,7 @@ pub extern "C" fn pxs_varcall(
 /// Memory is handled by caller
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_newcopy(item: *mut pxs_Var) -> *mut pxs_Var {
+    pxs_debug!("pxs_newcopy");
     assert_initiated!();
 
     if item.is_null() {
@@ -1116,6 +1161,7 @@ pub extern "C" fn pxs_newcopy(item: *mut pxs_Var) -> *mut pxs_Var {
 /// Call a objects getter.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_objectget(runtime:pxs_VarT, obj: pxs_VarT, key: *const c_char) -> pxs_VarT {
+    pxs_debug!("pxs_objectget");
     assert_initiated!();
     if runtime.is_null() || obj.is_null() || key.is_null() {
         return ptr::null_mut();
@@ -1159,6 +1205,7 @@ pub extern "C" fn pxs_objectget(runtime:pxs_VarT, obj: pxs_VarT, key: *const c_c
 /// value ownership is transfered.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_objectset(runtime: pxs_VarT, obj: pxs_VarT, key: *const c_char, value: pxs_VarT) -> bool {
+    pxs_debug!("pxs_objectset");
     assert_initiated!();
 
     if runtime.is_null() || obj.is_null() || key.is_null() || value.is_null() {
@@ -1217,6 +1264,7 @@ pub extern "C" fn pxs_objectset(runtime: pxs_VarT, obj: pxs_VarT, key: *const c_
 /// Evaluate code. This will return a pxs_Var.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_eval(script: *const c_char, rt: pxs_Runtime) -> pxs_VarT {
+    pxs_debug!("pxs_eval");
     if script.is_null() {
         return pxs_newnull();
     }
@@ -1258,6 +1306,7 @@ pub extern "C" fn pxs_newfactory(
     func: pxs_Func,
     args: *mut pxs_Var
 ) -> pxs_VarT {
+    pxs_debug!("pxs_newfactory");
     assert_initiated!();
 
     if args.is_null() {
@@ -1281,6 +1330,7 @@ pub extern "C" fn pxs_newfactory(
 /// All other types will return NULL.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_gethost(runtime: pxs_VarT, var: pxs_VarT) -> *mut c_void {
+    pxs_debug!("pxs_gethost");
     assert_initiated!();
     if runtime.is_null() || var.is_null() {
         return ptr::null_mut();
@@ -1324,6 +1374,7 @@ pub extern "C" fn pxs_gethost(runtime: pxs_VarT, var: pxs_VarT) -> *mut c_void {
 /// String must be freed via `pxs_freestr`.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_debugvar(var: pxs_VarT) -> *mut c_char {
+    pxs_debug!("pxs_debugvar");
     if var.is_null() {
         create_raw_string!("NULL")
     } else {
