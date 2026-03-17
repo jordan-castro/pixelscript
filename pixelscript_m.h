@@ -2,7 +2,7 @@
 #define PIXEL_SCRIPT_M_H
 
 // Helpful to not have to write out the method everytime.
-#define PXS_HANDLER(name) pxs_Var* name(pxs_VarT args, pxs_Opaque opaque)
+#define PXS_HANDLER(name) pxs_Var* name(pxs_VarT args)
 
 // Helpful to not have to write out pxs_listget(args, index).
 #define PXS_ARG(index) pxs_listget(args, index)

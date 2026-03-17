@@ -222,7 +222,6 @@ pub extern "C" fn pxs_addfunc(
     module_ptr: *mut pxs_Module,
     name: *const c_char,
     func: pxs_Func,
-    opaque: pxs_Opaque,
 ) {
     pxs_debug!("pxs_addfunc");
     assert_initiated!();
@@ -242,7 +241,7 @@ pub extern "C" fn pxs_addfunc(
     let full_name = format!("_{}{}", module.name, name_str);
 
     // Save the callback
-    let idx = lookup_add_function(&full_name, func, opaque);
+    let idx = lookup_add_function(&full_name, func);
 
     // Now add callback
     module.add_callback(name_str, &full_name, idx);
@@ -364,9 +363,7 @@ pub extern "C" fn pxs_newobject(
 pub extern "C" fn pxs_object_addfunc(
     object_ptr: *mut pxs_PixelObject,
     name: *const c_char,
-    is_id: bool,
     callback: pxs_Func,
-    opaque: pxs_Opaque,
 ) {
     pxs_debug!("pxs_object_addfunc");
     assert_initiated!();
@@ -381,9 +378,34 @@ pub extern "C" fn pxs_object_addfunc(
 
     // Add to function lookup
     let full_name = format!("_{}{}", object_borrow.type_name, name_borrow);
-    let idx = lookup_add_function(full_name.as_str(), callback, opaque);
+    let idx = lookup_add_function(full_name.as_str(), callback);
 
-    object_borrow.add_callback(name_borrow, full_name.as_str(), idx, is_id);
+    object_borrow.add_callback(name_borrow, full_name.as_str(), idx, false);
+}
+
+/// Add a callback to a object and make it use the language pointer rather than _pxs_ptr idx.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_object_add_reffunc(
+    object_ptr: *mut pxs_PixelObject,
+    name: *const c_char,
+    callback: pxs_Func
+) {
+    pxs_debug!("pxs_object_addfunc");
+    assert_initiated!();
+
+    if object_ptr.is_null() || name.is_null() {
+        return;
+    }
+
+    // Borrow ptr
+    let object_borrow = unsafe { pxs_PixelObject::from_borrow(object_ptr) };
+    let name_borrow = borrow_string!(name);
+
+    // Add to function lookup
+    let full_name = format!("_{}{}", object_borrow.type_name, name_borrow);
+    let idx = lookup_add_function(full_name.as_str(), callback);
+
+    object_borrow.add_callback(name_borrow, full_name.as_str(), idx, false);
 }
 
 /// Add a object to a Module.
@@ -422,11 +444,10 @@ pub extern "C" fn pxs_addobject(
     module_ptr: *mut pxs_Module,
     name: *const c_char,
     object_constructor: pxs_Func,
-    opaque: pxs_Opaque,
 ) {
     pxs_debug!("pxs_addobject");
     // Save module to object
-    pxs_addfunc(module_ptr, name, object_constructor, opaque);
+    pxs_addfunc(module_ptr, name, object_constructor);
 }
 
 /// Make a new Var string.
@@ -691,18 +712,6 @@ pub extern "C" fn pxs_getstring(var: *mut pxs_Var) -> *mut c_char {
         create_raw_string!(string.clone())
     }
 }
-
-// /// Get the pointer of the Host Object
-// ///
-// /// This is "potentially" dangerous.
-// #[unsafe(no_mangle)]
-// pub extern "C" fn pxs_gethost(var: *mut pxs_Var) -> pxs_Opaque {
-//     if var.is_null() {
-//         return ptr::null_mut();
-//     }
-
-//     unsafe { pxs_Var::from_borrow(var).get_host_ptr() }
-// }
 
 /// Check if a variable is of a type.
 #[unsafe(no_mangle)]
@@ -1243,24 +1252,6 @@ pub extern "C" fn pxs_objectset(runtime: pxs_VarT, obj: pxs_VarT, key: *const c_
     }
 }
 
-// /// Call the opaque pointer of a object based on it's idx from `pxs_getobject`
-// /// This should only be used when derefing a passed in argument.
-// /// For `self` use `pxs_listget(args, 1)` and `pxs_gethost`.
-// #[unsafe(no_mangle)]
-// pub extern "C" fn pxs_host_fromidx(idx: i32) -> pxs_Opaque {
-//     if idx < 0 {
-//         return ptr::null_mut();
-//     }
-
-//     // Get object
-//     let object = get_object(idx);
-//     if let Some(object) = object {
-//         object.ptr
-//     } else {
-//         ptr::null_mut()
-//     }
-// }
-
 /// Evaluate code. This will return a pxs_Var.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_eval(script: *const c_char, rt: pxs_Runtime) -> pxs_VarT {
@@ -1382,4 +1373,17 @@ pub extern "C" fn pxs_debugvar(var: pxs_VarT) -> *mut c_char {
         let str = format!("{:#?}", borrow_var);
         create_raw_string!(str)
     }
+}
+
+/// Create a `pxs_Exception`.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_newexception(msg: *const c_char) -> pxs_VarT {
+    pxs_debug!("pxs_newexception");
+    if msg.is_null() {
+        return std::ptr::null_mut();
+    }
+
+    // Borrow msg
+    let bmsg = borrow_string!(msg);
+    pxs_Var::new_exception(bmsg.to_string().clone()).into_raw()
 }

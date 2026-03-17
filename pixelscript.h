@@ -286,7 +286,7 @@ typedef struct pxs_Var {
  *
  * But if you use any Vars within the function, you will have to free them before the function returns.
  */
-typedef struct pxs_Var *(*pxs_Func)(struct pxs_Var *args, void *opaque);
+typedef struct pxs_Var *(*pxs_Func)(struct pxs_Var *args);
 
 typedef void *pxs_Opaque;
 
@@ -379,7 +379,7 @@ struct pxs_Module *pxs_newmod(const char *name);
  *
  * Pass in the modules pointer and callback paramaters.
  */
-void pxs_addfunc(struct pxs_Module *module_ptr, const char *name, pxs_Func func, pxs_Opaque opaque);
+void pxs_addfunc(struct pxs_Module *module_ptr, const char *name, pxs_Func func);
 
 /**
  * Add a Varible to a module.
@@ -423,11 +423,14 @@ struct pxs_PixelObject *pxs_newobject(pxs_Opaque ptr,
 /**
  * Add a callback to a object.
  */
-void pxs_object_addfunc(struct pxs_PixelObject *object_ptr,
-                        const char *name,
-                        bool is_id,
-                        pxs_Func callback,
-                        pxs_Opaque opaque);
+void pxs_object_addfunc(struct pxs_PixelObject *object_ptr, const char *name, pxs_Func callback);
+
+/**
+ * Add a callback to a object and make it use the language pointer rather than _pxs_ptr idx.
+ */
+void pxs_object_add_reffunc(struct pxs_PixelObject *object_ptr,
+                            const char *name,
+                            pxs_Func callback);
 
 /**
  * Add a object to a Module.
@@ -462,10 +465,7 @@ void pxs_object_addfunc(struct pxs_PixelObject *object_ptr,
  * // etc
  * ```
  */
-void pxs_addobject(struct pxs_Module *module_ptr,
-                   const char *name,
-                   pxs_Func object_constructor,
-                   pxs_Opaque opaque);
+void pxs_addobject(struct pxs_Module *module_ptr, const char *name, pxs_Func object_constructor);
 
 /**
  * Make a new Var string.
@@ -743,6 +743,11 @@ void *pxs_gethost(pxs_VarT runtime, pxs_VarT var);
  * String must be freed via `pxs_freestr`.
  */
 char *pxs_debugvar(pxs_VarT var);
+
+/**
+ * Create a `pxs_Exception`.
+ */
+pxs_VarT pxs_newexception(const char *msg);
 
 #ifdef __cplusplus
 }  // extern "C"

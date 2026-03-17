@@ -28,20 +28,17 @@ For rust based use I will be adding a Rust wrapper, which is funny because this 
 |------------------|-------------------|-----------------------|---------------------------------|
 | `lua`            | Lua               | mlua                  | Fast, battle-tested, v5.4       |
 | `python`         | Python            | pocketpy V2.1.8       | Requires MSVC on Windows        |
-| `js`             | JavaScript        | rquickjs              | Quickjs, C library              |
+| `js`             | JavaScript        | rquickjs              | Quickjs rust wrapper            |
 | `php`            | PHP               | PH7                   | Only supports v5.3 and the engine is not maintained anymore |
-| `rustpython`     | Python (CPython compatible)    | rustpython              | Larger binary, Full Python library support, currently leaking memory.                  |
+| `rustpython`     | Python            | rustpython            | Larger binary, Full Python library support, currently leaking memory. |
 <!-- | `cpython`        | Python (CPython)  | python.h              | Supports all Python libraries   |  -->
 <!-- | `js-quick`       | JavaScript        | rquickjs              | QuickJS, more complete          | -->
-
-When including `easyjs` make sure to also include a JavaScript feature otherwise it will not work.
 
 ## CoreLib
 To include the PixelScript core API, add the `include-core` feature. Or include the specific modules as feature tags.
 | Module name | Module purpose | Notes |
 |-------------|----------------|-------|
-| `pxs_json`   | Adds JSON encoding, decoding, and .* properties. | Requires a loader function. Set via `pxs_set_file_reader` and a writer function via `pxs_set_file_writer` |
-|`pxs_utils` | Adds helpful functions and objects to the std lib. | Check `pxs_utils` for included functions and objects. |
+| `pxs_utils` | Adds helpful functions and objects to the std lib. | Check `pxs_utils` for included functions and objects. |
 
 ### pxs_utils
 Overview of what is incldued in `pxs_utils` module.
@@ -49,68 +46,6 @@ Overview of what is incldued in `pxs_utils` module.
 |------|------|-------------|
 |`_pxs_items`|Function(dict/object/tree) -> returns Array[Array(key, value)]| Converts the key and values of a dictionary (python), object (js), tree (lua) into a list of key,value items.|
 
-<!-- ### Examples
-`ps_json` In lua
-```lua
-local json = require('ps_json')
-local data = json.load('path/to/json.json')
-
--- Now you can read the data
-local name = data.name
--- Assuming you have a print wrapper
-print(name)
--- Set data
-data.name.set("Dude")
--- Set internal
-data.fullname.last.set("New")
-print(data.fullname)
-```
-In Python
-```python
-import ps_json as json
-data = json.load('path/to/json.json')
-
-# Read
-name = data.name
-# Or via dict
-name = data['name']
-print(name)
-
-data.name.set('Dude')
-# Or dict
-data['name'] = 'Dude'
-# Internal
-data.fullname.last.set('New')
-print(data.fullname)
-```
-In JS
-```js
-import * as ps_json from "ps_json";
-
-let data = ps_json.load('path/to/json.json');
-// Read
-let name = data.name;
-print(name);
-
-data.name.set('Dude');
-data['name'] = 'Dude'; // Also works in JS
-
-data.fullname.last.set('New');
-print(data.fullname);
-```
-In easyjs
-```easyjs
-import 'ps_json'
-data = ps_json.load('path/to/json.json');
-
-print(data.name)
-print(data['name'])
-
-data.name.set('Dude')
-data.fullname.last.set('New')
-print(data.fullname)
-```
- -->
 ## Building
 In order to use pixelscript, you need to first compile it's libraries. Each language could potentially have it's own libraries.
 Each library will be fetched and placed under a pxsb folder in the main directory of your build system.

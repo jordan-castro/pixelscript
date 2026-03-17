@@ -25,13 +25,12 @@ use std::{
 ///
 /// But if you use any Vars within the function, you will have to free them before the function returns.
 #[allow(non_camel_case_types)]
-pub type pxs_Func = unsafe extern "C" fn(args: *mut pxs_Var, opaque: *mut c_void) -> *mut pxs_Var;
+pub type pxs_Func = unsafe extern "C" fn(args: *mut pxs_Var) -> *mut pxs_Var;
 
 /// Basic rust structure to track Funcs and opaques together.
 pub struct Function {
     pub name: String,
     pub func: pxs_Func,
-    pub opaque: *mut c_void,
 }
 
 unsafe impl Send for Function {}
@@ -49,14 +48,13 @@ impl FunctionLookup {
     pub fn get_function(&self, idx: i32) -> Option<&Function> {
         self.function_hash.get(&idx)
     }
-    pub fn add_function(&mut self, name: &str, func: pxs_Func, opaque: *mut c_void) -> i32 {
+    pub fn add_function(&mut self, name: &str, func: pxs_Func) -> i32 {
         // TODO: Allow for negative idxs.
         self.function_hash.insert(
             self.function_hash.len() as i32,
             Function {
                 name: name.to_string(),
                 func,
-                opaque,
             },
         );
 
@@ -80,7 +78,7 @@ fn get_function_lookup() -> std::sync::MutexGuard<'static, FunctionLookup> {
 }
 
 /// Add a function to the lookup
-pub fn lookup_add_function(name: &str, func: pxs_Func, opaque: *mut c_void) -> i32 {
+pub fn lookup_add_function(name: &str, func: pxs_Func) -> i32 {
     let mut lookup = get_function_lookup();
     let idx = lookup.function_hash.len();
     lookup.function_hash.insert(
@@ -88,7 +86,6 @@ pub fn lookup_add_function(name: &str, func: pxs_Func, opaque: *mut c_void) -> i
         Function {
             name: name.to_string(),
             func,
-            opaque,
         },
     );
     idx as i32
@@ -104,7 +101,7 @@ pub fn clear_function_lookup() {
 ///
 /// This should only be used within languages and never from a end user.
 pub unsafe fn call_function(fn_idx: i32, args: Vec<pxs_Var>) -> pxs_Var {
-    let (func, opaque) = {
+    let func = {
         let fl = get_function_lookup();
         let function = fl.get_function(fn_idx);
         if function.is_none() {
@@ -113,7 +110,7 @@ pub unsafe fn call_function(fn_idx: i32, args: Vec<pxs_Var>) -> pxs_Var {
 
         let function = function.unwrap();
 
-        (function.func, function.opaque)
+        (function.func)
     };
 
     // Convert the pxs_Var vector into a list.
@@ -128,7 +125,7 @@ pub unsafe fn call_function(fn_idx: i32, args: Vec<pxs_Var>) -> pxs_Var {
     let args_ptr = args.into_raw();
 
     unsafe {
-        let res = func(args_ptr, opaque);
+        let res = func(args_ptr);
         // Free args
         let _ = pxs_Var::from_raw(args_ptr);
 

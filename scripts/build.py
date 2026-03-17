@@ -1,4 +1,9 @@
 # This builds the crate and moves around the libs to a folder called pxsb (pixelscript build)
+# To be the safest cross platform solution:
+# When running for MSVC set these variables in your env first:
+# set CFLAGS=/MT && set CXXFLAGS=/MT
+# This will force MLUA to compile lua5.lib to a static library.
+
 from glob import glob
 import os
 import shutil

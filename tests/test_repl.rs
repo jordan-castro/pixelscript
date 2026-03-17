@@ -62,7 +62,7 @@ mod tests {
         let _ = unsafe { Diary::from_raw(ptr as *mut Diary) };
     }
 
-    extern "C" fn add_item(args: pxs_VarT, _opaque: *mut c_void) -> pxs_VarT {
+    extern "C" fn add_item(args: pxs_VarT) -> pxs_VarT {
         // Deref
         unsafe {
         let pixel_object_var = pxs_Var::from_borrow(pxs_listget(args, 1));
@@ -80,7 +80,7 @@ mod tests {
         }
     }
 
-    extern  "C" fn new_diary(args: pxs_VarT, _op: pxs_Opaque) -> pxs_VarT {
+    extern  "C" fn new_diary(args: pxs_VarT) -> pxs_VarT {
         unsafe {
                     let p_name = pxs_Var::from_borrow(pxs_listget(args, 1));
             let p_name = p_name.get_string().unwrap();
@@ -90,7 +90,7 @@ mod tests {
             let ptr = Diary::into_raw(p) as *mut c_void;
             let pixel_object = pxs_newobject(ptr, free_diary, typename);
             let add_item_raw = create_raw_string!("add_item");
-            pxs_object_addfunc(pixel_object, add_item_raw, false, add_item, _op);
+            pxs_object_add_reffunc(pixel_object, add_item_raw, add_item);
             // Save...
             let var = pxs_newhost(pixel_object);
 
@@ -124,7 +124,7 @@ mod tests {
         let _ = unsafe { Person::from_raw(ptr as *mut Person) };
     }
 
-    pub extern "C" fn set_name(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
+    pub extern "C" fn set_name(args: *mut pxs_Var) -> *mut pxs_Var {
         unsafe {
             // Get ptr
             let pixel_object_var = pxs_listget(args, 1);
@@ -161,7 +161,7 @@ mod tests {
         }
     }
 
-    pub extern "C" fn get_name(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
+    pub extern "C" fn get_name(args: *mut pxs_Var) -> *mut pxs_Var {
         unsafe {
             // Get ptr
             let pixel_object_var = pxs_listget(args, 1);
@@ -172,7 +172,7 @@ mod tests {
         }
     }
 
-    pub extern "C" fn new_person(args: *mut pxs_Var, opaque: *mut c_void) -> *mut pxs_Var {
+    pub extern "C" fn new_person(args: *mut pxs_Var) -> *mut pxs_Var {
         unsafe {
             let p_name = pxs_Var::from_borrow(pxs_listget(args, 1));
             let p_name = p_name.get_string().unwrap();
@@ -183,8 +183,8 @@ mod tests {
             let pixel_object = pxs_newobject(ptr, free_person, typename);
             let set_name_raw = create_raw_string!("set_name");
             let get_name_raw = create_raw_string!("get_name");
-            pxs_object_addfunc(pixel_object, set_name_raw, false, set_name, opaque);
-            pxs_object_addfunc(pixel_object, get_name_raw, false, get_name, opaque);
+            pxs_object_addfunc(pixel_object, set_name_raw, set_name);
+            pxs_object_addfunc(pixel_object, get_name_raw,  get_name);
             // Save...
             let var = pxs_newhost(pixel_object);
 
@@ -196,7 +196,7 @@ mod tests {
     }
 
     // Testing callbacks
-    pub extern "C" fn print_wrapper(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
+    pub extern "C" fn print_wrapper(args: *mut pxs_Var) -> *mut pxs_Var {
         unsafe {
             let runtime = pxs_listget(args, 0);
 
@@ -215,7 +215,7 @@ mod tests {
         pxs_Var::new_null().into_raw()
     }
 
-    pub extern "C" fn add_wrapper(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
+    pub extern "C" fn add_wrapper(args: *mut pxs_Var) -> *mut pxs_Var {
         // Assumes n1 and n2
         unsafe {
             let n1 = pxs_Var::from_borrow(pxs_listget(args, 1));
@@ -225,7 +225,7 @@ mod tests {
         }
     }
 
-    pub extern "C" fn sub_wrapper(args: *mut pxs_Var, _opaque: *mut c_void) -> *mut pxs_Var {
+    pub extern "C" fn sub_wrapper(args: *mut pxs_Var) -> *mut pxs_Var {
         // Assumes n1 and n2
         unsafe {
             let n1 = pxs_Var::from_borrow(pxs_listget(args, 1));
@@ -303,21 +303,21 @@ mod tests {
         let add_name = create_raw_string!("add");
         let n1_name = create_raw_string!("n1");
         let n2_name: *mut i8 = create_raw_string!("n2");
-        pxs_addfunc(module, add_name, add_wrapper, ptr::null_mut());
+        pxs_addfunc(module, add_name, add_wrapper);
         let n1 = pxs_newint(1);
         let n2 = pxs_newint(2);
         pxs_addvar(module, n1_name, n1);
         pxs_addvar(module, n2_name, n2);
 
         let name = create_raw_string!("print");
-        pxs_addfunc(module, name, print_wrapper, ptr::null_mut());
+        pxs_addfunc(module, name, print_wrapper);
         let var_name = create_raw_string!("name");
         let jordan = create_raw_string!("Jordan C");
         let var = pxs_newstring(jordan);
         pxs_addvar(module, var_name, var);
 
         let object_name = create_raw_string!("Person");
-        pxs_addobject(module, object_name, new_person, ptr::null_mut());
+        pxs_addobject(module, object_name, new_person);
 
         // Add a inner module
         let math_module_name = create_raw_string!("math");
@@ -330,11 +330,11 @@ mod tests {
         // free_raw_string!(typename);
         // // Add methods
         // let func_name = create_raw_string!("add_item");
-        // pxs_object_addfunc(object, func_name, add_item, ptr::null_mut());
+        // pxs_object_addfunc(object, func_name, add_item);
         // free_raw_string!(func_name);
         // let func_name = create_raw_string!("get_item");
         // free_raw_string!(func_name);
-        // pxs_object_addfunc(object, func_name, get_item, ptr::null_mut());
+        // pxs_object_addfunc(object, func_name, get_item);
 
         // println!("Before adding new variable");
         // // Set variable
@@ -351,11 +351,11 @@ mod tests {
         // println!("After addiing");
         // Add a sub function
         let sub_name = create_raw_string!("sub");
-        pxs_addfunc(math_module, sub_name, sub_wrapper, ptr::null_mut());
+        pxs_addfunc(math_module, sub_name, sub_wrapper);
         let zero_name = create_raw_string!("ZERO");
         pxs_addvar(math_module, zero_name, pxs_newint(0));
         let diary_name = create_raw_string!("Diary");
-        pxs_addobject(math_module, diary_name, new_diary, ptr::null_mut());
+        pxs_addobject(math_module, diary_name, new_diary);
 
         pxs_add_submod(module, math_module);
         pxs_addmod(module);

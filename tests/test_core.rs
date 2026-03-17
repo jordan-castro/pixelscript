@@ -14,7 +14,7 @@ mod tests {
         create_raw_string, free_raw_string, own_string, pxs_Opaque, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_execlua, pxs_execpython, pxs_finalize, pxs_getstring, pxs_initialize, pxs_listadd, pxs_listget, pxs_newcopy, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_tostring, shared::var::pxs_VarT
     };
 
-    extern "C" fn call_pxs_items(args: pxs_VarT, _op: pxs_Opaque) -> pxs_VarT {
+    extern "C" fn call_pxs_items(args: pxs_VarT) -> pxs_VarT {
         let mname = create_raw_string!("_pxs_items");
         let nargs = pxs_newlist();
         pxs_listadd(nargs, pxs_newcopy(pxs_listget(args, 1)));
@@ -33,7 +33,7 @@ mod tests {
         let mname = create_raw_string!("pxs");
         let module = pxs_newmod(mname);
         let fname = create_raw_string!("call_pxs_items");
-        pxs_addfunc(module, fname, call_pxs_items, std::ptr::null_mut());
+        pxs_addfunc(module, fname, call_pxs_items);
         pxs_addmod(module);
         unsafe {
             free_raw_string!(mname);

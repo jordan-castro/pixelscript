@@ -14,7 +14,7 @@ mod tests {
         create_raw_string, free_raw_string, own_string, pxs_Opaque, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_execlua, pxs_execpython, pxs_finalize, pxs_freevar, pxs_getint, pxs_initialize, pxs_listadd, pxs_listget, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, shared::var::pxs_VarT
     };
 
-    extern "C" fn anything(args: pxs_VarT, _op: pxs_Opaque) -> pxs_VarT {
+    extern "C" fn anything(args: pxs_VarT) -> pxs_VarT {
         let mn = create_raw_string!("add");
         let iargs = pxs_newlist();
         pxs_listadd(iargs, pxs_newint(1));
@@ -34,7 +34,7 @@ mod tests {
         let mod_name = create_raw_string!("pxs");
         let module = pxs_newmod(mod_name);
         let anything_name = create_raw_string!("anything");
-        pxs_addfunc(module, anything_name, anything, std::ptr::null_mut());
+        pxs_addfunc(module, anything_name, anything);
         pxs_addmod(module);
 
         let script = create_raw_string!(r#"

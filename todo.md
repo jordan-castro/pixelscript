@@ -13,7 +13,6 @@
 
 ## v0.5
 - Lazy Init
-- Deprecate opaque objects. They are not needed because of our HostObject system.
 - Reference counting for PixelScript object
 - pxs_Error (returned when there is a error in pixelscript not necessarily a error in a backend)
 - Add pxs_Ref variable which will take a string name and at conversion grab it from the scope.
@@ -36,7 +35,6 @@
 - Drop pxs_Object created from factory when it's no longer needed.
 
 ## Vars
-- ~~Add exceptions~~
 - Add Map
 - Copy might need to be a little smarter because right now if you copy a object and pass it into a function that takes ownership or the 
     arg it will drop it. So either we allow a copy without deleter function. Or we internally recreate a new reference,
@@ -50,6 +48,7 @@
 
 ## Lua
 - Remove io, os, and hackable modules.
+- add STD json module.
 
 ## Python (rustpython)
 - Eventually look back at this
@@ -58,7 +57,7 @@
 - Make callback global. i.e. one per thread
 - Make object callbacks global. i.e. one per object
 - When dirreader, filereader, filewriter are set, allow with open().
-- ~~Remove the pointer math for the pointer types and shit.~~
+- Add a test for HostObject that holds another HostObject as reference. (FastTerrain)
 
 ## JS
 - add_variable

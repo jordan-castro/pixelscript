@@ -141,7 +141,7 @@ impl pxs_FactoryHolder {
         // Create raw memory that lasts for the direction of this call.
         let args_raw = args.into_raw();
 
-        let res = unsafe {(self.callback)(args_raw, ptr::null_mut()) };
+        let res = unsafe {(self.callback)(args_raw) };
         let var = if res.is_null() {
             pxs_Var::new_null()
         } else {
