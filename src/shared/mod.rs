@@ -14,7 +14,7 @@ use std::{
 
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
-use crate::{own_string, shared::var::pxs_Var};
+use crate::{own_string, shared::var::{pxs_Var, pxs_VarT}};
 
 /// Helper methods/macros for using PixelScript
 pub mod ffi;
@@ -231,12 +231,8 @@ pub enum pxs_Runtime {
     pxs_Python = 1,
     /// ES 2020 using rquickjs
     pxs_JavaScript = 2,
-    /// v0.4.5 using easyjsc
-    pxs_Easyjs = 3,
-    /// Python >= v3.8 with RustPython
-    pxs_RustPython = 4,
     /// PHP v5.3 with PH7
-    pxs_PHP = 5
+    pxs_PHP = 3
 }
 
 impl pxs_Runtime {
@@ -245,9 +241,9 @@ impl pxs_Runtime {
             pxs_Runtime::pxs_Lua => 0,
             pxs_Runtime::pxs_Python => 1,
             pxs_Runtime::pxs_JavaScript => 2,
-            pxs_Runtime::pxs_Easyjs => 3,
-            pxs_Runtime::pxs_RustPython => 4,
-            pxs_Runtime::pxs_PHP => 5,
+            // pxs_Runtime::pxs_Easyjs => 3,
+            // pxs_Runtime::pxs_RustPython => 4,
+            pxs_Runtime::pxs_PHP => 3,
         }
     }
 
@@ -256,15 +252,18 @@ impl pxs_Runtime {
             0 => Some(Self::pxs_Lua),
             1 => Some(Self::pxs_Python),
             2 => Some(Self::pxs_JavaScript),
-            3 => Some(Self::pxs_Easyjs),
-            4 => Some(Self::pxs_RustPython),
-            5 => Some(Self::pxs_PHP),
+            // 3 => Some(Self::pxs_Easyjs),
+            // 4 => Some(Self::pxs_RustPython),
+            3 => Some(Self::pxs_PHP),
             _ => None,
         }
     }
 
     /// Gets the runtime from a pxs_Var pointer. The pointer is borrowed.
     pub unsafe fn from_var_ptr(var: *mut pxs_Var) -> Option<Self> {
+        if var.is_null() {
+            return None;
+        }
         let borrow = unsafe { pxs_Var::from_borrow(var) };
         let int_val = borrow.get_i64();
         if let Ok(int_val) = int_val {
@@ -272,5 +271,11 @@ impl pxs_Runtime {
         } else {
             None
         }
+    }
+
+    /// Turns current runtime into a `pxs_Int64`
+    pub unsafe fn into_var_ptr(&self) -> pxs_Var {
+        let idx = self.into_i64();
+        pxs_Var::new_i64(idx)
     }
 }

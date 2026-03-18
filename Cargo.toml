@@ -24,8 +24,8 @@ cc = "1.2.52"
 bindgen = "0.72.1"
 
 [features]
-# Default includes all languages.
-default = ["lua", "python"]
+# Default includes all languages and cores.
+default = ["lua", "python", "include-core"]
 # Include LUA scripting.
 lua = ["dep:mlua"]
 # Include Python scripting. Via pocketpy
@@ -34,14 +34,15 @@ python = []
 php = []
 # Include Python scripting. via rustpython
 # rustpython = ["dep:rustpython-vm", "dep:rustpython-compiler"]
+# luajit uses the same lua engine but with JIT flags
+luajit = ["lua"]
 
 # Core libs
-pxs_utils = []
 # Include all core libs
 include-core = [
-    "pxs_utils"
+    "pxs_json"
 ]
-
+pxs_json = []
 
 # Compile pixel script to debug in a "release" enviroment
 pxs-debug = []

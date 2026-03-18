@@ -294,7 +294,7 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
             pxs_VarType::pxs_Factory => {
                 // Call and return
                 let factory = var.get_factory().unwrap();
-                let result = factory.call(pxs_Runtime::pxs_RustPython);
+                let result = factory.call(pxs_Runtime::pxs_Python);
                 // pxs_debug!("|FACTORY| result: {:#?}", result);
                 // Convert to pocketpy
                 var_to_pocketpyref(out, &result, module_name);

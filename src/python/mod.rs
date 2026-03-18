@@ -7,20 +7,26 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 use std::{
-    any::TypeId, cell::RefCell, collections::{HashMap, HashSet}
+    any::TypeId,
+    cell::RefCell,
+    collections::{HashMap, HashSet},
 };
 
 use anyhow::anyhow;
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
 use crate::{
-    borrow_string, create_raw_string, free_raw_string, own_string, pxs_debug, python::{
+    borrow_string, create_raw_string, free_raw_string, own_string, pxs_debug,
+    python::{
         func::{get_string_from_obj, pocketpy_bridge, py_assign},
         module::create_module,
         var::{PythonPointer, pocketpyref_to_var, var_to_pocketpyref},
-    }, shared::{
-        PixelScript, PtrMagic, read_file, read_file_dir, var::{ObjectMethods, pxs_Var, pxs_VarList}
-    }, with_feature
+    },
+    shared::{
+        PixelScript, PtrMagic, read_file, read_file_dir,
+        var::{ObjectMethods, pxs_Var, pxs_VarList},
+    },
+    with_feature,
 };
 
 // Allow for the binidngs only
@@ -87,11 +93,7 @@ fn run_py(
         };
         free_raw_string!(c_code);
         free_raw_string!(c_name);
-        if !res {
-            consume_error()
-        } else {
-            String::new()
-        }
+        if !res { consume_error() } else { String::new() }
     }
 }
 
@@ -130,6 +132,27 @@ pub(self) fn eval_py(code: &str, name: &str, module_name: &str) -> String {
 /// Execute python code in the main module.
 pub(self) fn exec_main_py(code: &str, name: &str) -> String {
     run_py(code, name, pocketpy::py_CompileMode::EXEC_MODE, None)
+}
+
+/// Create a new module and load it with code.
+unsafe fn new_module(code: &str, name: &str) {
+    let cname = create_raw_string!(name);
+    let module = unsafe { pocketpy::py_getmodule(cname) };
+    if !module.is_null() {
+        panic!("module: {} already exists.", name);
+    }
+
+    let _ = unsafe { pocketpy::py_newmodule(cname) };
+
+    // Exec the code
+    let err = exec_py(code, format!("<{}>", name).as_str(), name);
+    if !err.is_empty() {
+        panic!("Setting new module error: {err}");
+    }
+
+    unsafe {
+        free_raw_string!(cname);
+    }
 }
 
 /// Initialize Lua state per thread.
@@ -210,7 +233,10 @@ pub(self) fn make_private_prefix(name: &str, prefix: &str) -> String {
 }
 
 /// This is the import overrider
-unsafe extern "C" fn import_file(arg1: *const std::ffi::c_char, _data_size: *mut std::ffi::c_int) -> *mut std::ffi::c_char {
+unsafe extern "C" fn import_file(
+    arg1: *const std::ffi::c_char,
+    _data_size: *mut std::ffi::c_int,
+) -> *mut std::ffi::c_char {
     // Borrow string
     let b = borrow_string!(arg1);
     // Remove .py and check if this is a directory
@@ -281,7 +307,7 @@ pub(self) fn python_pxs_new_register(obj_ref: pocketpy::py_Ref) -> i32 {
 
 /// Get a pocketpy ref from a register
 pub(self) fn python_pxs_get_register(idx: i32) -> bool {
-    unsafe { 
+    unsafe {
         let register_name = create_raw_string!("_pxs_register");
         let register = pocketpy::py_getglobal(pocketpy::py_name(register_name));
         free_raw_string!(register_name);
@@ -298,7 +324,7 @@ pub(self) fn python_pxs_get_register(idx: i32) -> bool {
                 true
             }
         }
-    } 
+    }
 }
 
 /// Remove a reference from the _pxs_register
@@ -327,38 +353,33 @@ pub(self) fn python_pxs_remove_ref(idx: i32) {
 
 /// Do some python setup. This needs to be called for every thread too
 unsafe fn python_setup() {
-    unsafe { setup_module_loader(); }
+    unsafe {
+        setup_module_loader();
+    }
 
     // Setup some python code
     // 1. _pxs_new_register: registers a new object/function in our internal memory.
     let mut python_code = String::new();
-    python_code.push_str(r#"
-_pxs_register = {}
-_pxs_register_next_id = 0
+    python_code.push_str(include_str!("../../core/python/main.py"));
 
-def _pxs_new_register(obj):
-    global _pxs_register_next_id
-    id = _pxs_register_next_id
-    _pxs_register[id] = obj
-    _pxs_register_next_id += 1
-    return id
-"#);
+    // with_feature!("pxs_utils", {
+    //     // Set a new function (_pxs_items)
+    //     python_code.push_str(include_str!("../../core/python/pxs_utils.py"));
+    // });
 
-    with_feature!("pxs_utils", {
-        // Set a new function (_pxs_items)
-        python_code.push_str(r#"
-def _pxs_items(d):
-    if not type(d) is dict:
-        return []
-    return list(d.items())
-"#);
+    with_feature!("pxs_json", {
+        // Create module
+        unsafe {
+            new_module(include_str!("../../core/python/pxs_json.py"), "pxs_json");
+        }
+        // Import into main
+        python_code.push_str("\nimport pxs_json\n");
     });
 
     let res = exec_main_py(&python_code, "<python_setup>");
     if !res.is_empty() {
         panic!("Python setup error: {res}");
     }
-
 }
 
 /// This needs to be called in every PKPY VM.
@@ -525,15 +546,16 @@ impl ObjectMethods for PythonScripting {
                     let cmod = pocketpy::py_inspect_currentmodule();
                     // TODO: does cmod need to be null checked.
                     // Then look for a method in current module
-                    let found =
-                        pocketpy::py_getattr(cmod, pymethod_name);
+                    let found = pocketpy::py_getattr(cmod, pymethod_name);
                     if !found {
                         // Consume the error (we don't care about it anymore)
                         let _ = consume_error();
                         // Check in __main__
                         let found = pocketpy::py_getglobal(pymethod_name);
                         if found.is_null() {
-                            pxs_debug!("Function: {method}, not found in globals, current mod, OR __main__.");
+                            pxs_debug!(
+                                "Function: {method}, not found in globals, current mod, OR __main__."
+                            );
                         }
 
                         found
@@ -545,7 +567,9 @@ impl ObjectMethods for PythonScripting {
             free_raw_string!(method_name);
 
             if pymethod.is_null() {
-                return Ok(pxs_Var::new_exception(format!("Method: {method} was not found")));
+                return Ok(pxs_Var::new_exception(format!(
+                    "Method: {method} was not found"
+                )));
             }
 
             // Push method
@@ -595,8 +619,8 @@ impl ObjectMethods for PythonScripting {
             // pxs_debug!("calling function failed. Error: {err}");
             return Ok(pxs_Var::new_exception(err));
         }
-        
-        let py_res = unsafe{pocketpy::py_retval()};
+
+        let py_res = unsafe { pocketpy::py_retval() };
         Ok(pocketpyref_to_var(py_res))
     }
 
@@ -643,8 +667,45 @@ impl ObjectMethods for PythonScripting {
             if !res {
                 return Ok(pxs_Var::new_exception(consume_error()));
             }
- 
+
             Ok(pocketpyref_to_var(pocketpy::py_retval()))
+        }
+    }
+
+    fn get_from_name(name: &str) -> Result<pxs_Var, anyhow::Error> {
+        unsafe {
+            let ref_name = create_raw_string!(name);
+            let pyname = pocketpy::py_name(ref_name);
+            let py_ref = {
+                // Try a builtin first
+                let global = pocketpy::py_getbuiltin(pyname);
+                if !global.is_null() {
+                    global
+                } else {
+                    // Look for in current module
+                    let cmod = pocketpy::py_inspect_currentmodule();
+                    // TODO: does cmod need to be null checked.
+                    // Then look for a ref in current module
+                    let found = pocketpy::py_getattr(cmod, pyname);
+                    if !found {
+                        // Consume the error (we don't care about it anymore)
+                        let _ = consume_error();
+                        // Check in __main__
+                        let found = pocketpy::py_getglobal(pyname);
+                        if found.is_null() {
+                            pxs_debug!(
+                                "Ref: {name}, not found in globals, current mod, OR __main__."
+                            );
+                        }
+
+                        found
+                    } else {
+                        pocketpy::py_retval()
+                    }
+                }
+            };
+            free_raw_string!(ref_name);
+            Ok(pocketpyref_to_var(py_ref))
         }
     }
 }

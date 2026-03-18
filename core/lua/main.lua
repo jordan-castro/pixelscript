@@ -1,0 +1,1 @@
+-- Main is inputed directly at the start of the Lua engine regardless of features. This goes into GLOBAL scope.

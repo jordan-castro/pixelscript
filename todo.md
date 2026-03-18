@@ -39,7 +39,9 @@
 - Copy might need to be a little smarter because right now if you copy a object and pass it into a function that takes ownership or the 
     arg it will drop it. So either we allow a copy without deleter function. Or we internally recreate a new reference,
     I think pxs_copy_nodelete() is a good idea. But I would rather not add a new lib function. Rather if something could be done internally that is 
-    not too complex like `PythonPointer`. That would be better.
+    not too complex like `PythonPointer`. That would be better. (Copy is fine | if you need to use a variable multiple times without it being dropped,
+    copy it first and then pass in to any function the original value because this has no deleter | When done with the value, you will have to call `pxs_freevar` on 
+    the copied value.)
 
 ## STD
 - Add std library via pixelscript runtime. These are optional and handled via features
@@ -49,6 +51,7 @@
 ## Lua
 - Remove io, os, and hackable modules.
 - add STD json module.
+- Potentially drop down to raw C lua files?
 
 ## Python (rustpython)
 - Eventually look back at this
@@ -71,3 +74,4 @@
 ## Maybes
 - Enums?
 - Removing Strings for internal use. I.e. object ids in Python. Try using i32 instead.
+- Never return a null pointer? Only use pxs_Var(null)

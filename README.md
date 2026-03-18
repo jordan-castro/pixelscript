@@ -26,25 +26,25 @@ For rust based use I will be adding a Rust wrapper, which is funny because this 
 ## Supported languages
 | Feature flag     | Language          | Engine                | Notes                           |
 |------------------|-------------------|-----------------------|---------------------------------|
-| `lua`            | Lua               | mlua                  | Fast, battle-tested, v5.4       |
+| `lua`            | Lua               | mlua                  | Fast, battle tested, v5.4       |
 | `python`         | Python            | pocketpy V2.1.8       | Requires MSVC on Windows        |
 | `js`             | JavaScript        | rquickjs              | Quickjs rust wrapper            |
 | `php`            | PHP               | PH7                   | Only supports v5.3 and the engine is not maintained anymore |
 | `rustpython`     | Python            | rustpython            | Larger binary, Full Python library support, currently leaking memory. |
-<!-- | `cpython`        | Python (CPython)  | python.h              | Supports all Python libraries   |  -->
-<!-- | `js-quick`       | JavaScript        | rquickjs              | QuickJS, more complete          | -->
+| `luajit`         | Lua               | mlua                  | Uses the same code as the `lua` feature |
 
 ## CoreLib
 To include the PixelScript core API, add the `include-core` feature. Or include the specific modules as feature tags.
 | Module name | Module purpose | Notes |
 |-------------|----------------|-------|
-| `pxs_utils` | Adds helpful functions and objects to the std lib. | Check `pxs_utils` for included functions and objects. |
+| `pxs_json`  | Adds encode/decode functions for all languages. | |
 
-### pxs_utils
-Overview of what is incldued in `pxs_utils` module.
+### pxs_json
+Overview of what is incldued in `pxs_json` module.
 | Name | Type | Doc Comment |
 |------|------|-------------|
-|`_pxs_items`|Function(dict/object/tree) -> returns Array[Array(key, value)]| Converts the key and values of a dictionary (python), object (js), tree (lua) into a list of key,value items.|
+| `encode` | Function | Encodes a object into a JSON string. |
+| `decode` | Function | Decodes a JSON string into a language object |
 
 ## Building
 In order to use pixelscript, you need to first compile it's libraries. Each language could potentially have it's own libraries.

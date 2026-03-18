@@ -33,31 +33,45 @@ struct State {
     tables: RefCell<HashMap<String, LuaTable>>,
 }
 
+/// Preload a lua source code as a module.
+fn preload_lua_module(lua: &Lua, code: &str, name: &str) -> Result<(), anyhow::Error> {
+    let package: LuaTable = lua.globals().get("package")?;
+    let preload: LuaTable = package.get("preload")?;
+
+    let owned_code = String::from(code);
+    let owned_name = String::from(name);
+
+    let loader = lua.create_function(move |lua, _: ()| {
+        let res: LuaTable = lua.load(&owned_code).set_name(format!("pxs_internal_{}", &owned_name)).eval()?;
+        Ok(res)
+    })?;
+
+    preload.set(name, loader)?;
+    Ok(())
+}
+
 /// Initialize Lua state per thread.
 fn init_state() -> State {
     // Define a global function in engine
     let engine = Lua::new();
 
-    with_feature!("pxs_utils", {
-        // Load in the lua_globals methods.
-        let lua_globals = r#"
-function _pxs_items(t)
-    -- Get keys and values of a table and return them 
-    -- as a table list of {{key, item}, ...}
-    local items = {}
-    local keys = {}
-    for key in pairs(t) do
-        table.insert(keys, key)
-    end
-    table.sort(keys) -- Sort keys to ensure consistent order
-    for _, key in ipairs(keys) do
-        table.insert(items, { key, t[key] })
-    end
-    return items
-end
-        "#;
-        engine.load(lua_globals).exec().expect("Could not set lua global functions.");
+    let mut lua_globals = String::new();
+    lua_globals.push_str(include_str!("../../core/lua/main.lua"));
+
+    // with_feature!("pxs_utils", {
+    //     // Load in the pxs_utils methods into GLOBAL scope.
+    //     lua_globals.push_str(include_str!("../../core/lua/pxs_utils.lua"));
+    // });
+
+    with_feature!("pxs_json", {
+        // Load dkjson module
+        preload_lua_module(&engine, include_str!("../../libs/dkjson.lua"), "__dkjson__").expect("Could not load dkjson.lua");
+        // Load in the pxs_json module
+        preload_lua_module(&engine, include_str!("../../core/lua/pxs_json.lua"), "pxs_json").expect("Could not load pxs_json.lua");
+        // Import it globally
+        lua_globals.push_str("\npxs_json = require('pxs_json')\n");
     });
+    engine.load(lua_globals).exec().expect("Could not set lua global functions.");
 
     State {
         engine: engine,
@@ -183,7 +197,7 @@ impl PixelScript for LuaScripting {
     fn stop_thread() {
         // LUA does not need this.
     }
-    
+
     fn clear_state(call_gc: bool) {
         let state = get_lua_state();
 
@@ -310,5 +324,11 @@ impl ObjectMethods for LuaScripting {
             Err(_) => pxs_Var::new_bool(false),
         })
     }
+    
+    fn get_from_name(name: &str) -> Result<pxs_Var, anyhow::Error> {
+        let state = get_lua_state();
 
+        let res: LuaValue = state.engine.globals().get(name)?;
+        from_lua(res)
+    }
 }

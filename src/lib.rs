@@ -9,9 +9,7 @@
 
 use shared::{func::pxs_Func, var::pxs_Var};
 use std::{
-    ffi::{CString, c_char, c_void},
-    ptr,
-    sync::Arc,
+    cell::{Cell, RefCell}, ffi::{CString, c_char, c_void}, ptr, sync::Arc
 };
 
 #[cfg(feature = "lua")]
@@ -19,15 +17,15 @@ use crate::lua::LuaScripting;
 #[cfg(feature = "python")]
 use crate::python::PythonScripting;
 
-use crate::shared::{
+use crate::{core::pxs_json, shared::{
     LoadFileFn, PixelScript, PtrMagic, ReadDirFn, WriteFileFn,
     func::{clear_function_lookup, lookup_add_function},
     get_pixel_state,
     module::pxs_Module,
     object::{FreeMethod, clear_object_lookup, get_object, lookup_add_object, pxs_PixelObject},
     pxs_Runtime,
-    var::{ObjectMethods, pxs_VarT, pxs_VarType, pxs_DeleterFn},
-};
+    var::{ObjectMethods, default_deleter, pxs_DeleterFn, pxs_VarT, pxs_VarType},
+}};
 
 pub mod shared;
 
@@ -546,7 +544,7 @@ pub extern "C" fn pxs_object_callrt(
 /// Example
 /// ```C
 ///     // Inside a Var* method
-///     Var* obj = argv[1];
+///     Var* obj = pxs_listget(args, 1);
 ///     Var name = pxs_object_call()
 /// ```
 #[unsafe(no_mangle)]
@@ -607,8 +605,6 @@ pub extern "C" fn pxs_objectcall(
             )
         }
         pxs_Runtime::pxs_JavaScript => todo!(),
-        pxs_Runtime::pxs_Easyjs => todo!(),
-        pxs_Runtime::pxs_RustPython => todo!(),
         _ => todo!(), // pxs_Runtime::pxs_JavaScript => todo!(),
                       // pxs_Runtime::pxs_Easyjs => todo!(),
                       // pxs_Runtime::pxs_RustPython => todo!(),
@@ -939,8 +935,6 @@ return std::ptr::null_mut();
                 })
             }
             pxs_Runtime::pxs_JavaScript => todo!(),
-            pxs_Runtime::pxs_Easyjs => todo!(),
-            pxs_Runtime::pxs_RustPython => todo!(),
             _ => todo!(),
         };
 
@@ -1135,8 +1129,6 @@ pub extern "C" fn pxs_varcall(
                 )
             }
             pxs_Runtime::pxs_JavaScript => todo!(),
-            pxs_Runtime::pxs_Easyjs => todo!(),
-            pxs_Runtime::pxs_RustPython => todo!(),
             _ => todo!(), // pxs_Runtime::pxs_JavaScript => todo!(),
                           // pxs_Runtime::pxs_Easyjs => todo!(),
                           // pxs_Runtime::pxs_RustPython => todo!(),
@@ -1278,8 +1270,6 @@ pub extern "C" fn pxs_eval(script: *const c_char, rt: pxs_Runtime) -> pxs_VarT {
             })
         },
         pxs_Runtime::pxs_JavaScript => todo!(),
-        pxs_Runtime::pxs_Easyjs => todo!(),
-        pxs_Runtime::pxs_RustPython => todo!(),
         pxs_Runtime::pxs_PHP => todo!(),
     }
 }
@@ -1387,3 +1377,113 @@ pub extern "C" fn pxs_newexception(msg: *const c_char) -> pxs_VarT {
     let bmsg = borrow_string!(msg);
     pxs_Var::new_exception(bmsg.to_string().clone()).into_raw()
 }
+
+/// Get a variable reference from its name
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_var_fromname(rt: pxs_VarT, name: *const c_char) -> pxs_VarT {
+    assert_initiated!();
+    if name.is_null() {
+        return pxs_Var::new_null().into_raw();
+    }
+
+    let bname = borrow_string!(name);
+    let runtime = unsafe{pxs_Runtime::from_var_ptr(rt)};
+    if let Some(runtime) = runtime {
+        match runtime {
+            pxs_Runtime::pxs_Lua => {
+                with_feature!("lua", {
+                    LuaScripting::get_from_name(bname).unwrap_or(pxs_Var::new_null())
+                }, {pxs_Var::new_null()})
+            },
+            pxs_Runtime::pxs_Python => {
+                with_feature!("python", {
+                    PythonScripting::get_from_name(bname).unwrap_or(pxs_Var::new_null())
+                }, {pxs_Var::new_null()})
+            },
+            pxs_Runtime::pxs_JavaScript => todo!(),
+            pxs_Runtime::pxs_PHP => todo!(),
+        }.into_raw()
+    } else {
+        pxs_Var::new_null().into_raw()
+    }
+}
+
+/// Remove a item from a list at a specific index.
+/// 
+/// Returns true for success, false for failed
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_listdel(list: pxs_VarT, index: i32) -> bool {
+    if list.is_null() {
+        return false;
+    }
+
+    let var = borrow_var!(list);
+    if !var.is_list() {
+        return false;
+    }
+
+    // Ok so it's a List and it's not null! Lets delete the item
+    let var_list = var.get_list().unwrap();
+    var_list.del_item(index)
+}
+
+/// Copy but don't get the deleter for (pxs_Object or pxs_Function)
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_new_copy_nodelete(var: pxs_VarT) -> pxs_VarT {
+    // Clone the var, but keep the deleter.
+    let bvar = borrow_var!(var);
+    let nvar = pxs_newcopy(var);
+
+    // If not a pxs_Object of pxs_Function just return the value.
+    if !bvar.is_object() || !bvar.is_function() {
+        return nvar;
+    }
+
+    let bnvar = borrow_var!(nvar);
+    
+    // Swap deleters
+    let new_deleter = bvar.deleter.get();
+    let old_deleter = bnvar.deleter.get();
+
+    bvar.deleter = Cell::new(old_deleter);
+    bnvar.deleter = Cell::new(new_deleter);
+    nvar
+}
+
+// ====================================== Core functions Start =======================================
+
+#[cfg(feature = "pxs_json")]
+/// Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.
+/// Transfers ownership of args.
+/// Basically calls the runtime.pxs_json.encode() function.
+/// 
+/// Note: This function is already enabled in each scripting language. This is a host language wrapper for calling it easily.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_json_encode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
+    assert_initiated!();
+    unsafe {
+        if !core::is_valid_pxs_function(rt, args) {
+            return pxs_newnull();
+        }
+    }
+    pxs_json::encode(rt, args)
+}
+
+#[cfg(feature = "pxs_json")]
+/// Decode a `pxs_String` into a `pxs_Var`.
+/// Make sure runtime is the first argument in args.
+/// Transfers ownership of args.
+/// 
+/// Note: This function is already enabled in each scripting language. This is a host language wrapper for calling it easily.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_json_decode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
+    assert_initiated!();
+    unsafe {
+        if !core::is_valid_pxs_function(rt, args) {
+            return pxs_newnull();
+        }
+    }
+    pxs_json::decode(rt, args)
+}
+
+// ====================================== Core functions End =========================================

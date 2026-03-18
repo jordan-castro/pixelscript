@@ -11,20 +11,27 @@
 #[cfg(test)]
 mod tests {
     use pixelscript::{
-        create_raw_string, free_raw_string, own_string, pxs_Opaque, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_execlua, pxs_execpython, pxs_finalize, pxs_getstring, pxs_initialize, pxs_listadd, pxs_listget, pxs_newcopy, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_tostring, shared::var::pxs_VarT
+        create_raw_string, free_raw_string, own_string, pxs_Opaque, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_execlua, pxs_execpython, pxs_finalize, pxs_getstring, pxs_initialize, pxs_json_decode, pxs_json_encode, pxs_listadd, pxs_listget, pxs_new_copy_nodelete, pxs_newcopy, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_tostring, shared::var::pxs_VarT
     };
 
-    extern "C" fn call_pxs_items(args: pxs_VarT) -> pxs_VarT {
-        let mname = create_raw_string!("_pxs_items");
-        let nargs = pxs_newlist();
-        pxs_listadd(nargs, pxs_newcopy(pxs_listget(args, 1)));
-        let res = pxs_call(pxs_listget(args, 0), mname, nargs);
-        println!("res: {}", own_string!(pxs_debugvar(res)));
-        unsafe{
-            free_raw_string!(mname);
-        }
+    extern "C" fn call_pxs_json_encode(args: pxs_VarT) -> pxs_VarT {
+        let rt = pxs_listget(args, 0);
+        let obj = pxs_listget(args, 1);
 
-        return res;
+        let nargs = pxs_newlist();
+        pxs_listadd(nargs, pxs_new_copy_nodelete(obj));
+        let res = pxs_json_encode(rt, nargs);
+        res
+    } 
+
+    extern "C" fn call_pxs_json_decode(args: pxs_VarT) -> pxs_VarT {
+        let rt = pxs_listget(args, 0);
+        let obj = pxs_listget(args, 1);
+
+        let nargs = pxs_newlist();
+        pxs_listadd(nargs, pxs_new_copy_nodelete(obj));
+        let res = pxs_json_decode(rt, nargs);
+        res
     }
 
     #[test]
@@ -32,80 +39,47 @@ mod tests {
         pxs_initialize();
         let mname = create_raw_string!("pxs");
         let module = pxs_newmod(mname);
-        let fname = create_raw_string!("call_pxs_items");
-        pxs_addfunc(module, fname, call_pxs_items);
+        let fname = create_raw_string!("encode");
+        let fname2 = create_raw_string!("decode");
+        pxs_addfunc(module, fname, call_pxs_json_encode);
+        pxs_addfunc(module, fname2, call_pxs_json_decode);
         pxs_addmod(module);
         unsafe {
             free_raw_string!(mname);
             free_raw_string!(fname);
+            free_raw_string!(fname2);
         }
 
         let pyscript = r#"
 from pxs import *
-
 obj = {"one": 1, "two": 2}
-items = _pxs_items(obj)
+encoded = pxs_json.encode(obj)
+print(f'encoded: {encoded}')
+decoded = pxs_json.decode(encoded)
+print(f'decoded == obj: {decoded == obj}')
 
-if items != [("one", 1), ("two", 2)]:
-    raise "_pxs_items did not work in Python"
-
-# Test calling too
-res = call_pxs_items(obj)
-print(f"res: {res}")
+encoded2 = encode(obj)
+print(f'encoded2: {encoded2}')
+decoded2 = decode(encoded2)
+print(f'decoded2 == obj: {decoded2 == obj}')
 "#;
 
         let luascript = r#"
-        function deep_compare(t1, t2)
-    -- Check if both are tables
-    if type(t1) ~= "table" or type(t2) ~= "table" then
-        return t1 == t2
-    end
-
-    -- Check if they have the same number of elements
-    local len1, len2 = 0, 0
-    for _ in pairs(t1) do len1 = len1 + 1 end
-    for _ in pairs(t2) do len2 = len2 + 1 end
-    if len1 ~= len2 then
-        return false
-    end
-
-    -- For sequential tables, check order and values
-    if t1[1] ~= nil and t2[1] ~= nil then
-        for i = 1, #t1 do
-            if not deep_compare(t1[i], t2[i]) then
-                return false
-            end
-        end
-        -- Ensure no extra non-sequential keys
-        for k in pairs(t1) do
-            if type(k) ~= "number" or k > #t1 or k < 1 then
-                return false
-            end
-        end
-        for k in pairs(t2) do
-            if type(k) ~= "number" or k > #t2 or k < 1 then
-                return false
-            end
-        end
-        return true
-    end
-
-    -- For non-sequential tables, compare key-value pairs
-    for k, v1 in pairs(t1) do
-        local v2 = t2[k]
-        if not deep_compare(v1, v2) then
-            return false
-        end
-    end
-
-    return true
-end
+local pxs = require('pxs')
 local obj = {one = 1, two= 2}
-items = _pxs_items(obj)
-local expected = {{"one", 1}, {"two", 2}}
-if not deep_compare(items, expected) then
-    error("_pxs_items did not work in lua.")
-end"#;
+local encoded = pxs_json.encode(obj)
+print('encoded: ' .. encoded)
+local decoded = pxs_json.decode(encoded)
+print(decoded.one)
+print(decoded.two)
+
+local encoded2 = pxs.encode(obj)
+local decoded2 = pxs.decode(encoded2)
+
+print('encoded2: ' .. encoded2)
+print(decoded2.one)
+print(decoded2.two)
+"#;
 
         let raw_pyscript = create_raw_string!(pyscript);
         let raw_file_name = create_raw_string!("<globals_test>");

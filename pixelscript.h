@@ -65,17 +65,9 @@ typedef enum pxs_Runtime {
    */
   pxs_JavaScript = 2,
   /**
-   * v0.4.5 using easyjsc
-   */
-  pxs_Easyjs = 3,
-  /**
-   * Python >= v3.8 with RustPython
-   */
-  pxs_RustPython = 4,
-  /**
    * PHP v5.3 with PH7
    */
-  pxs_PHP = 5,
+  pxs_PHP = 3,
 } pxs_Runtime;
 
 /**
@@ -526,7 +518,7 @@ struct pxs_Var *pxs_object_callrt(enum pxs_Runtime runtime,
  * Example
  * ```C
  *     // Inside a Var* method
- *     Var* obj = argv[1];
+ *     Var* obj = pxs_listget(args, 1);
  *     Var name = pxs_object_call()
  * ```
  */
@@ -748,6 +740,43 @@ char *pxs_debugvar(pxs_VarT var);
  * Create a `pxs_Exception`.
  */
 pxs_VarT pxs_newexception(const char *msg);
+
+/**
+ * Get a variable reference from its name
+ */
+pxs_VarT pxs_var_fromname(pxs_VarT rt, const char *name);
+
+/**
+ * Remove a item from a list at a specific index.
+ *
+ * Returns true for success, false for failed
+ */
+bool pxs_listdel(pxs_VarT list, int32_t index);
+
+/**
+ * Copy but don't get the deleter for (pxs_Object or pxs_Function)
+ */
+pxs_VarT pxs_new_copy_nodelete(pxs_VarT var);
+
+/**
+ * Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.
+ * Transfers ownership of args.
+ * Basically calls the runtime.pxs_json.encode() function.
+ *
+ * Note: This function is already enabled in each scripting language. This is a host language wrapper for calling it easily.
+ */
+pxs_VarT pxs_json_encode(pxs_VarT rt,
+                         pxs_VarT args);
+
+/**
+ * Decode a `pxs_String` into a `pxs_Var`.
+ * Make sure runtime is the first argument in args.
+ * Transfers ownership of args.
+ *
+ * Note: This function is already enabled in each scripting language. This is a host language wrapper for calling it easily.
+ */
+pxs_VarT pxs_json_decode(pxs_VarT rt,
+                         pxs_VarT args);
 
 #ifdef __cplusplus
 }  // extern "C"

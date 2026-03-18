@@ -214,6 +214,14 @@ impl pxs_VarList {
         pxs_VarList { vars: vec![] }
     }
 
+    fn get_rindex(&self, index: i32) -> i32 {
+        if index < 0 {
+            (self.vars.len() as i32) + index
+        } else {
+            index
+        }
+    }
+
     /// Add a Var to the list. List will take ownership.
     pub fn add_item(&mut self, item: pxs_Var) {
         self.vars.push(item);
@@ -222,13 +230,7 @@ impl pxs_VarList {
     /// Get a Var from the list. Supports negative based indexes.
     pub fn get_item(&self, index: i32) -> Option<&pxs_Var> {
         // Get correct negative index.
-        let r_index = {
-            if index < 0 {
-                (self.vars.len() as i32) + index
-            } else {
-                index
-            }
-        };
+        let r_index = self.get_rindex(index);
 
         if r_index < 0 {
             None
@@ -242,13 +244,7 @@ impl pxs_VarList {
     /// Index must already be filled.
     pub fn set_item(&mut self, item: pxs_Var, index: i32) -> bool {
         // Get correct negative index.
-        let r_index = {
-            if index < 0 {
-                (self.vars.len() as i32) + index
-            } else {
-                index
-            }
-        };
+        let r_index = self.get_rindex(index);
 
         if r_index < 0 {
             return false;
@@ -258,6 +254,22 @@ impl pxs_VarList {
             false
         } else {
             self.vars[r_index as usize] = item;
+            true
+        }
+    }
+
+    /// Remove a item at a specific index.
+    pub fn del_item(&mut self, index: i32) -> bool {
+        let r_index = self.get_rindex(index);
+
+        if r_index < 0 {
+            return false;
+        }
+
+        if self.vars.len() < r_index as usize {
+            false
+        } else {
+            self.vars.remove(index as usize);
             true
         }
     }
@@ -802,6 +814,9 @@ pub trait ObjectMethods {
 
     /// Setter
     fn set(var: &pxs_Var, key: &str, value: &pxs_Var) -> Result<pxs_Var, Error>;
+
+    /// Get a object/function based off their name
+    fn get_from_name(name: &str) -> Result<pxs_Var, Error>;
 }
 
 /// Type Helper for a pxs_Var
