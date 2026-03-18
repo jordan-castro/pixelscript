@@ -15,9 +15,6 @@
 - Lazy Init
 - Reference counting for PixelScript object
 - pxs_Error (returned when there is a error in pixelscript not necessarily a error in a backend)
-- Add pxs_Ref variable which will take a string name and at conversion grab it from the scope.
-    - In Lua you can grab it de una vez
-    - In pocketpy you do current module ? globals ? result
 
 ## v0.6
 - pxs DSL
