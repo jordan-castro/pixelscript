@@ -1381,6 +1381,7 @@ pub extern "C" fn pxs_newexception(msg: *const c_char) -> pxs_VarT {
 /// Get a variable reference from its name
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_var_fromname(rt: pxs_VarT, name: *const c_char) -> pxs_VarT {
+    pxs_debug!("pxs_var_fromname");
     assert_initiated!();
     if name.is_null() {
         return pxs_Var::new_null().into_raw();
@@ -1413,6 +1414,7 @@ pub extern "C" fn pxs_var_fromname(rt: pxs_VarT, name: *const c_char) -> pxs_Var
 /// Returns true for success, false for failed
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_listdel(list: pxs_VarT, index: i32) -> bool {
+    pxs_debug!("pxs_listdel");
     if list.is_null() {
         return false;
     }
@@ -1430,6 +1432,7 @@ pub extern "C" fn pxs_listdel(list: pxs_VarT, index: i32) -> bool {
 /// Copy but don't get the deleter for (pxs_Object or pxs_Function)
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_new_copy_nodelete(var: pxs_VarT) -> pxs_VarT {
+    pxs_debug!("pxs_new_copy_nodelete");
     // Clone the var, but keep the deleter.
     let bvar = borrow_var!(var);
     let nvar = pxs_newcopy(var);
@@ -1440,7 +1443,7 @@ pub extern "C" fn pxs_new_copy_nodelete(var: pxs_VarT) -> pxs_VarT {
     }
 
     let bnvar = borrow_var!(nvar);
-    
+
     // Swap deleters
     let new_deleter = bvar.deleter.get();
     let old_deleter = bnvar.deleter.get();
@@ -1460,6 +1463,7 @@ pub extern "C" fn pxs_new_copy_nodelete(var: pxs_VarT) -> pxs_VarT {
 /// Note: This function is already enabled in each scripting language. This is a host language wrapper for calling it easily.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_json_encode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
+    pxs_debug!("pxs_json_encode");
     assert_initiated!();
     unsafe {
         if !core::is_valid_pxs_function(rt, args) {
@@ -1477,6 +1481,7 @@ pub extern "C" fn pxs_json_encode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
 /// Note: This function is already enabled in each scripting language. This is a host language wrapper for calling it easily.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_json_decode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
+    pxs_debug!("pxs_json_decode");
     assert_initiated!();
     unsafe {
         if !core::is_valid_pxs_function(rt, args) {
