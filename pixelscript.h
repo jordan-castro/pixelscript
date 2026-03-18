@@ -754,9 +754,9 @@ pxs_VarT pxs_var_fromname(pxs_VarT rt, const char *name);
 bool pxs_listdel(pxs_VarT list, int32_t index);
 
 /**
- * Copy but don't get the deleter for (pxs_Object or pxs_Function)
+ * Do a Shallow Copy. Which means it gets the same data without get the deleter for (pxs_Object or pxs_Function).
  */
-pxs_VarT pxs_new_copy_nodelete(pxs_VarT var);
+pxs_VarT pxs_new_shallowcopy(pxs_VarT var);
 
 /**
  * Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.

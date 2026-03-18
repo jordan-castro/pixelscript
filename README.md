@@ -1,3 +1,6 @@
+[<image-card alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue" ></image-card>](LICENSE)
+[<image-card alt="Stars" src="https://img.shields.io/github/stars/jordan-castro/pixelscript" ></image-card>](https://github.com/jordan-castro/pixelscript)
+
 # Pixel Script
 
 A multi language scripting runtime built in Rust.
@@ -14,14 +17,23 @@ Because most games pick only one language for scripting. PixelScript gives modde
 Each language runtime uses the same PixelScript bindings.
 
 ## Version
-pixelscript crate is currently at version 0.4.8.
+pixelscript crate is currently at version 0.5.1.
 
 ## How to use
-To use Pixel Script, you will have to clone this repository.
-When compiling, if you only want a specific language you will have to set `--no-default-features` and `--features "<language1>,<language2>"`.
-If you want to compile for all languages simply run the build script under `scripts/` It will compile the library and place the files under `/pxsb`.
+pixelscript can be used within a rust application or via ffi.
 
-For rust based use I will be adding a Rust wrapper, which is funny because this is written in Rust. But I want all systems that use the pixelscript library (rust included) to use the low level bindings. Which means I will write a High level and safe rust bindings. Until then, hack it using FFI.
+### Rust based
+For rust based (i.e. using this library inside a rust application) you can add it with cargo:
+```bash
+cargo add pixelscript
+```
+
+### FFI based
+For using pixelscript via ffi, clone this repository and run:
+```bash
+python scripts/build.py
+```
+This will build the project and place the necessary *static* libraries in a `/pxsb` folder. It will also generate a `pixelscript.h` C header file.
 
 ## Supported languages
 | Feature flag     | Language          | Engine                | Notes                           |
@@ -30,8 +42,8 @@ For rust based use I will be adding a Rust wrapper, which is funny because this 
 | `python`         | Python            | pocketpy V2.1.8       | Requires MSVC on Windows        |
 | `js`             | JavaScript        | rquickjs              | Quickjs rust wrapper            |
 | `php`            | PHP               | PH7                   | Only supports v5.3 and the engine is not maintained anymore |
-| `rustpython`     | Python            | rustpython            | Larger binary, Full Python library support, currently leaking memory. |
-| `luajit`         | Lua               | mlua                  | Uses the same code as the `lua` feature |
+<!-- | `rustpython`     | Python            | rustpython            | Larger binary, Full Python library support, currently leaking memory. | -->
+<!-- | `luajit`         | Lua               | mlua                  | Uses the same code as the `lua` feature | -->
 
 ## CoreLib
 To include the PixelScript core API, add the `include-core` feature. Or include the specific modules as feature tags.
@@ -46,18 +58,8 @@ Overview of what is incldued in `pxs_json` module.
 | `encode` | Function | Encodes a object into a JSON string. |
 | `decode` | Function | Decodes a JSON string into a language object |
 
-## Building
-In order to use pixelscript, you need to first compile it's libraries. Each language could potentially have it's own libraries.
-Each library will be fetched and placed under a pxsb folder in the main directory of your build system.
-
-To build simply run:
-```bash
-cargo build --release
-```
-On your rust crate. This will build the pixelscript library and make all language libs accessible.
-
 ## Example
-Here is a "Hello World" example supporting Lua, Python, PHP, JavaScript, and easyjs.
+Here is a "Hello World" example supporting Lua, Python, JavaScript and PHP.
 ```c
 #include "pixelscript.h"
 // Optional macros (for C/C++ codespaces)
@@ -98,32 +100,26 @@ int main() {
 
     // Lua
     const char* lua_script = "local main = require('main')\n"
-        "main.print('Hello World from Lua!')";
+        "main.println('Hello World from Lua!')";
     char* error = pxs_execlua(lua_script, "<ctest>");
     pxs_freestr(error);
 
     // Python
     const char* python_script = "import main\n"
-                                "main.print('Hello World from Python')\n";
+                                "main.println('Hello World from Python')\n";
 
     char* error = pxs_execpython(python_script, "<ctest>");
     pxs_freestr(error);
 
     // JavaScript
     const char* js_script = "import * as main from 'main';\n"
-                            "main.print('Hello World from JavaScript!');";
+                            "main.println('Hello World from JavaScript!');";
     char* error = pxs_execjs(js_script, "<ctest>");
-    pxs_freestr(error);
-
-    // easyjs
-    const char* ej_script = "import 'main'\n"
-                            "main.print('Hello World from easyjs!')";
-    char* error = pxs_execej(ej_script, "<ctest>");
     pxs_freestr(error);
 
     // PHP!!!! 
     const char* php_script = "include('main');\n" // or require
-                            "\\main\\print('Hello World from PHP!');";
+                            "\\main\\println('Hello World from PHP!');";
     char* error = pxs_execphp(php_script, "<ctest>");
     pxs_freestr(error);
 
@@ -142,6 +138,6 @@ This will ideally be used by all future epochtech games since it allows for modd
 It's not quite ready to be used in production for anyone other than myself and epochtech. But if you make PRs to fix
 something or open issues, I will be responding and merging. Feel free to add a language, just check out /lua or /python for examples on how to use Var, Func, Module, PixelObject, and PixelScripting.
 
-Also RustPython and Luajit do not currently work.
+<!-- Also RustPython and Luajit do not currently work. -->
 
 Made with ❤️ by [@epochtechgames](https://x.com/epochtechgames)

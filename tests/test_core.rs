@@ -11,7 +11,7 @@
 #[cfg(test)]
 mod tests {
     use pixelscript::{
-        create_raw_string, free_raw_string, own_string, pxs_Opaque, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_execlua, pxs_execpython, pxs_finalize, pxs_getstring, pxs_initialize, pxs_json_decode, pxs_json_encode, pxs_listadd, pxs_listget, pxs_new_copy_nodelete, pxs_newcopy, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_tostring, shared::var::pxs_VarT
+        create_raw_string, free_raw_string, own_string, pxs_Opaque, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_execlua, pxs_execpython, pxs_finalize, pxs_getstring, pxs_initialize, pxs_json_decode, pxs_json_encode, pxs_listadd, pxs_listget, pxs_new_shallowcopy, pxs_newcopy, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_tostring, shared::var::pxs_VarT
     };
 
     extern "C" fn call_pxs_json_encode(args: pxs_VarT) -> pxs_VarT {
@@ -19,7 +19,7 @@ mod tests {
         let obj = pxs_listget(args, 1);
 
         let nargs = pxs_newlist();
-        pxs_listadd(nargs, pxs_new_copy_nodelete(obj));
+        pxs_listadd(nargs, pxs_new_shallowcopy(obj));
         let res = pxs_json_encode(rt, nargs);
         res
     } 
@@ -29,7 +29,7 @@ mod tests {
         let obj = pxs_listget(args, 1);
 
         let nargs = pxs_newlist();
-        pxs_listadd(nargs, pxs_new_copy_nodelete(obj));
+        pxs_listadd(nargs, pxs_new_shallowcopy(obj));
         let res = pxs_json_decode(rt, nargs);
         res
     }

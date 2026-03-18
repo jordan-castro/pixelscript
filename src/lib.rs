@@ -1429,10 +1429,10 @@ pub extern "C" fn pxs_listdel(list: pxs_VarT, index: i32) -> bool {
     var_list.del_item(index)
 }
 
-/// Copy but don't get the deleter for (pxs_Object or pxs_Function)
+/// Do a Shallow Copy. Which means it gets the same data without get the deleter for (pxs_Object or pxs_Function).
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_new_copy_nodelete(var: pxs_VarT) -> pxs_VarT {
-    pxs_debug!("pxs_new_copy_nodelete");
+pub extern "C" fn pxs_new_shallowcopy(var: pxs_VarT) -> pxs_VarT {
+    pxs_debug!("pxs_new_shallowcopy");
     // Clone the var, but keep the deleter.
     let bvar = borrow_var!(var);
     let nvar = pxs_newcopy(var);
