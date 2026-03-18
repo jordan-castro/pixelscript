@@ -53,7 +53,7 @@ if len(sys.argv) > 0:
 
 target = ""
 rtarget = ""
-features = ["--no-default-features", "--features", "python,lua"]
+features = []
 run_clear = False
 
 for arg in argv:
@@ -63,8 +63,7 @@ for arg in argv:
         target =  "--target=" + rtarget
     elif "features" in arg:
         # Split features
-        features_ = arg.split("=")[-1]
-        features[2] += "," + features_
+        features = arg.split("=")[-1].split(',')
     elif arg == "clear":
         run_clear = True
 

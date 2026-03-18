@@ -1,5 +1,11 @@
-[<image-card alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue" ></image-card>](LICENSE)
-[<image-card alt="Stars" src="https://img.shields.io/github/stars/jordan-castro/pixelscript" ></image-card>](https://github.com/jordan-castro/pixelscript)
+<div align="center">
+
+[<image-card alt="crates.io" src="https://img.shields.io/crates/v/pixelscript" ></image-card>](https://crates.io/crates/pixelscript)
+[<image-card alt="docs.rs" src="https://docs.rs/pixelscript/badge.svg" ></image-card>](https://docs.rs/pixelscript)
+[<image-card alt="License Apache 2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" ></image-card>](LICENSE)
+[<image-card alt="GitHub stars" src="https://img.shields.io/github/stars/jordan-castro/pixelscript?style=social" ></image-card>](https://github.com/jordan-castro/pixelscript)
+
+</div>
 
 # Pixel Script
 
