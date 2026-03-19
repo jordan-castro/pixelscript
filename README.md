@@ -44,7 +44,6 @@ This will build the project and place the necessary *static* libraries in a `/px
 | `python`         | Python            | pocketpy V2.1.8       | Requires MSVC on Windows        |
 | `js`             | JavaScript        | rquickjs              | Quickjs rust wrapper            |
 | `php`            | PHP               | PH7                   | Only supports v5.3 and the engine is not maintained anymore |
-<!-- | `rustpython`     | Python            | rustpython            | Larger binary, Full Python library support, currently leaking memory. | -->
 <!-- | `luajit`         | Lua               | mlua                  | Uses the same code as the `lua` feature | -->
 
 ## CoreLib
@@ -139,7 +138,5 @@ int main() {
 This will ideally be used by all future epochtech games since it allows for modding in multiple languages. 
 It's not quite ready to be used in production for anyone other than myself and epochtech. But if you make PRs to fix
 something or open issues, I will be responding and merging. Feel free to add a language, just check out /lua or /python for examples on how to use Var, Func, Module, PixelObject, and PixelScripting.
-
-<!-- Also RustPython and Luajit do not currently work. -->
 
 Made with ❤️ by [@epochtechgames](https://x.com/epochtechgames)

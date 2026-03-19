@@ -44,9 +44,6 @@
 - Remove io, os, and hackable modules.
 - Drop down to raw C lua lib...
 
-## Python (rustpython)
-- Eventually look back at this
-
 ## Python (PocketPy)
 - Make callback global. i.e. one per thread
 - Make object callbacks global. i.e. one per object
