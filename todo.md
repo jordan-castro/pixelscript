@@ -1,30 +1,30 @@
 # TODO
 
-- Make better use of anyhow
-- Make better use of '?'
-- C tests
-    - Lua
-    - Python
-    - JS
-    - Easyjs
-
 - Add a LSP
 - Fix warnings (remove or ignore)
 
-## v0.5
-- Lazy Init
-- Reference counting for PixelScript object
-- pxs_Error (returned when there is a error in pixelscript not necessarily a error in a backend)
+## v0.5 Memory and JS support
+- JS support via ejr.
+- Lazy Init language states on first run.
+- Reference counting for PixelScript object.
+- Decrease number of functions created in pocketpy.
+- pxs_Error (returned when there is a error in pixelscript not necessarily a error in a backend) This will replace anyhow.
+- pxs_* library functions need to always return a pxs_Var. nullptr will no longer be allowed.
 
-## v0.6
-- pxs DSL
+## v0.6 Platforms and STD
+- pxs DSL (Might not do this TBH.)
+- WASM support + Wasm web page similar to pocketpy live playground.
+- pxs_time (Time functions)
+- pxs_os (OS functions like name, version)
+- pxs_io (IO functions like write, read, etc) | This will require that `file_loader` `file_reader` and `dir_reader` are setup. 
+
+## v0.7 Size Reduction
+- Remove mlua (use raw lua c files instead)
+- Attempting to get pixelscript <= 10mb
 
 ## LSP
 - Remove ModuleCallbacks just use Function
 - Remove ModuleVariables just use PixelVariable {name, var}
-
-## Functions
-- Use VarList instead of argc and argv?
 
 ## Modules
 
@@ -33,22 +33,16 @@
 
 ## Vars
 - Add Map
-- Copy might need to be a little smarter because right now if you copy a object and pass it into a function that takes ownership or the 
-    arg it will drop it. So either we allow a copy without deleter function. Or we internally recreate a new reference,
-    I think pxs_copy_nodelete() is a good idea. But I would rather not add a new lib function. Rather if something could be done internally that is 
-    not too complex like `PythonPointer`. That would be better. (Copy is fine | if you need to use a variable multiple times without it being dropped,
-    copy it first and then pass in to any function the original value because this has no deleter | When done with the value, you will have to call `pxs_freevar` on 
-    the copied value.)
 
 ## STD
 - Add std library via pixelscript runtime. These are optional and handled via features
-    - io (reading/writing files/directories)
-    - os (some OS level stuff (delete, move, idk))
+    - pxs_io (reading/writing files/directories)
+    - pxs_os (some OS level stuff (delete, move, idk))
+    - pxs_time (similar to pythons time module. Just universal for all languages)
 
 ## Lua
 - Remove io, os, and hackable modules.
-- add STD json module.
-- Potentially drop down to raw C lua files?
+- Drop down to raw C lua lib...
 
 ## Python (rustpython)
 - Eventually look back at this

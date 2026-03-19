@@ -9,7 +9,10 @@
 
 use shared::{func::pxs_Func, var::pxs_Var};
 use std::{
-    cell::{Cell, RefCell}, ffi::{CString, c_char, c_void}, ptr, sync::Arc
+    cell::Cell,
+    ffi::{CString, c_char, c_void},
+    ptr,
+    sync::Arc,
 };
 
 #[cfg(feature = "lua")]
@@ -17,7 +20,7 @@ use crate::lua::LuaScripting;
 #[cfg(feature = "python")]
 use crate::python::PythonScripting;
 
-use crate::{core::pxs_json, shared::{
+use crate::shared::{
     LoadFileFn, PixelScript, PtrMagic, ReadDirFn, WriteFileFn,
     func::{clear_function_lookup, lookup_add_function},
     get_pixel_state,
@@ -25,11 +28,10 @@ use crate::{core::pxs_json, shared::{
     object::{FreeMethod, clear_object_lookup, get_object, lookup_add_object, pxs_PixelObject},
     pxs_Runtime,
     var::{ObjectMethods, default_deleter, pxs_DeleterFn, pxs_VarT, pxs_VarType},
-}};
+};
 
 pub mod shared;
 
-#[cfg(feature = "include-core")]
 pub mod core;
 #[cfg(feature = "lua")]
 pub mod lua;
@@ -141,49 +143,64 @@ pub extern "C" fn pxs_finalize() {
 ///
 /// The result needs to be freed by calling `pxs_free_str`
 #[unsafe(no_mangle)]
-#[cfg(feature = "lua")]
 pub extern "C" fn pxs_execlua(code: *const c_char, file_name: *const c_char) -> *mut c_char {
     pxs_debug!("pxs_execlua");
     assert_initiated!();
-    // First convert code and file_name to rust strs
-    let code_str = borrow_string!(code);
-    if code_str.is_empty() {
-        return create_raw_string!("Code is empty");
-    }
-    let file_name_str = borrow_string!(file_name);
-    if file_name_str.is_empty() {
-        return create_raw_string!("File name is empty");
-    }
 
-    // Execute and get result
-    let result = LuaScripting::execute(code_str, file_name_str);
+    with_feature!(
+        "lua",
+        {
+            // First convert code and file_name to rust strs
+            let code_str = borrow_string!(code);
+            if code_str.is_empty() {
+                return create_raw_string!("Code is empty");
+            }
+            let file_name_str = borrow_string!(file_name);
+            if file_name_str.is_empty() {
+                return create_raw_string!("File name is empty");
+            }
 
-    create_raw_string!(result)
+            // Execute and get result
+            let result = LuaScripting::execute(code_str, file_name_str);
+
+            create_raw_string!(result)
+        },
+        {
+            panic!("lua feature not enabled");
+        }
+    )
 }
 
 /// Execute some Python code. Will return a String, an empty string means that the code executed successfully.
 ///
 /// The result needs to be freed by calling `pxs_free_str`
 #[unsafe(no_mangle)]
-#[cfg(feature = "python")]
 pub extern "C" fn pxs_execpython(code: *const c_char, file_name: *const c_char) -> *mut c_char {
     pxs_debug!("pxs_execpython");
     assert_initiated!();
 
-    // Borrow code and name
-    let code_borrow = borrow_string!(code);
-    if code_borrow.is_empty() {
-        return create_raw_string!("Code is empty");
-    }
-    let file_name_borrow = borrow_string!(file_name);
-    if file_name_borrow.is_empty() {
-        return create_raw_string!("File name is empty");
-    }
+    with_feature!(
+        "python",
+        {
+            // Borrow code and name
+            let code_borrow = borrow_string!(code);
+            if code_borrow.is_empty() {
+                return create_raw_string!("Code is empty");
+            }
+            let file_name_borrow = borrow_string!(file_name);
+            if file_name_borrow.is_empty() {
+                return create_raw_string!("File name is empty");
+            }
 
-    // Execute
-    let result = PythonScripting::execute(code_borrow, file_name_borrow);
+            // Execute
+            let result = PythonScripting::execute(code_borrow, file_name_borrow);
 
-    create_raw_string!(result)
+            create_raw_string!(result)
+        },
+        {
+            panic!("python feature not enabled");
+        }
+    )
 }
 
 /// Free the string created by the pixelscript library
@@ -216,11 +233,7 @@ pub extern "C" fn pxs_newmod(name: *const c_char) -> *mut pxs_Module {
 ///
 /// Pass in the modules pointer and callback paramaters.
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_addfunc(
-    module_ptr: *mut pxs_Module,
-    name: *const c_char,
-    func: pxs_Func,
-) {
+pub extern "C" fn pxs_addfunc(module_ptr: *mut pxs_Module, name: *const c_char, func: pxs_Func) {
     pxs_debug!("pxs_addfunc");
     assert_initiated!();
     if module_ptr.is_null() {
@@ -386,7 +399,7 @@ pub extern "C" fn pxs_object_addfunc(
 pub extern "C" fn pxs_object_add_reffunc(
     object_ptr: *mut pxs_PixelObject,
     name: *const c_char,
-    callback: pxs_Func
+    callback: pxs_Func,
 ) {
     pxs_debug!("pxs_object_addfunc");
     assert_initiated!();
@@ -594,14 +607,18 @@ pub extern "C" fn pxs_objectcall(
             with_feature!(
                 "lua",
                 { LuaScripting::object_call(var_borrow, method_borrow, list) },
-                { return std::ptr::null_mut(); }
+                {
+                    return std::ptr::null_mut();
+                }
             )
         }
         pxs_Runtime::pxs_Python => {
             with_feature!(
                 "python",
                 { PythonScripting::object_call(var_borrow, method_borrow, list) },
-                { return std::ptr::null_mut(); }
+                {
+                    return std::ptr::null_mut();
+                }
             )
         }
         pxs_Runtime::pxs_JavaScript => todo!(),
@@ -859,7 +876,9 @@ pub extern "C" fn pxs_call(
                 with_feature!(
                     "python",
                     { PythonScripting::call_method(method_borrow, list) },
-                    { return std::ptr::null_mut(); }
+                    {
+                        return std::ptr::null_mut();
+                    }
                 )
             }
             _ => todo!(), // pxs_Runtime::pxs_JavaScript => todo!(),
@@ -925,13 +944,12 @@ pub extern "C" fn pxs_tostring(runtime: *mut pxs_Var, var: *mut pxs_Var) -> *mut
         let res = match runtime {
             pxs_Runtime::pxs_Lua => {
                 with_feature!("lua", { LuaScripting::call_method("tostring", list) }, {
-return std::ptr::null_mut();
+                    return std::ptr::null_mut();
                 })
             }
             pxs_Runtime::pxs_Python => {
                 with_feature!("python", { PythonScripting::call_method("str", list) }, {
-return std::ptr::null_mut();
-
+                    return std::ptr::null_mut();
                 })
             }
             pxs_Runtime::pxs_JavaScript => todo!(),
@@ -1118,14 +1136,18 @@ pub extern "C" fn pxs_varcall(
                 with_feature!(
                     "lua",
                     { LuaScripting::var_call(borrow_func, list).unwrap() },
-                    { return std::ptr::null_mut(); }
+                    {
+                        return std::ptr::null_mut();
+                    }
                 )
             }
             pxs_Runtime::pxs_Python => {
                 with_feature!(
                     "python",
                     { PythonScripting::var_call(borrow_func, list).unwrap() },
-                    { return std::ptr::null_mut(); }
+                    {
+                        return std::ptr::null_mut();
+                    }
                 )
             }
             pxs_Runtime::pxs_JavaScript => todo!(),
@@ -1161,7 +1183,7 @@ pub extern "C" fn pxs_newcopy(item: *mut pxs_Var) -> *mut pxs_Var {
 
 /// Call a objects getter.
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_objectget(runtime:pxs_VarT, obj: pxs_VarT, key: *const c_char) -> pxs_VarT {
+pub extern "C" fn pxs_objectget(runtime: pxs_VarT, obj: pxs_VarT, key: *const c_char) -> pxs_VarT {
     pxs_debug!("pxs_objectget");
     assert_initiated!();
     if runtime.is_null() || obj.is_null() || key.is_null() {
@@ -1175,24 +1197,23 @@ pub extern "C" fn pxs_objectget(runtime:pxs_VarT, obj: pxs_VarT, key: *const c_c
 
     let res = match borrow_rt {
         pxs_Runtime::pxs_Lua => {
-            with_feature!("lua", {
-                LuaScripting::get(borrow_obj, borrow_key)
-            }, {
+            with_feature!("lua", { LuaScripting::get(borrow_obj, borrow_key) }, {
                 return ptr::null_mut();
             })
-        },
+        }
         pxs_Runtime::pxs_Python => {
-            with_feature!("python", {
-                PythonScripting::get(borrow_obj, borrow_key)
-            }, {
-                return ptr::null_mut();
-            })
-        },
-        _ => todo!()
-        // pxs_Runtime::pxs_JavaScript => todo!(),
-        // pxs_Runtime::pxs_Easyjs => todo!(),
-        // pxs_Runtime::pxs_RustPython => todo!(),
-        // pxs_Runtime::pxs_PHP => todo!(),
+            with_feature!(
+                "python",
+                { PythonScripting::get(borrow_obj, borrow_key) },
+                {
+                    return ptr::null_mut();
+                }
+            )
+        }
+        _ => todo!(), // pxs_Runtime::pxs_JavaScript => todo!(),
+                      // pxs_Runtime::pxs_Easyjs => todo!(),
+                      // pxs_Runtime::pxs_RustPython => todo!(),
+                      // pxs_Runtime::pxs_PHP => todo!(),
     };
 
     match res {
@@ -1205,7 +1226,12 @@ pub extern "C" fn pxs_objectget(runtime:pxs_VarT, obj: pxs_VarT, key: *const c_c
 ///
 /// value ownership is transfered.
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_objectset(runtime: pxs_VarT, obj: pxs_VarT, key: *const c_char, value: pxs_VarT) -> bool {
+pub extern "C" fn pxs_objectset(
+    runtime: pxs_VarT,
+    obj: pxs_VarT,
+    key: *const c_char,
+    value: pxs_VarT,
+) -> bool {
     pxs_debug!("pxs_objectset");
     assert_initiated!();
 
@@ -1222,20 +1248,24 @@ pub extern "C" fn pxs_objectset(runtime: pxs_VarT, obj: pxs_VarT, key: *const c_
 
     let res = match rt {
         pxs_Runtime::pxs_Lua => {
-            with_feature!("lua", {
-                LuaScripting::set(borrow_obj, borrow_key, &owned_value)
-            }, {
-                return false;
-            })
-        },
+            with_feature!(
+                "lua",
+                { LuaScripting::set(borrow_obj, borrow_key, &owned_value) },
+                {
+                    return false;
+                }
+            )
+        }
         pxs_Runtime::pxs_Python => {
-            with_feature!("python", {
-                PythonScripting::set(borrow_obj, borrow_key, &owned_value)
-            }, {
-                return false;
-            })
-        },
-        _ => todo!()
+            with_feature!(
+                "python",
+                { PythonScripting::set(borrow_obj, borrow_key, &owned_value) },
+                {
+                    return false;
+                }
+            )
+        }
+        _ => todo!(),
     };
 
     match res {
@@ -1256,19 +1286,15 @@ pub extern "C" fn pxs_eval(script: *const c_char, rt: pxs_Runtime) -> pxs_VarT {
 
     match rt {
         pxs_Runtime::pxs_Lua => {
-            with_feature!("lua", {
-                LuaScripting::eval(script).into_raw()
-            }, {
+            with_feature!("lua", { LuaScripting::eval(script).into_raw() }, {
                 pxs_newnull()
             })
-        },
+        }
         pxs_Runtime::pxs_Python => {
-            with_feature!("python", {
-                PythonScripting::eval(script).into_raw()
-            }, {
+            with_feature!("python", { PythonScripting::eval(script).into_raw() }, {
                 pxs_newnull()
             })
-        },
+        }
         pxs_Runtime::pxs_JavaScript => todo!(),
         pxs_Runtime::pxs_PHP => todo!(),
     }
@@ -1283,10 +1309,7 @@ pub extern "C" fn pxs_eval(script: *const c_char, rt: pxs_Runtime) -> pxs_VarT {
 /// var_name = callback(args)
 /// ```
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_newfactory(
-    func: pxs_Func,
-    args: *mut pxs_Var
-) -> pxs_VarT {
+pub extern "C" fn pxs_newfactory(func: pxs_Func, args: *mut pxs_Var) -> pxs_VarT {
     pxs_debug!("pxs_newfactory");
     assert_initiated!();
 
@@ -1294,7 +1317,7 @@ pub extern "C" fn pxs_newfactory(
         return ptr::null_mut();
     }
     // Check args is string
-    let borrow_args = unsafe{pxs_Var::from_borrow(args)};
+    let borrow_args = unsafe { pxs_Var::from_borrow(args) };
     if !borrow_args.is_list() {
         return ptr::null_mut();
     }
@@ -1317,13 +1340,15 @@ pub extern "C" fn pxs_gethost(runtime: pxs_VarT, var: pxs_VarT) -> *mut c_void {
         return ptr::null_mut();
     }
 
-    let borrow_var = unsafe{pxs_Var::from_borrow(var)};
+    let borrow_var = unsafe { pxs_Var::from_borrow(var) };
 
     if borrow_var.is_object() {
         // Check for ptr
         let key = create_raw_string!("_pxs_ptr");
         let idx_var = pxs_objectget(runtime, var, key);
-        unsafe{ free_raw_string!(key); }
+        unsafe {
+            free_raw_string!(key);
+        }
         if idx_var.is_null() {
             return ptr::null_mut();
         }
@@ -1336,7 +1361,7 @@ pub extern "C" fn pxs_gethost(runtime: pxs_VarT, var: pxs_VarT) -> *mut c_void {
         // Get the factory
         let factory = borrow_var.get_factory().unwrap();
         // Call the function
-        let res = factory.call(unsafe {pxs_Runtime::from_var_ptr(runtime)}.unwrap());
+        let res = factory.call(unsafe { pxs_Runtime::from_var_ptr(runtime) }.unwrap());
         // Now we should have our object, so just call pxs_gethost on it again
         let res_raw = res.into_raw();
         let host = pxs_gethost(runtime, res_raw);
@@ -1347,7 +1372,6 @@ pub extern "C" fn pxs_gethost(runtime: pxs_VarT, var: pxs_VarT) -> *mut c_void {
     } else {
         ptr::null_mut()
     }
-
 }
 
 /// Return a string rep of the `pxs_Var`.
@@ -1359,7 +1383,7 @@ pub extern "C" fn pxs_debugvar(var: pxs_VarT) -> *mut c_char {
     if var.is_null() {
         create_raw_string!("NULL")
     } else {
-        let borrow_var = unsafe{pxs_Var::from_borrow(var)};
+        let borrow_var = unsafe { pxs_Var::from_borrow(var) };
         let str = format!("{:#?}", borrow_var);
         create_raw_string!(str)
     }
@@ -1388,29 +1412,34 @@ pub extern "C" fn pxs_var_fromname(rt: pxs_VarT, name: *const c_char) -> pxs_Var
     }
 
     let bname = borrow_string!(name);
-    let runtime = unsafe{pxs_Runtime::from_var_ptr(rt)};
+    let runtime = unsafe { pxs_Runtime::from_var_ptr(rt) };
     if let Some(runtime) = runtime {
         match runtime {
             pxs_Runtime::pxs_Lua => {
-                with_feature!("lua", {
-                    LuaScripting::get_from_name(bname).unwrap_or(pxs_Var::new_null())
-                }, {pxs_Var::new_null()})
-            },
+                with_feature!(
+                    "lua",
+                    { LuaScripting::get_from_name(bname).unwrap_or(pxs_Var::new_null()) },
+                    { pxs_Var::new_null() }
+                )
+            }
             pxs_Runtime::pxs_Python => {
-                with_feature!("python", {
-                    PythonScripting::get_from_name(bname).unwrap_or(pxs_Var::new_null())
-                }, {pxs_Var::new_null()})
-            },
+                with_feature!(
+                    "python",
+                    { PythonScripting::get_from_name(bname).unwrap_or(pxs_Var::new_null()) },
+                    { pxs_Var::new_null() }
+                )
+            }
             pxs_Runtime::pxs_JavaScript => todo!(),
             pxs_Runtime::pxs_PHP => todo!(),
-        }.into_raw()
+        }
+        .into_raw()
     } else {
         pxs_Var::new_null().into_raw()
     }
 }
 
 /// Remove a item from a list at a specific index.
-/// 
+///
 /// Returns true for success, false for failed
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_listdel(list: pxs_VarT, index: i32) -> bool {
@@ -1455,40 +1484,54 @@ pub extern "C" fn pxs_new_shallowcopy(var: pxs_VarT) -> pxs_VarT {
 
 // ====================================== Core functions Start =======================================
 
-#[cfg(feature = "pxs_json")]
 /// Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.
 /// Transfers ownership of args.
 /// Basically calls the runtime.pxs_json.encode() function.
-/// 
+///
 /// Note: This function is already enabled in each scripting language. This is a host language wrapper for calling it easily.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_json_encode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
     pxs_debug!("pxs_json_encode");
     assert_initiated!();
-    unsafe {
-        if !core::is_valid_pxs_function(rt, args) {
-            return pxs_newnull();
+    with_feature!(
+        "pxs_json",
+        {
+            unsafe {
+                if !core::is_valid_pxs_function(rt, args) {
+                    return pxs_newnull();
+                }
+            }
+            core::pxs_json::encode(rt, args)
+        },
+        {
+            panic!("pxs_json feature not enabled.");
         }
-    }
-    pxs_json::encode(rt, args)
+    )
 }
 
-#[cfg(feature = "pxs_json")]
 /// Decode a `pxs_String` into a `pxs_Var`.
 /// Make sure runtime is the first argument in args.
 /// Transfers ownership of args.
-/// 
+///
 /// Note: This function is already enabled in each scripting language. This is a host language wrapper for calling it easily.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_json_decode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
     pxs_debug!("pxs_json_decode");
     assert_initiated!();
-    unsafe {
-        if !core::is_valid_pxs_function(rt, args) {
-            return pxs_newnull();
+    with_feature!(
+        "pxs_json",
+        {
+            unsafe {
+                if !core::is_valid_pxs_function(rt, args) {
+                    return pxs_newnull();
+                }
+            }
+            core::pxs_json::decode(rt, args)
+        },
+        {
+            panic!("pxs_json feature not enabled");
         }
-    }
-    pxs_json::decode(rt, args)
+    )
 }
 
 // ====================================== Core functions End =========================================

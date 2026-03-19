@@ -6,3 +6,5 @@ A list of headaches that I've run into while using this library. That will be ch
     - builtins 
     - current module
     - __main__ module
+- When a `pxs_Object` or `pxs_Function` is off the stack and is dropped by pxs. It fails becuase it returns None via `_pxs_register`.
+- Does not support inheritance
