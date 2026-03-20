@@ -12,7 +12,7 @@
 #[cfg(test)]
 mod tests {
     use pixelscript::{
-        create_raw_string, free_raw_string, own_string, pxs_Opaque, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_execlua, pxs_execpython, pxs_finalize, pxs_freevar, pxs_getint, pxs_initialize, pxs_listadd, pxs_listget, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, shared::var::pxs_VarT
+        create_raw_string, free_raw_string, own_string, own_var, pxs_Opaque, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_exec, pxs_finalize, pxs_freevar, pxs_getint, pxs_initialize, pxs_listadd, pxs_listget, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, shared::{pxs_Runtime, var::pxs_VarT, var::pxs_Var, PtrMagic}
     };
 
     extern "C" fn anything(args: pxs_VarT) -> pxs_VarT {
@@ -47,7 +47,7 @@ anything(1,2)
 "#);
         let file_name = create_raw_string!("<test>");
 
-        let err = own_string!(pxs_execpython(script, file_name));
+        let err = own_var!(pxs_exec(pxs_Runtime::pxs_Python, script, file_name));
 
         unsafe{
 free_raw_string!(script);
@@ -56,33 +56,8 @@ free_raw_string!(mod_name);
 free_raw_string!(anything_name);
         };
 
-        assert!(err.is_empty(), "Error is not empty: {err}");
+        assert!(err.is_null(), "Error is not empty: {}", err.get_string().unwrap());
 
-        // let raw_pyscript = create_raw_string!(pyscript);
-        // let raw_file_name = create_raw_string!("<globals_test>");
-        // let err = own_string!(pxs_execpython(raw_pyscript, raw_file_name));
-        // unsafe {
-        //     free_raw_string!(raw_pyscript);
-        // };
-        // if !err.is_empty() {
-        //     unsafe { free_raw_string!(raw_file_name) };
-        // }
-
-        // assert!(err.is_empty(), "{err}");
-
-        // let raw_luascript = create_raw_string!(luascript);
-        // let err = own_string!(pxs_execlua(raw_luascript, raw_file_name));
-        // unsafe {
-        //     free_raw_string!(raw_luascript);
-        // }
-        // if !err.is_empty() {
-        //     unsafe { free_raw_string!(raw_file_name) };
-        // }
-        // assert!(err.is_empty(), "{err}");
-
-        // unsafe {
-        //     free_raw_string!(raw_file_name);
-        // }
         pxs_finalize();
     }
 }

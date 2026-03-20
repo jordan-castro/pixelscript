@@ -269,6 +269,12 @@ typedef struct pxs_Var {
 } pxs_Var;
 
 /**
+ * Type Helper for a pxs_Var
+ * Use this instead of writing out pxs_Var*
+ */
+typedef struct pxs_Var *pxs_VarT;
+
+/**
  * Function reference used in C.
  *
  * args: *mut pxs_Var, A list of vars.
@@ -283,12 +289,6 @@ typedef struct pxs_Var *(*pxs_Func)(struct pxs_Var *args);
 typedef void *pxs_Opaque;
 
 typedef void (*FreeMethod)(void *ptr);
-
-/**
- * Type Helper for a pxs_Var
- * Use this instead of writing out pxs_Var*
- */
-typedef struct pxs_Var *pxs_VarT;
 
 /**
  * Function Type for Loading a file.
@@ -325,20 +325,11 @@ void pxs_initialize(void);
 void pxs_finalize(void);
 
 /**
- * Execute some lua code. Will return a String, an empty string means that the
- * code executed succesffuly
- *
- * The result needs to be freed by calling `pxs_free_str`
+ * Execute code in a runtime. Will return a pxs_VarT. Null means no error
+ * String means yes error.
+ * The result will need to be freed by calling `pxs_freevar`
  */
-char *pxs_execlua(const char *code, const char *file_name);
-
-/**
- * Execute some Python code. Will return a String, an empty string means that the code executed successfully.
- *
- * The result needs to be freed by calling `pxs_free_str`
- */
-char *pxs_execpython(const char *code,
-                     const char *file_name);
+pxs_VarT pxs_exec(enum pxs_Runtime runtime, const char *code, const char *file_name);
 
 /**
  * Free the string created by the pixelscript library

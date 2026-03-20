@@ -138,69 +138,51 @@ pub extern "C" fn pxs_finalize() {
     });
 }
 
-/// Execute some lua code. Will return a String, an empty string means that the
-/// code executed succesffuly
-///
-/// The result needs to be freed by calling `pxs_free_str`
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_execlua(code: *const c_char, file_name: *const c_char) -> *mut c_char {
-    pxs_debug!("pxs_execlua");
+/// Execute code in a runtime. Will return a pxs_VarT. Null means no error
+/// String means yes error.
+/// The result will need to be freed by calling `pxs_freevar`
+pub extern "C" fn pxs_exec(runtime: pxs_Runtime, code: *const c_char, file_name: *const c_char) -> pxs_VarT {
+    pxs_debug!("pxs_exec");
     assert_initiated!();
 
-    with_feature!(
-        "lua",
-        {
-            // First convert code and file_name to rust strs
-            let code_str = borrow_string!(code);
-            if code_str.is_empty() {
-                return create_raw_string!("Code is empty");
-            }
-            let file_name_str = borrow_string!(file_name);
-            if file_name_str.is_empty() {
-                return create_raw_string!("File name is empty");
-            }
+    if code.is_null() || file_name.is_null() {
+        return pxs_newstring(create_raw_string!("code or file_name are null"));
+    }
 
-            // Execute and get result
-            let result = LuaScripting::execute(code_str, file_name_str);
+    let rcode = borrow_string!(code);
+    let rfile_name = borrow_string!(file_name);
 
-            create_raw_string!(result)
+    if rcode.is_empty() || rfile_name.is_empty() {
+        return pxs_newstring(create_raw_string!("code or file_name are empty strings"));
+    }
+
+    let res = match runtime {
+        pxs_Runtime::pxs_Lua => {
+            with_feature!("lua", {
+                LuaScripting::execute(rcode, rfile_name)
+            }, {
+                // TODO: pxs_Error
+                panic!("lua is not enabled");
+            })
         },
-        {
-            panic!("lua feature not enabled");
-        }
-    )
-}
-
-/// Execute some Python code. Will return a String, an empty string means that the code executed successfully.
-///
-/// The result needs to be freed by calling `pxs_free_str`
-#[unsafe(no_mangle)]
-pub extern "C" fn pxs_execpython(code: *const c_char, file_name: *const c_char) -> *mut c_char {
-    pxs_debug!("pxs_execpython");
-    assert_initiated!();
-
-    with_feature!(
-        "python",
-        {
-            // Borrow code and name
-            let code_borrow = borrow_string!(code);
-            if code_borrow.is_empty() {
-                return create_raw_string!("Code is empty");
-            }
-            let file_name_borrow = borrow_string!(file_name);
-            if file_name_borrow.is_empty() {
-                return create_raw_string!("File name is empty");
-            }
-
-            // Execute
-            let result = PythonScripting::execute(code_borrow, file_name_borrow);
-
-            create_raw_string!(result)
+        pxs_Runtime::pxs_Python => {
+            with_feature!("python", {
+                PythonScripting::execute(rcode, rfile_name)
+            }, {
+                // TODO: pxs_Error
+                panic!("python is not enabled");
+            })
         },
-        {
-            panic!("python feature not enabled");
-        }
-    )
+        pxs_Runtime::pxs_JavaScript => todo!(),
+        pxs_Runtime::pxs_PHP => todo!(),
+    };
+
+    if res.is_empty() {
+        pxs_newnull()
+    } else {
+        pxs_newstring(create_raw_string!(res))
+    }
 }
 
 /// Free the string created by the pixelscript library

@@ -19,7 +19,7 @@ mod tests {
     use pixelscript::{
         python::PythonScripting,
         shared::{
-            PixelScript, PtrMagic, func::pxs_Func, var::{pxs_Var, pxs_VarT}
+            PixelScript, PtrMagic, func::pxs_Func, pxs_Runtime, var::{pxs_Var, pxs_VarT}
         },
         *,
     };
@@ -429,7 +429,7 @@ print(pxs.call_function(get_pi))
         "#;
         let code = create_raw_string!(py_code);
         let file_name = create_raw_string!("<test>");
-        let err = own_string!(pxs_execpython(code, file_name));
+        let err = own_var!(pxs_exec(pxs_Runtime::pxs_Python, code, file_name));
 
         unsafe {
             free_raw_string!(code);
@@ -443,6 +443,6 @@ print(pxs.call_function(get_pi))
         pxs_stopthread();
 
         pxs_finalize();
-        assert!(err.is_empty(), "Python Error is not empty: {}", err);
+        assert!(err.is_null(), "Python Error is not empty: {}", err.get_string().unwrap());
     }
 }

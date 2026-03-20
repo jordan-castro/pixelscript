@@ -102,26 +102,26 @@ int main() {
     // Lua
     const char* lua_script = "local main = require('main')\n"
         "main.println('Hello World from Lua!')";
-    char* error = pxs_execlua(lua_script, "<ctest>");
+    char* error = pxs_exec(pxs_Lua, lua_script, "<ctest>");
     pxs_freestr(error);
 
     // Python
     const char* python_script = "import main\n"
                                 "main.println('Hello World from Python')\n";
 
-    char* error = pxs_execpython(python_script, "<ctest>");
+    char* error = pxs_execpython(pxs_Python, python_script, "<ctest>");
     pxs_freestr(error);
 
     // JavaScript
     const char* js_script = "import * as main from 'main';\n"
                             "main.println('Hello World from JavaScript!');";
-    char* error = pxs_execjs(js_script, "<ctest>");
+    char* error = pxs_execjs(pxs_JavaScript, js_script, "<ctest>");
     pxs_freestr(error);
 
     // PHP!!!! 
     const char* php_script = "include('main');\n" // or require
                             "\\main\\println('Hello World from PHP!');";
-    char* error = pxs_execphp(php_script, "<ctest>");
+    char* error = pxs_execphp(pxs_PHP, php_script, "<ctest>");
     pxs_freestr(error);
 
     pxs_finalize();
