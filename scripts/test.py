@@ -26,10 +26,14 @@ for t in included_tests:
 
     if not line.startswith("//"):
         continue
-    
+
     # Get cmd
     command = line.split("// ")[-1]
     result = os.system(command)
-    results[t] = "passed" if result == 0 else "failed"
+    results[t] = True if result == 0 else False
 
-print(json.dumps(results, indent=4))
+for k, v in results.items():
+    if not v:
+        raise f"{k} failed"
+
+print("All tests passed")

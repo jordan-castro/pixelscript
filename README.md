@@ -3,6 +3,8 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 [![GitHub stars](https://img.shields.io/github/stars/jordan-castro/pixelscript?style=social)](https://github.com/jordan-castro/pixelscript)
 
+[![Discord](https://dcbadge.limes.pink/api/server/https://discord.gg/Ws8gp5wSev)](https://discord.gg/Ws8gp5wSev)
+
 # Pixel Script
 
 A multi language scripting runtime built in Rust.
@@ -63,23 +65,10 @@ Overview of what is incldued in `pxs_json` module.
 Here is a "Hello World" example supporting Lua, Python, JavaScript and PHP.
 ```c
 #include "pixelscript.h"
-// Optional macros (for C/C++ codespaces)
-#include "pixelscript_m.h"
-
-// One with the macro
-PXS_HANDLER(mprintln) {
-    pxs_VarT contents_var = PXS_ARG(1);
-    char* contents_str = pxs_getstring(contents_var);
-
-    printf("%s", contents_str);
-
-    // Free the string
-    pxs_freestr(contents_str);
-}
 
 // One without the macro
-pxs_VarT println(pxs_VarT args, pxs_Opaque opaque) {
-    // Get contents
+pxs_VarT println(pxs_VarT args) {
+    // Get contents (0 is always Runtime)
     pxs_VarT contents_var = pxs_listget(args, 1);
     char* contents_str = pxs_getstring(contents_var);
 
@@ -96,7 +85,6 @@ int main() {
     pxs_Module* main = pxs_newmod("main");
 
     // Add callbacks
-    pxs_addfunc(main, "mprintln", mprintln, NULL);
     pxs_addfunc(main, "println", println, NULL);
 
     // Lua

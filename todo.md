@@ -12,16 +12,17 @@
 - pxs_* library functions need to always return a pxs_Var. nullptr will no longer be allowed.
 - ~~Reimp pxs_DirHandle to be a pxs_VarList~~
 
-## v0.6 Platforms and STD
+## v0.6 Platforms, STD, Wren support
 - pxs DSL (Might not do this TBH.)
 - WASM support + Wasm web page similar to pocketpy live playground.
 - pxs_time (Time functions)
 - pxs_os (OS functions like name, version)
 - pxs_io (IO functions like write, read, etc) | This will require that `file_loader` `file_reader` and `dir_reader` are setup. 
+- Add Wren support.
 
 ## v0.7 Size Reduction
 - Remove mlua (use raw lua c files instead)
-- Attempting to get pixelscript <= 10mb
+- Attempting to get pixelscript runtime (not language libraries) <= 10mb
 
 ## LSP
 - Remove ModuleCallbacks just use Function
