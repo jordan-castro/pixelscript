@@ -8,6 +8,7 @@
 //
 // cargo test --test test_call --no-default-features --features "lua,python,pxs-debug,include-core" -- --nocapture --test-threads=1
 
+#[allow(unused)]
 #[cfg(test)]
 mod tests {
     use pixelscript::{

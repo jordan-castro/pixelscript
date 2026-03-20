@@ -36,7 +36,7 @@ pub(super) unsafe fn get_string_from_obj(obj: pocketpy::py_Ref, key: String) -> 
         } else {
             let err = consume_error();
             pxs_debug!("Python error when trying to get a string from obj: {err}");
-            String::new()
+            err
         }
     }
 }

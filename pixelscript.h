@@ -301,25 +301,9 @@ typedef char *(*LoadFileFn)(const char *file_path);
 typedef void (*WriteFileFn)(const char *file_path, const char *contents);
 
 /**
- * Type for DirHandle.
- *
- * Host owns memory.
+ * Function Type for reading a Dir. Should return a `pxs_List`
  */
-typedef struct pxs_DirHandle {
-  /**
-   * The Length of the array
-   */
-  uintptr_t length;
-  /**
-   * The array values
-   */
-  char **values;
-} pxs_DirHandle;
-
-/**
- * Function Type for reading a Dir.
- */
-typedef struct pxs_DirHandle (*ReadDirFn)(const char *dir_path);
+typedef pxs_VarT (*ReadDirFn)(const char *dir_path);
 
 #ifdef __cplusplus
 extern "C" {

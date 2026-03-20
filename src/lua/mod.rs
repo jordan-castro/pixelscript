@@ -17,7 +17,7 @@ use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 use std::{cell::RefCell, collections::HashMap};
 
 use crate::{
-    lua::{self, var::{from_lua, into_lua}},
+    lua::var::{from_lua, into_lua},
     shared::{PixelScript, read_file, var::{ObjectMethods, pxs_Var}}, with_feature,
 };
 

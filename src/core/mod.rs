@@ -1,4 +1,4 @@
-use crate::{pxs_listget, pxs_varis, shared::var::{pxs_VarT, pxs_VarType}};
+use crate::{pxs_varis, shared::var::{pxs_VarT, pxs_VarType}};
 
 // Copyright 2026 Jordan Castro <jordan@grupojvm.com>
 //

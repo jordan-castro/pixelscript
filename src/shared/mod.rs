@@ -8,13 +8,16 @@
 //
 use std::{
     cell::RefCell,
-    ffi::{CStr, CString, c_char, c_void},
+    ffi::{CString, c_char, c_void},
     sync::{Arc, OnceLock},
 };
 
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
-use crate::{own_string, shared::var::{pxs_Var, pxs_VarT}};
+use crate::{
+    own_string, own_var,
+    shared::var::{pxs_Var, pxs_VarT},
+};
 
 /// Helper methods/macros for using PixelScript
 pub mod ffi;
@@ -24,72 +27,16 @@ pub mod func;
 pub mod module;
 /// The internal PixelScript PixelObject logic.
 pub mod object;
+pub mod utils;
 /// The internal PixelScript Var logic.
 pub mod var;
-pub mod utils;
-
-/// Type for DirHandle.
-///
-/// Host owns memory.
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub struct pxs_DirHandle {
-    /// The Length of the array
-    pub length: usize,
-    /// The array values
-    pub values: *mut *mut c_char,
-}
-
-impl pxs_DirHandle {
-    /// Empty Dir Handle
-    pub fn empty() -> Self {
-        pxs_DirHandle {
-            length: 0,
-            values: std::ptr::null_mut(),
-        }
-    }
-
-    /// Get a Vec<String> from the DirHandle.
-    pub fn into_vec(&self) -> Vec<String> {
-        if self.length == 0 || self.values.is_null() {
-            return vec![];
-        }
-        let args = unsafe { std::slice::from_raw_parts_mut(self.values, self.length) };
-        let mut res = vec![];
-        for &ptr in args.iter() {
-            if ptr.is_null() {
-                continue;
-            }
-
-            let c_str = unsafe { CStr::from_ptr(ptr) };
-            let str_slice = c_str.to_str().unwrap_or("<Invalid UTF-8>");
-            res.push(str_slice.to_string().clone());
-        }
-        res
-    }
-}
-
-impl Drop for pxs_DirHandle {
-    fn drop(&mut self) {
-        if self.length == 0 || self.values.is_null() {
-            return;
-        }
-
-        // Go through each and free them
-        let args = unsafe { std::slice::from_raw_parts_mut(self.values, self.length) };
-
-        for arg in args.iter() {
-            let _ = own_string!(arg.to_owned());
-        }
-    }
-}
 
 /// Function Type for Loading a file.
 pub type LoadFileFn = unsafe extern "C" fn(file_path: *const c_char) -> *mut c_char;
 /// Function Type for writing a file.
 pub type WriteFileFn = unsafe extern "C" fn(file_path: *const c_char, contents: *const c_char);
-/// Function Type for reading a Dir.
-pub type ReadDirFn = unsafe extern "C" fn(dir_path: *const c_char) -> pxs_DirHandle;
+/// Function Type for reading a Dir. Should return a `pxs_List`
+pub type ReadDirFn = unsafe extern "C" fn(dir_path: *const c_char) -> pxs_VarT;
 
 /// This is the PixelScript state.
 pub(crate) struct PixelState {
@@ -166,7 +113,25 @@ pub fn read_file_dir(dir_path: &str) -> Vec<String> {
     let c_str = CString::new(dir_path).unwrap();
     let dir_path_cstr = c_str.as_ptr();
     let res = unsafe { cbk(dir_path_cstr) };
-    res.into_vec()
+
+    // Check null
+    if res.is_null() {
+        return vec![];
+    }
+
+    // Own variable! The memory will drop at the end dayo!
+    let var = own_var!(res);
+    if !var.is_list() {
+        return vec![];
+    }
+
+    // Get all strings!
+    var.get_list()
+        .unwrap()
+        .vars
+        .iter()
+        .map(|v| v.get_string().unwrap_or(String::new()).clone())
+        .collect()
 }
 
 /// A shared trait for converting from/to a pointer. Specifically a (* mut Self)
@@ -193,9 +158,7 @@ pub trait PtrMagic: Sized {
 
     /// Completely unsafe and should only be used when cerrtain that type can be cast to Self
     unsafe fn from_borrow_void<'a>(ptr: *mut c_void) -> &'a mut Self {
-        unsafe {
-            Self::from_borrow(ptr as *mut Self)
-        }
+        unsafe { Self::from_borrow(ptr as *mut Self) }
     }
 }
 
@@ -217,7 +180,7 @@ pub trait PixelScript {
     /// Tells the language that we just finished the most recent started thread.
     fn stop_thread();
     /// Clear the current threads state. Optionally calls garbage collector.
-    fn clear_state(call_gc: bool); 
+    fn clear_state(call_gc: bool);
 }
 
 /// Public enum for supported runtimes.
@@ -232,7 +195,7 @@ pub enum pxs_Runtime {
     /// ES 2020 using rquickjs
     pxs_JavaScript = 2,
     /// PHP v5.3 with PH7
-    pxs_PHP = 3
+    pxs_PHP = 3,
 }
 
 impl pxs_Runtime {

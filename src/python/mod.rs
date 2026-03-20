@@ -7,7 +7,6 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 use std::{
-    any::TypeId,
     cell::RefCell,
     collections::{HashMap, HashSet},
 };
@@ -18,7 +17,7 @@ use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 use crate::{
     borrow_string, create_raw_string, free_raw_string, own_string, pxs_debug,
     python::{
-        func::{get_string_from_obj, pocketpy_bridge, py_assign},
+        func::{pocketpy_bridge, py_assign},
         module::create_module,
         var::{PythonPointer, pocketpyref_to_var, var_to_pocketpyref},
     },
@@ -293,6 +292,7 @@ pub(self) fn python_pxs_new_register(obj_ref: pocketpy::py_Ref) -> i32 {
         //Call vector
         let ok = pocketpy::py_vectorcall(1, 0);
         if !ok {
+            #[allow(unused)]
             let err = consume_error();
             pxs_debug!("Err: {err}");
             // TODO: exception
@@ -316,6 +316,7 @@ pub(self) fn python_pxs_get_register(idx: i32) -> bool {
         } else {
             let res = pocketpy::py_dict_getitem_by_int(register, idx as i64);
             if res == -1 {
+                #[allow(unused)]
                 // consume err
                 let err = consume_error();
                 pxs_debug!("Error in pxs_get_register: {err}");
@@ -345,6 +346,7 @@ pub(self) fn python_pxs_remove_ref(idx: i32) {
         let res = pocketpy::py_dict_delitem_by_int(register, idx as i64);
         // If error, consume it
         if res == -1 {
+            #[allow(unused)]
             let err = consume_error();
             pxs_debug!("Error in pxs_remove_ref: {err}");
         }

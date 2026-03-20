@@ -6,7 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-use std::{ffi::c_void, fmt::Debug, sync::Arc};
+use std::{ffi::c_void, sync::Arc};
 
 // use mlua::{IntoLua, Lua};
 use mlua::prelude::*;
@@ -14,10 +14,8 @@ use mlua::prelude::*;
 // Pure Rust goes here
 use crate::{
     lua::object::create_object,
-    pxs_debug,
     shared::{
-        PtrMagic,
-        object::{clear_object_from_lookup, get_object},
+        object::get_object,
         pxs_Runtime,
         var::{pxs_Var, pxs_VarType},
     },

@@ -13,7 +13,7 @@ use crate::shared::{
 
 use super::var::pxs_Var;
 use std::{
-    cell::Cell, collections::HashMap, ffi::c_void, sync::{Mutex, OnceLock}
+    cell::Cell, collections::HashMap, sync::{Mutex, OnceLock}
 };
 
 /// Function reference used in C.
@@ -110,7 +110,7 @@ pub unsafe fn call_function(fn_idx: i32, args: Vec<pxs_Var>) -> pxs_Var {
 
         let function = function.unwrap();
 
-        (function.func)
+        function.func
     };
 
     // Convert the pxs_Var vector into a list.

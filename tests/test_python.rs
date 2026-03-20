@@ -6,7 +6,9 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_python --no-default-features --features "python,pxs-debug" -- --nocapture --test-threads=1
+// cargo test --test test_python --lib --no-default-features --features "python,pxs-debug" -- --nocapture --test-threads=1
+
+#[allow(unused)]
 #[cfg(test)]
 mod tests {
     use std::{
@@ -17,7 +19,7 @@ mod tests {
     use pixelscript::{
         python::PythonScripting,
         shared::{
-            PixelScript, PtrMagic, func::pxs_Func, pxs_DirHandle, var::{pxs_Var, pxs_VarT}
+            PixelScript, PtrMagic, func::pxs_Func, var::{pxs_Var, pxs_VarT}
         },
         *,
     };
@@ -78,6 +80,7 @@ mod tests {
     }
 
     extern "C" fn new_diary(args: pxs_VarT) -> pxs_VarT {
+        println!("Calling new diar right?");
         unsafe {
             let p_name = pxs_Var::from_borrow(pxs_listget(args, 1));
             let p_name = p_name.get_string().unwrap();
@@ -93,6 +96,9 @@ mod tests {
 
             free_raw_string!(add_item_raw);
             free_raw_string!(typename);
+
+            let dbg = own_string!(pxs_debugvar(var));
+            println!("{dbg}");
             var
         }
     }
@@ -224,6 +230,9 @@ mod tests {
     }
 
     unsafe extern "C" fn file_loader(file_path: *const c_char) -> *mut c_char {
+        if file_path.is_null() {
+            return std::ptr::null_mut();
+        }
         let file_path = unsafe { CStr::from_ptr(file_path).to_str().unwrap() };
 
         if file_path.is_empty() {
@@ -243,43 +252,31 @@ mod tests {
         create_raw_string!(contents)
     }
 
-    unsafe extern "C" fn dir_reader(dir_path: *const c_char) -> pxs_DirHandle {
+    unsafe extern "C" fn dir_reader(dir_path: *const c_char) -> pxs_VarT {
         let dir_path = unsafe { CStr::from_ptr(dir_path).to_str().unwrap() };
 
         if dir_path.is_empty() {
-            return pxs_DirHandle::empty();
+            return pxs_newnull();
         }
 
         // Check if dir exists
         let dir_exists = std::fs::exists(dir_path).unwrap();
         if !dir_exists {
-            return pxs_DirHandle::empty();
+            return pxs_newnull();
         }
 
         // Load dir
         let files = std::fs::read_dir(dir_path).unwrap();
-        let mut result = vec![];
+        let result = pxs_newlist();
 
         for f in files {
             let entry = f.unwrap();
-            result.push(entry.file_name().into_string().unwrap());
+            let raw = create_raw_string!(entry.file_name().into_string().unwrap());
+            pxs_listadd(result, pxs_newstring(raw));
+            unsafe{free_raw_string!(raw);}
         }
 
-        // 1. Convert Strings to CStrings, then to raw pointers
-        // We use .into_raw() so Rust surrenders ownership and doesn't free the memory
-        let mut c_ptrs: Vec<*mut c_char> = result
-            .into_iter()
-            .map(|s| CString::new(s).unwrap().into_raw())
-            .collect();
-
-        // 2. Get a pointer to the array of pointers
-        // We get the pointer to the underlying buffer of the Vec
-        let argv: *mut *mut c_char = c_ptrs.as_mut_ptr();
-        let argc = c_ptrs.len();
-        pxs_DirHandle {
-            length: argc,
-            values: argv,
-        }
+        result
     }
 
     unsafe extern "C" fn call_function(args: pxs_VarT) -> pxs_VarT {
@@ -382,6 +379,8 @@ from pad.ft_object import function_from_outside
 from pxs.math import *
 
 diary = Diary("Jordan")
+diary2 = Diary("Jordan2")
+print(f'diary is: {diary} and diary2 is: {diary2}')
 diary.add_item("Yo test dog")
 print(diary)
 print(f"DDiary: {DDiary}")

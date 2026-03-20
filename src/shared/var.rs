@@ -15,7 +15,7 @@ use std::{
 use anyhow::{Error, anyhow};
 
 use crate::{
-    borrow_string, create_raw_string, pxs_debug, shared::{
+    borrow_string, create_raw_string, shared::{
         PtrMagic,
         object::get_object, pxs_Runtime,
     }

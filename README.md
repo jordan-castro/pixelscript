@@ -14,7 +14,7 @@ Because most games pick only one language for scripting. PixelScript gives modde
 
 - Performance? Go with Lua.
 - Data/science/prototyping? Choose Python.
-- Web developers? You got JavaScript.
+- Web developers? You got JavaScript. 
 
 Each language runtime uses the same PixelScript bindings.
 
@@ -42,7 +42,7 @@ This will build the project and place the necessary *static* libraries in a `/px
 |------------------|-------------------|-----------------------|---------------------------------|
 | `lua`            | Lua               | mlua                  | Fast, battle tested, v5.4       |
 | `python`         | Python            | pocketpy V2.1.8       | Requires MSVC on Windows        |
-| `js`             | JavaScript        | rquickjs              | Quickjs rust wrapper            |
+| `js`             | JavaScript        | ejr                   | easy javascript runtime         |
 | `php`            | PHP               | PH7                   | Only supports v5.3 and the engine is not maintained anymore |
 <!-- | `luajit`         | Lua               | mlua                  | Uses the same code as the `lua` feature | -->
 
@@ -132,11 +132,12 @@ int main() {
 
 ## Used in
 - Pixel Ai Dash
-- easyjs (runtime)
 
 ## Future
 This will ideally be used by all future epochtech games since it allows for modding in multiple languages. 
 It's not quite ready to be used in production for anyone other than myself and epochtech. But if you make PRs to fix
 something or open issues, I will be responding and merging. Feel free to add a language, just check out /lua or /python for examples on how to use Var, Func, Module, PixelObject, and PixelScripting.
+
+Note: JS and PHP are still being implemented.
 
 Made with ❤️ by [@epochtechgames](https://x.com/epochtechgames)

@@ -7,17 +7,16 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 use std::{
-    any::{Any, TypeId},
     ffi::c_void,
     sync::Arc,
 };
 
 use crate::{
-    borrow_string, create_raw_string, free_raw_string, pxs_debug, pxs_newstring, python::{
+    borrow_string, create_raw_string, free_raw_string, pxs_debug, python::{
         consume_error, func::{get_string_from_obj, py_assign}, object::create_object, pocketpy::{self}, python_pxs_get_register, python_pxs_new_register, python_pxs_remove_ref
     }, shared::{
         PtrMagic,
-        object::{clear_object_from_lookup, get_object},
+        object::get_object,
         pxs_Runtime,
         var::{pxs_Var, pxs_VarType},
     }
@@ -301,15 +300,12 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
             }
             pxs_VarType::pxs_Exception => {
                 // Raise exception
-                let s = var.get_string().unwrap();
-                let c_str = create_raw_string!(s);
-
-                pocketpy::py_newstr(out, c_str);
+                pocketpy::py_newstr(out, var.value.string_val);
                 let ok = pocketpy::py_tpcall(pocketpy::py_PredefinedType::tp_BaseException as i16, 1, out);
                 if !ok {
                     let err = consume_error();
                     pxs_debug!("Exception could not be raised: {err}");
-                    pocketpy::py_newnone(out);
+                    var_to_pocketpyref(out, &pxs_Var::new_exception(err), module_name);
                 }
 
                 py_assign(out, pocketpy::py_retval());

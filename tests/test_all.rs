@@ -11,33 +11,15 @@
 #[cfg(test)]
 mod tests {
     use std::{
-        ffi::{CStr, CString, c_char, c_void},
-        ptr,
+        ffi::{CStr, c_char, c_void},
     };
 
     use pixelscript::{
         lua::LuaScripting, python::PythonScripting, shared::{
-            PixelScript, PtrMagic, pxs_DirHandle,
+            PixelScript, PtrMagic,
             var::{pxs_Var, pxs_VarT},
         }, *
     };
-    /// Create a raw string from &str.
-    ///
-    /// Remember to FREE THIS!
-    macro_rules! create_raw_string {
-        ($rstr:expr) => {{ CString::new($rstr).unwrap().into_raw() }};
-    }
-
-    /// Free a raw sring
-    macro_rules! free_raw_string {
-        ($rptr:expr) => {{
-            if !$rptr.is_null() {
-                unsafe {
-                    let _ = std::ffi::CString::from_raw($rptr);
-                }
-            }
-        }};
-    }
 
     #[derive(Clone)]
     struct DiaryItem {
@@ -48,12 +30,12 @@ mod tests {
 
     extern "C" fn free_diary_item(ptr: *mut c_void) {
         println!("DIARY ITEM FREED");
-        let _ = unsafe {DiaryItem::from_raw(ptr as *mut DiaryItem)};
+        let _ = DiaryItem::from_raw(ptr as *mut DiaryItem);
     }
 
     extern "C" fn new_diary_item(args: *mut pxs_Var) -> pxs_VarT {
-        let item = unsafe{pxs_listget(args, 1)};
-        let item_str = unsafe{pxs_getstring(item)};
+        let item = pxs_listget(args, 1);
+        let item_str = pxs_getstring(item);
         let item_string = borrow_string!(item_str).to_string();
         let diary_item = DiaryItem{text: item_string};
         let type_name = create_raw_string!("DiaryItem");
@@ -62,12 +44,14 @@ mod tests {
             free_diary_item, 
             type_name
         );
-        free_raw_string!(type_name);
-
+        unsafe {
+            free_raw_string!(type_name);
+        }
         pxs_newhost(obj)
     }
 
     struct Diary {
+        #[allow(unused)]
         owner: DiaryOwner,
         items: Vec<DiaryItem>,
     }
@@ -84,7 +68,7 @@ mod tests {
 
     pub extern "C" fn free_diary(ptr: *mut c_void) {
         println!("DIARY FREED");
-        let _ = unsafe { Diary::from_raw(ptr as *mut Diary) };
+        let _ = Diary::from_raw(ptr as *mut Diary);
     }
 
     extern "C" fn add_item(args: pxs_VarT) -> pxs_VarT {
@@ -147,6 +131,7 @@ mod tests {
         }
     }
 
+    #[allow(unused)]
     #[derive(Clone)]
     struct DiaryOwner {
         pub name: String
@@ -156,7 +141,7 @@ mod tests {
 
     extern "C" fn free_diary_owner(ptr: *mut c_void) {
         println!("DIARY OWNER FREED");
-        let _ = unsafe{DiaryOwner::from_raw(ptr as *mut DiaryOwner)};
+        let _ = DiaryOwner::from_raw(ptr as *mut DiaryOwner);
     }
 
     extern "C" fn new_diary_owner(args: pxs_VarT) -> pxs_VarT {
@@ -317,43 +302,31 @@ mod tests {
         create_raw_string!(contents)
     }
 
-    unsafe extern "C" fn dir_reader(dir_path: *const c_char) -> pxs_DirHandle {
+    unsafe extern "C" fn dir_reader(dir_path: *const c_char) -> pxs_VarT {
         let dir_path = unsafe { CStr::from_ptr(dir_path).to_str().unwrap() };
 
         if dir_path.is_empty() {
-            return pxs_DirHandle::empty();
+            return pxs_newnull();
         }
 
         // Check if dir exists
         let dir_exists = std::fs::exists(dir_path).unwrap();
         if !dir_exists {
-            return pxs_DirHandle::empty();
+            return pxs_newnull();
         }
 
         // Load dir
         let files = std::fs::read_dir(dir_path).unwrap();
-        let mut result = vec![];
+        let result = pxs_newlist();
 
         for f in files {
             let entry = f.unwrap();
-            result.push(entry.file_name().into_string().unwrap());
+            let raw = create_raw_string!(entry.file_name().into_string().unwrap());
+            pxs_listadd(result, pxs_newstring(raw));
+            unsafe{free_raw_string!(raw);}
         }
 
-        // 1. Convert Strings to CStrings, then to raw pointers
-        // We use .into_raw() so Rust surrenders ownership and doesn't free the memory
-        let mut c_ptrs: Vec<*mut c_char> = result
-            .into_iter()
-            .map(|s| CString::new(s).unwrap().into_raw())
-            .collect();
-
-        // 2. Get a pointer to the array of pointers
-        // We get the pointer to the underlying buffer of the Vec
-        let argv: *mut *mut c_char = c_ptrs.as_mut_ptr();
-        let argc = c_ptrs.len();
-        pxs_DirHandle {
-            length: argc,
-            values: argv,
-        }
+        result
     }
 
     unsafe extern "C" fn call_function(args: pxs_VarT) -> pxs_VarT {
@@ -404,7 +377,7 @@ mod tests {
         // Add call
         let call_name = create_raw_string!("call_function");
         pxs_addfunc(module, call_name, call_function);
-        free_raw_string!(call_name);
+        unsafe{free_raw_string!(call_name);}
 
         // Add a inner module
         let math_module_name = create_raw_string!("math");
@@ -453,6 +426,7 @@ mod tests {
         pxs_add_submod(module, math_module);
         pxs_addmod(module);
 
+        unsafe {
         free_raw_string!(diary_item_name);
         free_raw_string!(diary_owner_name);
         free_raw_string!(ddiary_name);
@@ -467,6 +441,7 @@ mod tests {
         free_raw_string!(var_name);
         free_raw_string!(math_module_name);
         free_raw_string!(sub_name);
+        }
     }
 
     #[test]

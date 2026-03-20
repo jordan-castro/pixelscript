@@ -197,6 +197,7 @@ fn get_object_lookup() -> std::sync::MutexGuard<'static, ObjectLookup> {
         .unwrap()
 }
 
+#[allow(unused)]
 /// Remove a pxs_Object from the lookup.
 pub(crate) fn clear_object_from_lookup(idx: i32) {
     let mut lookup = get_object_lookup();

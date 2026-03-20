@@ -60,13 +60,14 @@ pub(super) fn create_object(idx: i32, source: Arc<pxs_PixelObject>, module_name:
     let obj_exists = is_object_defined(&object_name);
     if obj_exists {
         // pxs_debug!("Object is alredy defined!");
+        #[allow(unused)]
         let eval_err = eval_py(
             format!("_{}({})", object_name, idx).as_str(),
             format!("<create_{}>", &object_name).as_str(),
             module_name,
         );
         // if eval_err.len() > 0 {
-        //     pxs_debug!("Eval err: \"{eval_err}\"");
+            // TODO: use py_raise here
         // }
         return;
     }

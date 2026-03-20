@@ -8,6 +8,7 @@
 //
 // cargo test --test test_lua --no-default-features --features "lua,pxs-debug" -- --nocapture --test-threads=1
 
+#[allow(unused)]
 #[cfg(test)]
 mod tests {
     use std::{

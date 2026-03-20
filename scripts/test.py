@@ -2,6 +2,7 @@
 
 import os
 import sys
+import json
 
 
 # Get skipped tests
@@ -11,6 +12,8 @@ skip_tests = ["test_repl.rs"]
 
 if len(included_tests) == 0:
     included_tests = os.listdir("tests")
+
+results = {}
 
 for t in included_tests:
     if t in skip_tests:
@@ -26,5 +29,7 @@ for t in included_tests:
     
     # Get cmd
     command = line.split("// ")[-1]
-    print(command)
-    os.system(command)
+    result = os.system(command)
+    results[t] = "passed" if result == 0 else "failed"
+
+print(json.dumps(results, indent=4))

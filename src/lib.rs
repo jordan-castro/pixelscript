@@ -25,9 +25,9 @@ use crate::shared::{
     func::{clear_function_lookup, lookup_add_function},
     get_pixel_state,
     module::pxs_Module,
-    object::{FreeMethod, clear_object_lookup, get_object, lookup_add_object, pxs_PixelObject},
+    object::{FreeMethod, clear_object_lookup, lookup_add_object, pxs_PixelObject},
     pxs_Runtime,
-    var::{ObjectMethods, default_deleter, pxs_DeleterFn, pxs_VarT, pxs_VarType},
+    var::{ObjectMethods, pxs_VarT, pxs_VarType},
 };
 
 pub mod shared;

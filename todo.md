@@ -10,6 +10,7 @@
 - Decrease number of functions created in pocketpy.
 - pxs_Error (returned when there is a error in pixelscript not necessarily a error in a backend) This will replace anyhow.
 - pxs_* library functions need to always return a pxs_Var. nullptr will no longer be allowed.
+- Reimp pxs_DirHandle to be a pxs_VarList
 
 ## v0.6 Platforms and STD
 - pxs DSL (Might not do this TBH.)

@@ -7,6 +7,7 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 // cargo test --test test_repl -- --nocapture --test-threads=1
+#[allow(unused)]
 #[cfg(test)]
 mod tests {
     use std::{
@@ -18,7 +19,7 @@ mod tests {
         lua::LuaScripting,
         python::PythonScripting,
         shared::{
-            PixelScript, PtrMagic, pxs_DirHandle, pxs_Runtime,
+            PixelScript, PtrMagic, pxs_Runtime,
             var::{pxs_Var, pxs_VarT},
         },
         *,
@@ -255,43 +256,31 @@ mod tests {
         create_raw_string!(contents)
     }
 
-    unsafe extern "C" fn dir_reader(dir_path: *const c_char) -> pxs_DirHandle {
+    unsafe extern "C" fn dir_reader(dir_path: *const c_char) -> pxs_VarT {
         let dir_path = unsafe { CStr::from_ptr(dir_path).to_str().unwrap() };
 
         if dir_path.is_empty() {
-            return pxs_DirHandle::empty();
+            return pxs_newnull();
         }
 
         // Check if dir exists
         let dir_exists = std::fs::exists(dir_path).unwrap();
         if !dir_exists {
-            return pxs_DirHandle::empty();
+            return pxs_newnull();
         }
 
         // Load dir
         let files = std::fs::read_dir(dir_path).unwrap();
-        let mut result = vec![];
+        let result = pxs_newlist();
 
         for f in files {
             let entry = f.unwrap();
-            result.push(entry.file_name().into_string().unwrap());
+            let raw = create_raw_string!(entry.file_name().into_string().unwrap());
+            pxs_listadd(result, pxs_newstring(raw));
+            unsafe{free_raw_string!(raw);}
         }
 
-        // 1. Convert Strings to CStrings, then to raw pointers
-        // We use .into_raw() so Rust surrenders ownership and doesn't free the memory
-        let mut c_ptrs: Vec<*mut c_char> = result
-            .into_iter()
-            .map(|s| CString::new(s).unwrap().into_raw())
-            .collect();
-
-        // 2. Get a pointer to the array of pointers
-        // We get the pointer to the underlying buffer of the Vec
-        let argv: *mut *mut c_char = c_ptrs.as_mut_ptr();
-        let argc = c_ptrs.len();
-        pxs_DirHandle {
-            length: argc,
-            values: argv,
-        }
+        result
     }
 
     fn test_add_module() {
