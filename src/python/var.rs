@@ -221,7 +221,6 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
                     pocketpy::py_newnone(out);
                 } else {
                     // This is a Python object that already exists, just that it's pointer was passed around.
-                    // Check first the pointer type because it coule be index
                     let python_ptr = PythonPointer::from_borrow(var.value.object_val as *mut PythonPointer);
                     let ptr = python_ptr.get_ptr();
                     py_assign(out, ptr);

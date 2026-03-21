@@ -273,6 +273,11 @@ impl pxs_VarList {
             true
         }
     }
+
+    /// Get length
+    pub fn len(&self) -> usize {
+        self.vars.len()
+    }
 }
 
 /// The Variables actual value union.

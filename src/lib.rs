@@ -21,13 +21,7 @@ use crate::lua::LuaScripting;
 use crate::python::PythonScripting;
 
 use crate::shared::{
-    LoadFileFn, PixelScript, PtrMagic, ReadDirFn, WriteFileFn,
-    func::{clear_function_lookup, lookup_add_function},
-    get_pixel_state,
-    module::pxs_Module,
-    object::{FreeMethod, clear_object_lookup, lookup_add_object, pxs_PixelObject},
-    pxs_Runtime,
-    var::{ObjectMethods, pxs_VarT, pxs_VarType},
+    LoadFileFn, PixelScript, PtrMagic, ReadDirFn, WriteFileFn, func::{clear_function_lookup, lookup_add_function}, get_pixel_state, module::pxs_Module, object::{FreeMethod, clear_object_lookup, lookup_add_object, pxs_PixelObject}, pxs_Opaque, pxs_Runtime, var::{ObjectMethods, pxs_VarT, pxs_VarType}
 };
 
 pub mod shared;
@@ -74,11 +68,6 @@ macro_rules! assert_initiated {
 static mut IS_INIT: bool = false;
 /// Is killed?
 static mut IS_KILLED: bool = false;
-
-// Type defs
-
-#[allow(non_camel_case_types)]
-pub type pxs_Opaque = *mut c_void;
 
 /// Current pixelscript version.
 #[unsafe(no_mangle)]

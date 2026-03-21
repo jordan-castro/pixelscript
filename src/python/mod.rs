@@ -22,8 +22,7 @@ use crate::{
         var::{PythonPointer, pocketpyref_to_var, var_to_pocketpyref},
     },
     shared::{
-        PixelScript, PtrMagic, read_file, read_file_dir,
-        var::{ObjectMethods, pxs_Var, pxs_VarList},
+        PixelScript, PtrMagic, pxs_Opaque, read_file, read_file_dir, var::{ObjectMethods, pxs_Var, pxs_VarList}
     },
     with_feature,
 };
@@ -476,6 +475,112 @@ impl PixelScript for PythonScripting {
             pxs_Var::new_string(res)
         }
     }
+
+    fn compile(code: &str) -> pxs_Var {
+        let source = create_raw_string!(code);
+        let file_name = create_raw_string!("<compile>");
+        unsafe {
+            let ok = pocketpy::py_compile(source, file_name, pocketpy::py_CompileMode::EXEC_MODE, false);
+            free_raw_string!(source);
+            free_raw_string!(file_name);
+            if !ok {
+                #[allow(unused)]
+                let err = consume_error();
+                pxs_debug!("err: {err}");
+                return pxs_Var::new_null();
+            }
+            let ud = pocketpy::py_retval();
+            // To pxs
+            pocketpyref_to_var(ud)
+        }
+    }
+    
+    fn compile_unique(code: &str) -> pxs_Var {
+        // Compile like normal first
+        let normal = Self::compile(code);
+        // Now just add a string to it. 
+        let result = pxs_Var::new_list();
+        let list = result.get_list().unwrap();
+        list.add_item(normal);
+        // Create a new dictionary and save it for scope.
+        unsafe {
+            let scope = pocketpy::py_pushtmp();
+            pocketpy::py_newdict(scope);
+
+            // Refernce builtins
+            let builtins_name = create_raw_string!("builtins");
+            let builtins = pocketpy::py_getglobal(pocketpy::py_name(builtins_name));
+            free_raw_string!(builtins_name);
+
+            let builtins_name = create_raw_string!("__builtins__");
+            pocketpy::py_setdict(scope, pocketpy::py_name(builtins_name), builtins);
+
+            // Pop builtins
+            pocketpy::py_pop();
+            // add scope
+            list.add_item(pocketpyref_to_var(scope));
+            // TODO: does scope need to be popped?
+            // Pop scope
+            pocketpy::py_pop();            
+        }
+
+        result
+    }
+    
+    fn exec_object(code: pxs_Var) -> pxs_Var {
+        // Check if a list or a regular obj
+        let code_obj: &mut PythonPointer;
+        let code_scope: Option<&mut PythonPointer>;
+        if code.is_list() {
+            // Ensure there are 2 elements (first is object, second is dict scope)
+            let list = code.get_list().unwrap();
+            if list.len() != 2 {
+                // TODO: pxs_Error
+                return pxs_Var::new_null();
+            }
+
+            // Ok let's get the object and scope
+            let object = list.get_item(0).unwrap();
+            if !object.is_object() {
+                // TODO: pxs_Error
+                return pxs_Var::new_null();
+            }
+            let scope = list.get_item(1).unwrap();
+            if !scope.is_object() {
+                // TODO: pxs_Error
+                return pxs_Var::new_null();
+            }
+
+            code_obj = unsafe{PythonPointer::from_borrow(object.get_object_ptr() as *mut PythonPointer)};
+            code_scope = Some(unsafe{PythonPointer::from_borrow(scope.get_object_ptr() as *mut PythonPointer)});
+        } else if code.is_object() {
+            code_obj = unsafe{PythonPointer::from_borrow(code.get_object_ptr() as *mut PythonPointer)};
+            code_scope = None;
+        } else {
+            // TODO: pxs_Error
+            return pxs_Var::new_null();
+        }
+
+        unsafe {
+            // Now get actual py_ref
+            let code_obj_ref = code_obj.get_ptr();
+        }
+
+        pxs_Var::new_null()
+        // let (object, uuid) = if code.is_list() {
+            // let list = code.get_list().unwrap();
+// 
+            // (list.get_item(0).unwrap(), list.get_item(1).unwrap().get_string())
+        // } else {
+// 
+        // }
+    }
+    
+    fn eval_object(code: pxs_Var) -> pxs_Var {
+        todo!()
+    }
+
+    
 }
 
 /// Add pxs vars to the stack

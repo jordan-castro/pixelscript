@@ -32,8 +32,13 @@ for t in included_tests:
     result = os.system(command)
     results[t] = True if result == 0 else False
 
+fails = []
 for k, v in results.items():
     if not v:
-        raise f"{k} failed"
+        fails.append(k)
+        # raise f"{k} failed"
+
+if len(fails) > 0:
+    raise "Tests that faild: " + ",".join(fails)
 
 print("All tests passed")

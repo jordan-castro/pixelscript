@@ -15,8 +15,7 @@ use std::{
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
 use crate::{
-    own_string, own_var,
-    shared::var::{pxs_Var, pxs_VarT},
+    own_string, own_var, shared::var::{pxs_Var, pxs_VarT}
 };
 
 /// Helper methods/macros for using PixelScript
@@ -37,6 +36,9 @@ pub type LoadFileFn = unsafe extern "C" fn(file_path: *const c_char) -> *mut c_c
 pub type WriteFileFn = unsafe extern "C" fn(file_path: *const c_char, contents: *const c_char);
 /// Function Type for reading a Dir. Should return a `pxs_List`
 pub type ReadDirFn = unsafe extern "C" fn(dir_path: *const c_char) -> pxs_VarT;
+
+#[allow(non_camel_case_types)]
+pub type pxs_Opaque = *mut c_void;
 
 /// This is the PixelScript state.
 pub(crate) struct PixelState {
@@ -181,6 +183,18 @@ pub trait PixelScript {
     fn stop_thread();
     /// Clear the current threads state. Optionally calls garbage collector.
     fn clear_state(call_gc: bool);
+    /// Compile and save for future use.
+    /// This will compile into global scope.
+    /// When finished with it, call `pxs_freevar`
+    fn compile(code: &str) -> pxs_Var;
+    /// Compile and save for future use.
+    /// This will compile into a unique scope.
+    /// When finished with it, call `pxs_freevar`
+    fn compile_unique(code: &str) -> pxs_Var;
+    /// Execute a code object
+    fn exec_object(code: pxs_Var) -> pxs_Var;
+    /// Evaluate a code object
+    fn eval_object(code: pxs_Var) -> pxs_Var;
 }
 
 /// Public enum for supported runtimes.
