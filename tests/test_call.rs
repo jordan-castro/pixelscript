@@ -12,7 +12,7 @@
 #[cfg(test)]
 mod tests {
     use pixelscript::{
-        create_raw_string, free_raw_string, own_string, own_var, pxs_Opaque, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_exec, pxs_finalize, pxs_freevar, pxs_getint, pxs_initialize, pxs_listadd, pxs_listget, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, shared::{pxs_Runtime, var::pxs_VarT, var::pxs_Var, PtrMagic}
+        create_raw_string, free_raw_string, own_string, own_var, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_exec, pxs_finalize, pxs_freevar, pxs_getint, pxs_initialize, pxs_listadd, pxs_listget, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, shared::{pxs_Runtime, var::pxs_VarT, var::pxs_Var, PtrMagic}
     };
 
     extern "C" fn anything(args: pxs_VarT) -> pxs_VarT {
@@ -28,16 +28,7 @@ mod tests {
         return pxs_newnull();
     }
 
-    #[test]
-    fn test_call() {
-        pxs_initialize();
-
-        let mod_name = create_raw_string!("pxs");
-        let module = pxs_newmod(mod_name);
-        let anything_name = create_raw_string!("anything");
-        pxs_addfunc(module, anything_name, anything);
-        pxs_addmod(module);
-
+    fn test_python() {
         let script = create_raw_string!(r#"
 from pxs import *
 def add(n1, n2):
@@ -52,11 +43,49 @@ anything(1,2)
         unsafe{
 free_raw_string!(script);
 free_raw_string!(file_name);
-free_raw_string!(mod_name);
-free_raw_string!(anything_name);
         };
 
         assert!(err.is_null(), "Error is not empty: {}", err.get_string().unwrap());
+    }
+
+    fn test_lua() {
+        let script = create_raw_string!(r#"
+local pxs = require('pxs')
+function add(n1, n2)
+    return n1 + n2
+end
+anything(1,2)
+"#);
+        let file_name = create_raw_string!("<test>");
+
+        let err = own_var!(pxs_exec(pxs_Runtime::pxs_Lua, script, file_name));
+
+        unsafe{
+free_raw_string!(script);
+free_raw_string!(file_name);
+        };
+
+        assert!(err.is_null(), "Error is not empty: {}", err.get_string().unwrap());
+
+    }
+
+    #[test]
+    fn test_call() {
+        pxs_initialize();
+
+        let mod_name = create_raw_string!("pxs");
+        let module = pxs_newmod(mod_name);
+        let anything_name = create_raw_string!("anything");
+        pxs_addfunc(module, anything_name, anything);
+        pxs_addmod(module);
+
+        unsafe{
+            free_raw_string!(mod_name);
+            free_raw_string!(anything_name);
+        }
+
+        test_python();
+        test_lua();
 
         pxs_finalize();
     }

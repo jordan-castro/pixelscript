@@ -4,6 +4,14 @@ A list of headaches that I've run into while using this library. That will be ch
 ## General
 - The first argument in every function call is the runtime it is currently in.
     - This means that function args should be using 1 based index. It's also easy to write a helper function of `get_arg = (args, idx) -> args[idx + 1]`.
+- Maps are `pxs_Var` => `pxs_Var` typed.
+    - Valid Keys
+        - Int64
+        - UInt64
+        - Float64
+        - Bool
+        - String
+    - Any non valid key will return a `pxs_Error`.
 
 ## Python (pocketpy)
 - When running `pxs_call` it will go through a checklist until the function is found BY NAME.

@@ -46,6 +46,11 @@ typedef enum pxs_VarType {
    * Exception is any exception happening at the language level. Pixel Script errors will be caught with pxs_Error in a future release
    */
   pxs_Exception,
+  /**
+   * A Map Type that ONLY goes from PixelScript to scripting language. You will NEVER receive a Map from a scripting language. It will
+   * always default to `pxs_Object`. Does not support all `pxs_VarType`s.
+   */
+  pxs_Map,
 } pxs_VarType;
 
 /**
@@ -206,6 +211,8 @@ typedef struct pxs_PixelObject pxs_PixelObject;
  */
 typedef struct pxs_VarList pxs_VarList;
 
+typedef struct pxs_VarMap pxs_VarMap;
+
 /**
  * The Variables actual value union.
  */
@@ -221,6 +228,7 @@ typedef union pxs_VarValue {
   struct pxs_VarList *list_val;
   void *function_val;
   struct pxs_FactoryHolder *factory_val;
+  struct pxs_VarMap *map_val;
 } pxs_VarValue;
 
 typedef void (*pxs_DeleterFn)(void*);
@@ -732,6 +740,62 @@ bool pxs_listdel(pxs_VarT list, int32_t index);
  * Do a Shallow Copy. Which means it gets the same data without get the deleter for (pxs_Object or pxs_Function).
  */
 pxs_VarT pxs_new_shallowcopy(pxs_VarT var);
+
+/**
+ * Compile a code string into a code object for later execution.
+ *
+ * Pass in a optional scope (or null for default). Scope ownership is transferred.
+ * Returns a `pxs_Var` whichs memory is handled by the caller.
+ *
+ * Resulting `pxs_Var` will contain (Code Object, Scope|default).
+ */
+pxs_VarT pxs_compile(enum pxs_Runtime runtime, const char *code, pxs_VarT scope);
+
+/**
+ * Execute a compiled code object.
+ *
+ * Variable ownership is transfered. If this is not desired behavior, pass in a shallow copy.
+ * Returned variable must be freed by caller.
+ */
+pxs_VarT pxs_execobject(pxs_VarT object);
+
+/**
+ * Create a new `pxs_Map`
+ */
+pxs_VarT pxs_newmap(void);
+
+/**
+ * Add a new key (`pxs_Var`) value (`pxs_Var`) pair in a map.
+ *
+ * Keys can only be:
+ * - `pxs_String`
+ * - `pxs_Int64`
+ * - `pxs_UInt64`
+ * - `pxs_Float64`
+ * - `pxs_Bool`
+ *
+ * Key and value ownership are transfered.
+ */
+void pxs_map_addpair(pxs_VarT map, pxs_VarT key, pxs_VarT value);
+
+/**
+ * Remove a value (`pxs_Var`) from a map based on it's key (`pxs_Var`).
+ */
+void pxs_map_delitem(pxs_VarT map, pxs_VarT key);
+
+/**
+ * Get length of a `pxs_Map`.
+ *
+ * -1 is invalid length.
+ */
+int32_t pxs_maplen(pxs_VarT map);
+
+/**
+ * Get the keys of a `pxs_Map`.
+ *
+ * Returns a `pxs_List` or `pxs_Null` Which is owned by caller.
+ */
+pxs_VarT pxs_mapkeys(pxs_VarT map);
 
 /**
  * Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.

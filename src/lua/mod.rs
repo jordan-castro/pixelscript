@@ -217,8 +217,15 @@ impl PixelScript for LuaScripting {
         }
         let res: LuaValue = res.unwrap();
 
-        from_lua(res).unwrap()
-        
+        from_lua(res).unwrap()   
+    }
+    
+    fn compile(code: &str, scope: pxs_Var) -> pxs_Var {
+        todo!()
+    }
+    
+    fn exec_object(code: pxs_Var) -> pxs_Var {
+        todo!()
     }
 }
 

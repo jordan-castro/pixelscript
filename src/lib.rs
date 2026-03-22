@@ -21,11 +21,18 @@ use crate::lua::LuaScripting;
 use crate::python::PythonScripting;
 
 use crate::shared::{
-    LoadFileFn, PixelScript, PtrMagic, ReadDirFn, WriteFileFn, func::{clear_function_lookup, lookup_add_function}, get_pixel_state, module::pxs_Module, object::{FreeMethod, clear_object_lookup, lookup_add_object, pxs_PixelObject}, pxs_Opaque, pxs_Runtime, var::{ObjectMethods, pxs_VarT, pxs_VarType}
+    LoadFileFn, PixelScript, PtrMagic, ReadDirFn, WriteFileFn,
+    func::{clear_function_lookup, lookup_add_function},
+    get_pixel_state,
+    module::pxs_Module,
+    object::{FreeMethod, clear_object_lookup, lookup_add_object, pxs_PixelObject},
+    pxs_Opaque, pxs_Runtime,
+    var::{ObjectMethods, pxs_VarT, pxs_VarType},
 };
 
 pub mod shared;
 
+#[cfg(feature = "include-core")]
 pub mod core;
 #[cfg(feature = "lua")]
 pub mod lua;
@@ -131,7 +138,11 @@ pub extern "C" fn pxs_finalize() {
 /// Execute code in a runtime. Will return a pxs_VarT. Null means no error
 /// String means yes error.
 /// The result will need to be freed by calling `pxs_freevar`
-pub extern "C" fn pxs_exec(runtime: pxs_Runtime, code: *const c_char, file_name: *const c_char) -> pxs_VarT {
+pub extern "C" fn pxs_exec(
+    runtime: pxs_Runtime,
+    code: *const c_char,
+    file_name: *const c_char,
+) -> pxs_VarT {
     pxs_debug!("pxs_exec");
     assert_initiated!();
 
@@ -148,21 +159,17 @@ pub extern "C" fn pxs_exec(runtime: pxs_Runtime, code: *const c_char, file_name:
 
     let res = match runtime {
         pxs_Runtime::pxs_Lua => {
-            with_feature!("lua", {
-                LuaScripting::execute(rcode, rfile_name)
-            }, {
+            with_feature!("lua", { LuaScripting::execute(rcode, rfile_name) }, {
                 // TODO: pxs_Error
                 panic!("lua is not enabled");
             })
-        },
+        }
         pxs_Runtime::pxs_Python => {
-            with_feature!("python", {
-                PythonScripting::execute(rcode, rfile_name)
-            }, {
+            with_feature!("python", { PythonScripting::execute(rcode, rfile_name) }, {
                 // TODO: pxs_Error
                 panic!("python is not enabled");
             })
-        },
+        }
         pxs_Runtime::pxs_JavaScript => todo!(),
         pxs_Runtime::pxs_PHP => todo!(),
     };
@@ -1451,6 +1458,213 @@ pub extern "C" fn pxs_new_shallowcopy(var: pxs_VarT) -> pxs_VarT {
     bvar.deleter = Cell::new(old_deleter);
     bnvar.deleter = Cell::new(new_deleter);
     nvar
+}
+
+/// Compile a code string into a code object for later execution.
+///
+/// Pass in a optional scope (or null for default). Scope ownership is transferred.
+/// Returns a `pxs_Var` whichs memory is handled by the caller.
+///
+/// Resulting `pxs_Var` will contain (Code Object, Scope|default).
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_compile(
+    runtime: pxs_Runtime,
+    code: *const c_char,
+    scope: pxs_VarT,
+) -> pxs_VarT {
+    pxs_debug!("pxs_compile");
+    assert_initiated!();
+
+    if code.is_null() || scope.is_null() {
+        return pxs_newnull();
+    }
+
+    let rcode = borrow_string!(code);
+    let scope = own_var!(scope);
+
+    let res = match runtime {
+        pxs_Runtime::pxs_Lua => {
+            with_feature!("lua", { LuaScripting::compile(rcode, scope) }, {
+                panic!("lua feature is not enabled")
+            })
+        }
+        pxs_Runtime::pxs_Python => {
+            with_feature!("python", { PythonScripting::compile(rcode, scope) }, {
+                panic!("python feature is not enabled")
+            })
+        }
+        pxs_Runtime::pxs_JavaScript => todo!(),
+        pxs_Runtime::pxs_PHP => todo!(),
+    };
+
+    // Ensure this is a list
+    assert!(
+        res.is_list(),
+        "Result from compile is not a List. Please make sure you are returnig a `pxs_VarList`"
+    );
+
+    // Add the runtime to the object.
+    let list = res.get_list().unwrap();
+    list.insert_item(0, unsafe { pxs_Runtime::pxs_Python.into_var() });
+
+    res.into_raw()
+}
+
+/// Execute a compiled code object.
+///
+/// Variable ownership is transfered. If this is not desired behavior, pass in a shallow copy.
+/// Returned variable must be freed by caller.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_execobject(object: pxs_VarT) -> pxs_VarT {
+    pxs_debug!("pxs_execobject");
+    assert_initiated!();
+
+    if object.is_null() {
+        return pxs_newnull();
+    }
+
+    let var = own_var!(object);
+
+    assert!(var.is_list(), "Object passed is not a List");
+
+    let list = var.get_list().unwrap();
+    let rt = list.get_item(0);
+    if let Some(rt) = rt {
+        let runtime = pxs_Runtime::from_var(rt);
+        if let Some(runtime) = runtime {
+            // Now we can do stuff
+            return match runtime {
+                pxs_Runtime::pxs_Lua => {
+                    with_feature!("lua", { LuaScripting::exec_object(var) }, {
+                        panic!("lua feature not enabled")
+                    })
+                }
+                pxs_Runtime::pxs_Python => {
+                    with_feature!("python", { PythonScripting::exec_object(var) }, {
+                        panic!("python feature not enabled")
+                    })
+                }
+                pxs_Runtime::pxs_JavaScript => todo!(),
+                pxs_Runtime::pxs_PHP => todo!(),
+            }
+            .into_raw();
+        } else {
+            panic!("Not a valid runtime supplied.");
+        }
+    } else {
+        panic!("List supplied is empty.");
+    }
+}
+
+/// Create a new `pxs_Map`
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_newmap() -> pxs_VarT {
+    pxs_debug!("pxs_newmap");
+    pxs_Var::new_map().into_raw()
+}
+
+/// Add a new key (`pxs_Var`) value (`pxs_Var`) pair in a map.
+/// 
+/// Keys can only be:
+/// - `pxs_String`
+/// - `pxs_Int64`
+/// - `pxs_UInt64`
+/// - `pxs_Float64`
+/// - `pxs_Bool`
+/// 
+/// Key and value ownership are transfered.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_map_addpair(map: pxs_VarT, key: pxs_VarT, value: pxs_VarT) {
+    pxs_debug!("pxs_map_addpair");
+    if map.is_null() || key.is_null() || value.is_null() {
+        // TODO: error
+        return;
+    }
+
+    // Check map is actually a map
+    let map = borrow_var!(map);
+    if !map.is_map() {
+        // TODO: error
+        return;
+    }
+
+    // Check key is valid pair
+    let key = own_var!(key);
+    if key.is_string() || key.is_i64() || key.is_bool() || key.is_u64() || key.is_f64() {
+        let internal = map.get_map().unwrap();
+        internal.add_item(key, own_var!(value));
+    } else {
+        // TODO: error
+        return;
+    }
+}
+
+/// Remove a value (`pxs_Var`) from a map based on it's key (`pxs_Var`).
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_map_delitem(map: pxs_VarT, key: pxs_VarT) {
+    pxs_debug!("pxs_map_delitem");
+    if map.is_null() || key.is_null() {
+        // TODO: error
+        return;
+    }
+
+    let map = borrow_var!(map);
+    if !map.is_map() {
+        // TODO: error
+        return;
+    }
+
+    let key = borrow_var!(key);
+    let internal = map.get_map().unwrap();
+    internal.del_item(key);
+}
+
+/// Get length of a `pxs_Map`.
+/// 
+/// -1 is invalid length.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_maplen(map: pxs_VarT) -> i32 {
+    pxs_debug!("pxs_maplen");
+    if map.is_null() {
+        return -1;
+    }
+
+    let bvar = borrow_var!(map);
+    if bvar.is_map() {
+        bvar.get_map().unwrap().len() as i32
+    } else {
+        -1
+    }
+}
+
+/// Get the keys of a `pxs_Map`.
+/// 
+/// Returns a `pxs_List` or `pxs_Null` Which is owned by caller.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_mapkeys(map: pxs_VarT) -> pxs_VarT {
+    pxs_debug!("pxs_mapkeys");
+    if map.is_null() {
+        return pxs_newnull();
+    }
+
+    // Check is map
+    let map = borrow_var!(map);
+    if !map.is_map() {
+        return pxs_newnull();
+    }
+    let internals = map.get_map().unwrap();
+
+    let result = pxs_Var::new_list();
+    let list = result.get_list().unwrap();
+
+    // Get keys..
+    let keys = internals.keys();
+    for k in keys {
+        // Deep copy the key over.
+        list.add_item(k.clone());
+    }
+
+    result.into_raw()
 }
 
 // ====================================== Core functions Start =======================================

@@ -41,6 +41,15 @@ pub(super) unsafe fn get_string_from_obj(obj: pocketpy::py_Ref, key: String) -> 
     }
 }
 
+pub(super) unsafe fn get_global(key: &str) -> pocketpy::py_Ref {
+    unsafe{
+        let ckey = create_raw_string!(key);
+        let res = pocketpy::py_getglobal(pocketpy::py_name(ckey));
+        free_raw_string!(ckey);
+        res
+    }
+}
+
 // /// Use instead of py_setattr
 // pub(super) unsafe fn py_setattr(_self: pocketpy::py_Ref, name: &str, val: pocketpy::py_Ref) {
 //     let name = create_raw_string!(name);

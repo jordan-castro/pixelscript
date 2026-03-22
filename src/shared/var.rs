@@ -8,17 +8,17 @@
 //
 use std::{
     cell::Cell,
+    collections::HashMap,
     ffi::{CStr, CString, c_char, c_void},
+    hash::Hash,
     ptr,
 };
 
 use anyhow::{Error, anyhow};
 
 use crate::{
-    borrow_string, create_raw_string, shared::{
-        PtrMagic,
-        object::get_object, pxs_Runtime,
-    }
+    borrow_string, create_raw_string,
+    shared::{PtrMagic, object::get_object, pxs_Runtime},
 };
 
 /// Macro for writing out the Var:: get methods.
@@ -102,17 +102,67 @@ pub enum pxs_VarType {
     /// Internal object only. It will get converted into the result before hitting the runtime
     pxs_Factory,
     /// Exception is any exception happening at the language level. Pixel Script errors will be caught with pxs_Error in a future release
-    pxs_Exception
+    pxs_Exception,
+    /// A Map Type that ONLY goes from PixelScript to scripting language. You will NEVER receive a Map from a scripting language. It will
+    /// always default to `pxs_Object`. Does not support all `pxs_VarType`s.
+    pxs_Map,
+}
+
+#[allow(non_camel_case_types)]
+pub struct pxs_VarMap {
+    /// Key of pxs_Var => value of pxs_Var.
+    map: HashMap<pxs_Var, pxs_Var>,
+}
+
+impl PtrMagic for pxs_VarMap {}
+
+impl pxs_VarMap {
+    /// A new map
+    pub fn new() -> Self {
+        Self {
+            map: HashMap::new(),
+        }
+    }
+
+    /// Add a new item.
+    ///
+    /// Old value (if any) gets dropped.
+    pub fn add_item(&mut self, key: pxs_Var, value: pxs_Var) {
+        // Drop old value.
+        let _ = self.map.insert(key, value);
+    }
+
+    /// Remove a item by key.
+    /// 
+    /// Old value gets dropped.
+    pub fn del_item(&mut self, key: &pxs_Var) {
+        let _ = self.map.remove(key);
+    }
+
+    /// Current length of map
+    pub fn len(&self) -> usize {
+        self.map.len()
+    }
+
+    /// Get value from key.
+    pub fn get_item(&self, key: &pxs_Var) -> Option<&pxs_Var> {
+        self.map.get(key)
+    }
+
+    /// Get keys
+    pub fn keys(&self) -> Vec<&pxs_Var> {
+        self.map.keys().collect()
+    }
 }
 
 /// A Factory variable data holder.
-/// 
-/// Holds a callback for creation. And the arguments to be supplied. 
+///
+/// Holds a callback for creation. And the arguments to be supplied.
 /// Runtime will be supplied automatically.
 #[allow(non_camel_case_types)]
 pub struct pxs_FactoryHolder {
     pub callback: super::func::pxs_Func,
-    pub args: *mut pxs_Var
+    pub args: *mut pxs_Var,
 }
 
 impl pxs_FactoryHolder {
@@ -141,7 +191,7 @@ impl pxs_FactoryHolder {
         // Create raw memory that lasts for the direction of this call.
         let args_raw = args.into_raw();
 
-        let res = unsafe {(self.callback)(args_raw) };
+        let res = unsafe { (self.callback)(args_raw) };
         let var = if res.is_null() {
             pxs_Var::new_null()
         } else {
@@ -154,22 +204,6 @@ impl pxs_FactoryHolder {
         var
     }
 }
-// impl pxs_FactoryHolder {
-//     /// Call the callback with args and null ptr
-//     pub unsafe fn get_result(&mut self, rt: pxs_Runtime) -> pxs_VarT {
-//         let args = unsafe{ pxs_Var::from_borrow(self.args) };
-//         let list = args.get_list().unwrap();
-//         if !self.has_rt {
-//             pxs_debug!("Adding the runtime. Current length: {}", list.vars.len());
-//             self.has_rt = true;
-//             list.vars.insert(0, pxs_Var::new_i64(rt.into_i64()));
-//         } else {
-//             pxs_debug!("Resetting the runtime.");
-//             list.set_item(pxs_Var::new_i64(rt.into_i64()), 0);
-//         }
-//         unsafe { (self.callback)(self.args, std::ptr::null_mut()) }
-//     }
-// }
 
 impl PtrMagic for pxs_FactoryHolder {}
 
@@ -278,6 +312,11 @@ impl pxs_VarList {
     pub fn len(&self) -> usize {
         self.vars.len()
     }
+
+    /// Insert a item moving all the rest to the right.
+    pub fn insert_item(&mut self, index: usize, item: pxs_Var) {
+        self.vars.insert(index, item);
+    }
 }
 
 /// The Variables actual value union.
@@ -295,6 +334,7 @@ pub union pxs_VarValue {
     pub list_val: *mut pxs_VarList,
     pub function_val: *mut c_void,
     pub factory_val: *mut pxs_FactoryHolder,
+    pub map_val: *mut pxs_VarMap,
 }
 
 #[allow(non_camel_case_types)]
@@ -357,7 +397,7 @@ impl pxs_Var {
     }
 
     /// Get the Rust string from the Var.
-    /// 
+    ///
     /// Works for pxs_String and pxs_Exception
     pub fn get_string(&self) -> Result<String, Error> {
         if self.tag == pxs_VarType::pxs_String || self.tag == pxs_VarType::pxs_Exception {
@@ -476,7 +516,7 @@ impl pxs_Var {
     pub fn new_factory(func: super::func::pxs_Func, args: pxs_VarT) -> Self {
         let factory = pxs_FactoryHolder {
             callback: func,
-            args
+            args,
         };
         pxs_Var {
             tag: pxs_VarType::pxs_Factory,
@@ -492,14 +532,22 @@ impl pxs_Var {
         pxs_Var {
             tag: pxs_VarType::pxs_Exception,
             value: pxs_VarValue {
-                string_val: create_raw_string!(msg)
+                string_val: create_raw_string!(msg),
             },
-            deleter: Cell::new(default_deleter)
+            deleter: Cell::new(default_deleter),
         }
     }
-    //     name: *const c_char,
-    // func: pxs_Func,
-    // args: *mut pxs_Var
+
+    /// Create a new Map var.
+    pub fn new_map() -> Self {
+        pxs_Var {
+            tag: pxs_VarType::pxs_Map,
+            value: pxs_VarValue {
+                map_val: pxs_VarMap::new().into_raw(),
+            },
+            deleter: Cell::new(default_deleter),
+        }
+    }
 
     /// Get the IDX of the object if Host, i64, u64
     pub fn get_host_idx(&self) -> i32 {
@@ -514,8 +562,8 @@ impl pxs_Var {
     /// Get the raw pointer to a `pxs_Object` type
     pub fn get_object_ptr(&self) -> *mut c_void {
         match self.tag {
-            pxs_VarType::pxs_Object => unsafe {self.value.object_val },
-            _ => std::ptr::null_mut()
+            pxs_VarType::pxs_Object => unsafe { self.value.object_val },
+            _ => std::ptr::null_mut(),
         }
     }
 
@@ -543,19 +591,28 @@ impl pxs_Var {
         }
     }
 
-    ///
-    pub unsafe fn from_argv(argc: usize, argv: *mut *mut pxs_Var) -> Vec<pxs_Var> {
-        // First create a slice
-        let argv_borrow = unsafe { pxs_Var::slice_raw(argv, argc) };
-        // Now clone them!
-        let cloned: Vec<pxs_Var> = argv_borrow
-            .iter()
-            .filter(|ptr| !ptr.is_null())
-            .map(|&ptr| unsafe { (*ptr).clone() })
-            .collect();
-
-        cloned
+    /// Get the pxs_VarMap as a &mut pxs_VarMap
+    pub fn get_map(&self) -> Option<&mut pxs_VarMap> {
+        if !self.is_map() {
+            None
+        } else {
+            unsafe { Some(pxs_VarMap::from_borrow(self.value.map_val)) }
+        }
     }
+
+    // ///
+    // pub unsafe fn from_argv(argc: usize, argv: *mut *mut pxs_Var) -> Vec<pxs_Var> {
+    //     // First create a slice
+    //     let argv_borrow = unsafe { pxs_Var::slice_raw(argv, argc) };
+    //     // Now clone them!
+    //     let cloned: Vec<pxs_Var> = argv_borrow
+    //         .iter()
+    //         .filter(|ptr| !ptr.is_null())
+    //         .map(|&ptr| unsafe { (*ptr).clone() })
+    //         .collect();
+
+    //     cloned
+    // }
 
     /// Debug struct
     unsafe fn dbg(&self) -> String {
@@ -580,7 +637,19 @@ impl pxs_Var {
                 }
                 pxs_VarType::pxs_Function => "Function".to_string(),
                 pxs_VarType::pxs_Factory => "Factory".to_string(),
-                pxs_VarType::pxs_Exception => borrow_string!(self.value.string_val).to_string()
+                pxs_VarType::pxs_Exception => borrow_string!(self.value.string_val).to_string(),
+                pxs_VarType::pxs_Map => {
+                    let map = self.get_map().unwrap();
+                    let keys = map.keys();
+                    let mut res = String::from("{");
+                    for k in keys {
+                        let value = map.get_item(k);
+                        res.push_str(format!("{:#?}: {:#?},\n", k, value).as_str());
+                    }
+                    res.push_str("}");
+
+                    res
+                }
             };
 
             format!("{details} :: {:p}", self)
@@ -626,7 +695,8 @@ impl pxs_Var {
         is_list, pxs_VarType::pxs_List;
         is_function, pxs_VarType::pxs_Function;
         is_factory, pxs_VarType::pxs_Factory;
-        is_exception, pxs_VarType::pxs_Exception
+        is_exception, pxs_VarType::pxs_Exception;
+        is_map, pxs_VarType::pxs_Map
     }
 }
 
@@ -766,7 +836,7 @@ impl Clone for pxs_Var {
                     }
                     let f = pxs_FactoryHolder {
                         args: new_args.into_raw(),
-                        callback: og.callback
+                        callback: og.callback,
                     };
                     pxs_Var {
                         tag: pxs_VarType::pxs_Factory,
@@ -788,6 +858,29 @@ impl Clone for pxs_Var {
                         deleter: Cell::new(default_deleter),
                     }
                 }
+                pxs_VarType::pxs_Map => {
+                    // Our new map
+                    let mut map = pxs_VarMap::new();
+                    // OG map yo!
+                    let og_map = self.get_map().unwrap();
+                    // Get them keys dog
+                    let keys = og_map.keys();
+                    for k in keys {
+                        let v = og_map.get_item(k);
+                        if let Some(v) = v {
+                            map.add_item(k.clone(), v.clone());
+                        }
+                    }
+
+                    // Follows a similar structure to pxs_List cloning
+                    pxs_Var {
+                        tag: pxs_VarType::pxs_Map,
+                        value: pxs_VarValue {
+                            map_val: map.into_raw()
+                        },
+                        deleter: Cell::new(default_deleter)
+                    }
+                }
             }
         }
     }
@@ -800,6 +893,61 @@ impl std::fmt::Debug for pxs_Var {
             .field("tag", &self.tag)
             .field("value", debug_val)
             .finish()
+    }
+}
+
+impl PartialEq for pxs_Var {
+    fn eq(&self, other: &Self) -> bool {
+        unsafe {
+            match (&self.tag, &other.tag) {
+                (pxs_VarType::pxs_Int64, pxs_VarType::pxs_Int64) => {
+                    self.value.i64_val == other.value.i64_val
+                }
+                (pxs_VarType::pxs_Int64, _) => false,
+                (pxs_VarType::pxs_UInt64, pxs_VarType::pxs_UInt64) => {
+                    self.value.u64_val == other.value.u64_val
+                }
+                (pxs_VarType::pxs_UInt64, _) => false,
+                (pxs_VarType::pxs_String, pxs_VarType::pxs_String) => {
+                    self.get_string().unwrap_or(String::new())
+                        == other.get_string().unwrap_or(String::new())
+                }
+                (pxs_VarType::pxs_String, _) => false,
+                (pxs_VarType::pxs_Bool, pxs_VarType::pxs_Bool) => {
+                    self.value.bool_val == other.value.bool_val
+                }
+                (pxs_VarType::pxs_Bool, _) => false,
+                (pxs_VarType::pxs_Float64, pxs_VarType::pxs_Float64) => {
+                    self.value.f64_val == other.value.f64_val
+                }
+                (pxs_VarType::pxs_Float64, _) => false,
+                (pxs_VarType::pxs_Null, _) => false,
+                (pxs_VarType::pxs_Object, _) => false,
+                (pxs_VarType::pxs_HostObject, _) => false,
+                (pxs_VarType::pxs_List, _) => false,
+                (pxs_VarType::pxs_Function, _) => false,
+                (pxs_VarType::pxs_Factory, _) => false,
+                (pxs_VarType::pxs_Exception, _) => false,
+                (pxs_VarType::pxs_Map, _) => false,
+            }
+        }
+    }
+}
+
+impl Eq for pxs_Var {}
+
+impl Hash for pxs_Var {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        unsafe {
+            match self.tag {
+                pxs_VarType::pxs_Int64 => self.value.i64_val.hash(state),
+                pxs_VarType::pxs_UInt64 => self.value.u64_val.hash(state),
+                pxs_VarType::pxs_String => self.get_string().unwrap_or(String::new()).hash(state),
+                pxs_VarType::pxs_Bool => self.value.bool_val.hash(state),
+                pxs_VarType::pxs_Float64 => self.value.f64_val.to_bits().hash(state),
+                _ => panic!("Can not Hash none basic pxs_VarType")
+            }
+        }
     }
 }
 

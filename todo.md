@@ -12,6 +12,10 @@
 - pxs_* library functions need to always return a pxs_Var. nullptr will no longer be allowed.
 - ~~Reimp pxs_DirHandle to be a pxs_VarList~~ **DONE**
 - add pxs_compile which will return a `pxs_Code` object.
+- Review memory management:
+    - All functions return pxs_Var
+    - All functions need to be explicit in their docs on ownership
+    - Check Factories... why are we not owning the args?
 
 ## v0.6 Platforms, STD, Wren support
 - pxs DSL (Might not do this TBH.)

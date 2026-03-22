@@ -186,5 +186,25 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
             // let lua_string = 
             Ok(LuaValue::Error(Box::new(LuaError::ExternalError(error.into()))))
         }
+        pxs_VarType::pxs_Map => {
+            // Key,Value pair table
+            let table = lua.create_table()?;
+
+            // Get keys
+            let map = var.get_map().unwrap();
+            let keys = map.keys();
+
+            for k in keys {
+                let item = map.get_item(k);
+                if let Some(item) = item {
+                    let lua_key = into_lua(lua, k)?;
+                    let lua_val = into_lua(lua, item)?;
+                    // Save
+                    table.set(lua_key, lua_val)?;
+                }
+            }
+
+            Ok(mlua::Value::Table(table))
+        }
     }
 }

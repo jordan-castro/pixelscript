@@ -240,12 +240,17 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
                         module_name.to_string()
                     } else {
                         let cmod = pocketpy::py_inspect_currentmodule();
-                        let name = get_string_from_obj(cmod, "__name__".to_string());
-                        let pkg = get_string_from_obj(cmod, "__package__".to_string());
-                        if pkg.len() > 0 {
-                            format!("{pkg}.{name}")
+                        // Default to main if null.
+                        if cmod.is_null() {
+                            "__main__".to_string()
                         } else {
-                            name
+                            let name = get_string_from_obj(cmod, "__name__".to_string());
+                            let pkg = get_string_from_obj(cmod, "__package__".to_string());
+                            if pkg.len() > 0 {
+                                format!("{pkg}.{name}")
+                            } else {
+                                name
+                            }
                         }
                     };
                     // pxs_debug!("Full module path: {obj_module_name}");
@@ -309,6 +314,35 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
 
                 py_assign(out, pocketpy::py_retval());
                 pocketpy::py_raise(out);
+            }
+            pxs_VarType::pxs_Map => {
+                // New dict
+                pocketpy::py_newdict(out);
+                let map = var.get_map().unwrap();
+                let keys = map.keys();
+                for k in keys {
+                    let item = map.get_item(k);
+                    if let Some(item) = item {
+                        // Ok we can add this jaunt now
+                        let py_key = pocketpy::py_pushtmp();
+                        var_to_pocketpyref(py_key, k, module_name);
+                        let py_value = pocketpy::py_pushtmp();
+                        var_to_pocketpyref(py_value, item, module_name);
+
+                        let ok = pocketpy::py_dict_setitem(out, py_key, py_value);
+                        if !ok {
+                            #[allow(unused)]
+                            let err = consume_error();
+                            pxs_debug!("Map to Python error: {err}");
+                        }
+
+                        // Pop stack (2)
+                        pocketpy::py_pop();
+                        pocketpy::py_pop();
+                    }
+                }
+
+                // All good dayo!
             }
         }
     }

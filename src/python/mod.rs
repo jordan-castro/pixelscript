@@ -17,12 +17,12 @@ use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 use crate::{
     borrow_string, create_raw_string, free_raw_string, own_string, pxs_debug,
     python::{
-        func::{pocketpy_bridge, py_assign},
+        func::{get_global, pocketpy_bridge, py_assign},
         module::create_module,
         var::{PythonPointer, pocketpyref_to_var, var_to_pocketpyref},
     },
     shared::{
-        PixelScript, PtrMagic, pxs_Opaque, read_file, read_file_dir, var::{ObjectMethods, pxs_Var, pxs_VarList}
+        PixelScript, PtrMagic, pxs_Runtime, read_file, read_file_dir, var::{ObjectMethods, pxs_Var, pxs_VarList}
     },
     with_feature,
 };
@@ -476,7 +476,7 @@ impl PixelScript for PythonScripting {
         }
     }
 
-    fn compile(code: &str) -> pxs_Var {
+    fn compile(code: &str, scope: pxs_Var) -> pxs_Var {
         let source = create_raw_string!(code);
         let file_name = create_raw_string!("<compile>");
         unsafe {
@@ -491,46 +491,43 @@ impl PixelScript for PythonScripting {
             }
             let ud = pocketpy::py_retval();
             // To pxs
-            pocketpyref_to_var(ud)
-        }
-    }
-    
-    fn compile_unique(code: &str) -> pxs_Var {
-        // Compile like normal first
-        let normal = Self::compile(code);
-        // Now just add a string to it. 
-        let result = pxs_Var::new_list();
-        let list = result.get_list().unwrap();
-        list.add_item(normal);
-        // Create a new dictionary and save it for scope.
-        unsafe {
-            let scope = pocketpy::py_pushtmp();
-            pocketpy::py_newdict(scope);
+            let co = pocketpyref_to_var(ud);
 
-            // Refernce builtins
-            let builtins_name = create_raw_string!("builtins");
-            let builtins = pocketpy::py_getglobal(pocketpy::py_name(builtins_name));
-            free_raw_string!(builtins_name);
+            // Setup return
+            let result = pxs_Var::new_list();
+            let list = result.get_list().unwrap();
+            // Push code object
+            list.add_item(co);
 
-            let builtins_name = create_raw_string!("__builtins__");
-            pocketpy::py_setdict(scope, pocketpy::py_name(builtins_name), builtins);
+            let tmp = pocketpy::py_pushtmp();
+            // Check scope
+            if scope.is_null() {
+                // Empty dict
+                pocketpy::py_newdict(tmp);
+            } else if scope.is_map() {
+                // To dict
+                var_to_pocketpyref(tmp, &scope, None);
+            } else {
+                // Unsupported
+                pocketpy::py_pop();
+                return pxs_Var::new_exception(format!("Unsupported scope for Python: {:#?}", scope));
+            }
 
-            // Pop builtins
+            // Convert into pxs
+            list.add_item(pocketpyref_to_var(tmp));
+            // Pop ref
             pocketpy::py_pop();
-            // add scope
-            list.add_item(pocketpyref_to_var(scope));
-            // TODO: does scope need to be popped?
-            // Pop scope
-            pocketpy::py_pop();            
-        }
 
-        result
+            result
+        }
     }
     
     fn exec_object(code: pxs_Var) -> pxs_Var {
         // Check if a list or a regular obj
-        let code_obj: &mut PythonPointer;
-        let code_scope: Option<&mut PythonPointer>;
+        let code_obj = unsafe{pocketpy::py_pushtmp()};
+        let code_scope = unsafe{pocketpy::py_pushtmp()};
+        // let code_obj: &mut PythonPointer;
+        // let code_scope: Option<&mut PythonPointer>;
         if code.is_list() {
             // Ensure there are 2 elements (first is object, second is dict scope)
             let list = code.get_list().unwrap();
@@ -551,36 +548,35 @@ impl PixelScript for PythonScripting {
                 return pxs_Var::new_null();
             }
 
-            code_obj = unsafe{PythonPointer::from_borrow(object.get_object_ptr() as *mut PythonPointer)};
-            code_scope = Some(unsafe{PythonPointer::from_borrow(scope.get_object_ptr() as *mut PythonPointer)});
-        } else if code.is_object() {
-            code_obj = unsafe{PythonPointer::from_borrow(code.get_object_ptr() as *mut PythonPointer)};
-            code_scope = None;
+            var_to_pocketpyref(code_obj, object, None);
+            var_to_pocketpyref(code_scope, scope, None);
         } else {
             // TODO: pxs_Error
             return pxs_Var::new_null();
         }
 
         unsafe {
-            // Now get actual py_ref
-            let code_obj_ref = code_obj.get_ptr();
+            // Get exec function
+            let exec_func = get_global("exec");
+            if exec_func.is_null() {
+                return pxs_Var::new_exception("Could not find `exec` in Python globals".to_string());
+            }
+            pocketpy::py_push(exec_func);
+            pocketpy::py_pushnil();
+            pocketpy::py_push(code_obj);
+            pocketpy::py_push(code_scope);
+            let ok = pocketpy::py_vectorcall(2, 0);
+            // Pop tmps created by me.
+            pocketpy::py_pop();
+            pocketpy::py_pop();
+            if !ok {
+                let err = consume_error();
+                return pxs_Var::new_exception(err);
+            }
+
+            pocketpyref_to_var(pocketpy::py_retval())            
         }
-
-        pxs_Var::new_null()
-        // let (object, uuid) = if code.is_list() {
-            // let list = code.get_list().unwrap();
-// 
-            // (list.get_item(0).unwrap(), list.get_item(1).unwrap().get_string())
-        // } else {
-// 
-        // }
     }
-    
-    fn eval_object(code: pxs_Var) -> pxs_Var {
-        todo!()
-    }
-
-    
 }
 
 /// Add pxs vars to the stack

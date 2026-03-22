@@ -43,6 +43,8 @@ pxs_json = []
 # Compile pixel script to debug in a "release" enviroment
 pxs-debug = []
 
+testing = []
+
 [profile.release]
 opt-level = "z"
 strip = true

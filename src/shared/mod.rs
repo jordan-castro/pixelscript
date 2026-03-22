@@ -184,17 +184,10 @@ pub trait PixelScript {
     /// Clear the current threads state. Optionally calls garbage collector.
     fn clear_state(call_gc: bool);
     /// Compile and save for future use.
-    /// This will compile into global scope.
-    /// When finished with it, call `pxs_freevar`
-    fn compile(code: &str) -> pxs_Var;
-    /// Compile and save for future use.
-    /// This will compile into a unique scope.
-    /// When finished with it, call `pxs_freevar`
-    fn compile_unique(code: &str) -> pxs_Var;
+    /// Pass in a optional scope, if null, defaults to global scope.
+    fn compile(code: &str, scope: pxs_Var) -> pxs_Var;
     /// Execute a code object
     fn exec_object(code: pxs_Var) -> pxs_Var;
-    /// Evaluate a code object
-    fn eval_object(code: pxs_Var) -> pxs_Var;
 }
 
 /// Public enum for supported runtimes.
@@ -246,8 +239,18 @@ impl pxs_Runtime {
         }
     }
 
+    /// Gets the runtime from a pxs_Var
+    pub fn from_var(var: &pxs_Var) -> Option<Self> {
+        let int_val = var.get_i64();
+        if let Ok(int_val) = int_val {
+            Self::from_i64(int_val)
+        } else {
+            None
+        }
+    }
+
     /// Turns current runtime into a `pxs_Int64`
-    pub unsafe fn into_var_ptr(&self) -> pxs_Var {
+    pub unsafe fn into_var(&self) -> pxs_Var {
         let idx = self.into_i64();
         pxs_Var::new_i64(idx)
     }
