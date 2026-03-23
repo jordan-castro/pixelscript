@@ -54,7 +54,7 @@ local pxs = require('pxs')
 function add(n1, n2)
     return n1 + n2
 end
-anything(1,2)
+pxs.anything(1,2)
 "#);
         let file_name = create_raw_string!("<test>");
 

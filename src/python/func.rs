@@ -41,6 +41,18 @@ pub(super) unsafe fn get_string_from_obj(obj: pocketpy::py_Ref, key: String) -> 
     }
 }
 
+pub(super) unsafe fn get_builtin(key: &str) -> pocketpy::py_Ref {
+    unsafe{
+        let ckey = create_raw_string!(key);
+        let module_name = create_raw_string!("builtins");
+        let builtins = pocketpy::py_getmodule(module_name);
+        let res = pocketpy::py_getdict(builtins, pocketpy::py_name(ckey));
+        free_raw_string!(ckey);
+        free_raw_string!(module_name);
+        res
+    }
+}
+
 pub(super) unsafe fn get_global(key: &str) -> pocketpy::py_Ref {
     unsafe{
         let ckey = create_raw_string!(key);

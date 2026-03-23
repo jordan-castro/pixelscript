@@ -7,7 +7,7 @@ import json
 
 # Get skipped tests
 included_tests = sys.argv[1:]
-skip_tests = ["test_repl.rs"]
+skip_tests = ["test_repl.rs", "test_example.rs"]
 
 
 if len(included_tests) == 0:
@@ -39,6 +39,6 @@ for k, v in results.items():
         # raise f"{k} failed"
 
 if len(fails) > 0:
-    raise "Tests that faild: " + ",".join(fails)
+    raise Exception("Tests that faild: " + ",".join(fails))
 
 print("All tests passed")

@@ -1,6 +1,6 @@
 #[cfg(feature = "testing")]
 use crate::{
-    create_raw_string, free_raw_string, own_var, pxs_addfunc, pxs_exec, pxs_freevar, pxs_listget, pxs_listlen, pxs_newmod, pxs_newnull, pxs_tostring, shared::{PtrMagic, func::pxs_Func, module::pxs_Module, pxs_Runtime, var::{pxs_Var, pxs_VarT}}
+    create_raw_string, free_raw_string, own_var, pxs_addfunc, pxs_addmod, pxs_exec, pxs_freevar, pxs_listget, pxs_listlen, pxs_newmod, pxs_newnull, pxs_tostring, shared::{PtrMagic, func::pxs_Func, module::pxs_Module, pxs_Runtime, var::{pxs_Var, pxs_VarT}}
 };
 
 /// A useful macro for debuggin in pixelscript.
@@ -102,4 +102,6 @@ pub fn setup_pxs() {
     let module = create_module("pxs");
     // Add print function
     add_function(module, "print", print);
+    // Save module
+    pxs_addmod(module);
 }

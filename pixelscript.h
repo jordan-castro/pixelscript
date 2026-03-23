@@ -738,26 +738,34 @@ bool pxs_listdel(pxs_VarT list, int32_t index);
 
 /**
  * Do a Shallow Copy. Which means it gets the same data without get the deleter for (pxs_Object or pxs_Function).
+ *
+ * Memory is owned by caller.
  */
 pxs_VarT pxs_new_shallowcopy(pxs_VarT var);
 
 /**
  * Compile a code string into a code object for later execution.
  *
- * Pass in a optional scope (or null for default). Scope ownership is transferred.
+ * Pass in a optional gloabl scope (or null for default). Scope ownership is transferred.
  * Returns a `pxs_Var` whichs memory is handled by the caller.
  *
- * Resulting `pxs_Var` will contain (Code Object, Scope|default).
+ * Resulting `pxs_Var` will contain (Associated Runtime, Code Object, Scope|default).
  */
-pxs_VarT pxs_compile(enum pxs_Runtime runtime, const char *code, pxs_VarT scope);
+pxs_VarT pxs_compile(enum pxs_Runtime runtime, const char *code, pxs_VarT global_scope);
 
 /**
  * Execute a compiled code object.
  *
  * Variable ownership is transfered. If this is not desired behavior, pass in a shallow copy.
  * Returned variable must be freed by caller.
+ *
+ * Runtime is not required because the object is embedded with it in pxs_compile.
+ * Pass in a optional local scope that gets passed along with the global scope.
+ * Note: Do not use the same scope as in `pxs_compile`.
+ *
+ * Scope ownership is transferred.
  */
-pxs_VarT pxs_execobject(pxs_VarT object);
+pxs_VarT pxs_execobject(pxs_VarT object, pxs_VarT local);
 
 /**
  * Create a new `pxs_Map`
@@ -796,6 +804,20 @@ int32_t pxs_maplen(pxs_VarT map);
  * Returns a `pxs_List` or `pxs_Null` Which is owned by caller.
  */
 pxs_VarT pxs_mapkeys(pxs_VarT map);
+
+/**
+ * Get a value in a map from a key.
+ *
+ * Result is not owned by caller. Use `pxs_newcopy` to transfer ownership.
+ */
+pxs_VarT pxs_mapget(pxs_VarT map, pxs_VarT key);
+
+/**
+ * Insert a item into a list at a certain index, shifting all other items to the right.
+ *
+ * Item ownership is transferred.
+ */
+void pxs_listinsert(pxs_VarT list, uintptr_t index, pxs_VarT item);
 
 /**
  * Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.

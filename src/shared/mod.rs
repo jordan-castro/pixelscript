@@ -184,10 +184,13 @@ pub trait PixelScript {
     /// Clear the current threads state. Optionally calls garbage collector.
     fn clear_state(call_gc: bool);
     /// Compile and save for future use.
-    /// Pass in a optional scope, if null, defaults to global scope.
-    fn compile(code: &str, scope: pxs_Var) -> pxs_Var;
-    /// Execute a code object
-    fn exec_object(code: pxs_Var) -> pxs_Var;
+    /// Pass in a optional global scope, if null, defaults to empty Map.
+    /// Result will be a list with: [Runtime, Compiled Object, ...]
+    fn compile(code: &str, global_scope: pxs_Var) -> pxs_Var;
+    /// Execute a code object.
+    /// The code variable will always be a List with: [Runtime, Compiled Object, ...].
+    /// Pass in optional local scope that will be included along with the compiled scope.
+    fn exec_object(code: pxs_Var, local_scope: pxs_Var) -> pxs_Var;
 }
 
 /// Public enum for supported runtimes.

@@ -528,11 +528,11 @@ impl pxs_Var {
     }
 
     /// Create a new Exception var.
-    pub fn new_exception(msg: String) -> Self {
+    pub fn new_exception<T: ToString>(msg: T) -> Self {
         pxs_Var {
             tag: pxs_VarType::pxs_Exception,
             value: pxs_VarValue {
-                string_val: create_raw_string!(msg),
+                string_val: create_raw_string!(msg.to_string()),
             },
             deleter: Cell::new(default_deleter),
         }
@@ -698,6 +698,115 @@ impl pxs_Var {
         is_exception, pxs_VarType::pxs_Exception;
         is_map, pxs_VarType::pxs_Map
     }
+
+    /// Do a shallow copy on this variable.
+    /// 
+    /// Int/Uint/Float/String/Bool/Null/Exception/HostObject are cloned.
+    /// 
+    /// List/Maps/Objects/Functions/Factories are cloned without deleters.
+    pub fn shallow_copy(&self) -> pxs_Var {
+        unsafe{
+            match self.tag {
+                pxs_VarType::pxs_Int64 => self.clone(),
+                pxs_VarType::pxs_UInt64 => self.clone(),
+                pxs_VarType::pxs_String => self.clone(),
+                pxs_VarType::pxs_Bool => self.clone(),
+                pxs_VarType::pxs_Float64 => self.clone(),
+                pxs_VarType::pxs_Null => self.clone(),
+                pxs_VarType::pxs_Exception => self.clone(),
+                pxs_VarType::pxs_HostObject => self.clone(),
+                pxs_VarType::pxs_Object => {
+                    // Copy without deleter
+                    pxs_Var {
+                        tag: pxs_VarType::pxs_Object,
+                        value: pxs_VarValue {
+                            object_val: self.value.object_val
+                        },
+                        deleter: Cell::new(default_deleter)
+                    }
+                },
+                pxs_VarType::pxs_List => {
+                    let mut list = pxs_VarList::new();
+                    let og_list_val = pxs_VarList::from_borrow(self.value.list_val);
+
+                    // Shallow copy old items into new list
+                    for item in og_list_val.vars.iter() {
+                        list.add_item(item.shallow_copy());
+                    }
+
+                    pxs_Var {
+                        tag: pxs_VarType::pxs_List,
+                        value: pxs_VarValue {
+                            list_val: list.into_raw()
+                        },
+                        deleter: Cell::new(default_deleter)
+                    }
+                },
+                pxs_VarType::pxs_Function => {
+                    pxs_Var {
+                        tag: pxs_VarType::pxs_Function,
+                        value: pxs_VarValue {
+                            function_val: self.value.function_val
+                        },
+                        deleter: Cell::new(default_deleter)
+                    }
+                },
+                pxs_VarType::pxs_Factory => {
+                    let og = pxs_FactoryHolder::from_borrow(self.value.factory_val);
+                    if og.args.is_null() {
+                        return pxs_Var::new_null();
+                    }
+
+                    // Shallow Copy args
+                    let new_args = pxs_Var::new_list();
+                    let old_args = pxs_Var::from_borrow(og.args);
+                    if !old_args.is_list() {
+                        return pxs_Var::new_null();
+                    }
+                    let old_list = old_args.get_list().unwrap();
+                    let new_list = new_args.get_list().unwrap();
+                    for var in old_list.vars.iter() {
+                        new_list.add_item(var.shallow_copy());
+                    }
+                    let f = pxs_FactoryHolder {
+                        args: new_args.into_raw(),
+                        callback: og.callback,
+                    };
+                    pxs_Var {
+                        tag: pxs_VarType::pxs_Factory,
+                        value: pxs_VarValue {
+                            factory_val: f.into_raw(),
+                        },
+                        deleter: Cell::new(default_deleter),
+                    }
+                },
+                pxs_VarType::pxs_Map => {
+                                        // Our new map
+                    let mut map = pxs_VarMap::new();
+                    // OG map yo!
+                    let og_map = self.get_map().unwrap();
+                    // Get them keys dog
+                    let keys = og_map.keys();
+                    for k in keys {
+                        let v = og_map.get_item(k);
+                        if let Some(v) = v {
+                            //  shallow copy
+                            map.add_item(k.shallow_copy(), v.shallow_copy());
+                        }
+                    }
+
+                    // Follows a similar structure to pxs_List shallow copy
+                    pxs_Var {
+                        tag: pxs_VarType::pxs_Map,
+                        value: pxs_VarValue {
+                            map_val: map.into_raw()
+                        },
+                        deleter: Cell::new(default_deleter)
+                    }
+                },
+            }
+        }
+    }
 }
 
 unsafe impl Send for pxs_Var {}
@@ -746,6 +855,10 @@ impl Drop for pxs_Var {
                 // Drop list
                 let _ = pxs_Var::from_raw(val.args);
             }
+        } else if self.tag == pxs_VarType::pxs_Map {
+            let _ = unsafe {
+                pxs_VarMap::from_raw(self.value.map_val)
+            };
         }
     }
 }

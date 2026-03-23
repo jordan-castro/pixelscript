@@ -17,12 +17,12 @@ use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 use crate::{
     borrow_string, create_raw_string, free_raw_string, own_string, pxs_debug,
     python::{
-        func::{get_global, pocketpy_bridge, py_assign},
+        func::{get_builtin, pocketpy_bridge, py_assign},
         module::create_module,
         var::{PythonPointer, pocketpyref_to_var, var_to_pocketpyref},
     },
     shared::{
-        PixelScript, PtrMagic, pxs_Runtime, read_file, read_file_dir, var::{ObjectMethods, pxs_Var, pxs_VarList}
+        PixelScript, PtrMagic, read_file, read_file_dir, var::{ObjectMethods, pxs_Var, pxs_VarList}
     },
     with_feature,
 };
@@ -480,7 +480,7 @@ impl PixelScript for PythonScripting {
         let source = create_raw_string!(code);
         let file_name = create_raw_string!("<compile>");
         unsafe {
-            let ok = pocketpy::py_compile(source, file_name, pocketpy::py_CompileMode::EXEC_MODE, false);
+            let ok = pocketpy::py_compile(source, file_name, pocketpy::py_CompileMode::EXEC_MODE, true);
             free_raw_string!(source);
             free_raw_string!(file_name);
             if !ok {
@@ -522,51 +522,64 @@ impl PixelScript for PythonScripting {
         }
     }
     
-    fn exec_object(code: pxs_Var) -> pxs_Var {
+    fn exec_object(code: pxs_Var, scope: pxs_Var) -> pxs_Var {
         // Check if a list or a regular obj
         let code_obj = unsafe{pocketpy::py_pushtmp()};
         let code_scope = unsafe{pocketpy::py_pushtmp()};
+        let code_locals = unsafe{pocketpy::py_pushtmp()};
         // let code_obj: &mut PythonPointer;
         // let code_scope: Option<&mut PythonPointer>;
         if code.is_list() {
-            // Ensure there are 2 elements (first is object, second is dict scope)
+            // Ensure there are 3 elements (runtime, objectscope)
             let list = code.get_list().unwrap();
-            if list.len() != 2 {
+            if list.len() != 3 {
                 // TODO: pxs_Error
-                return pxs_Var::new_null();
+                return pxs_Var::new_exception(format!("List length is not 3. Len: {}", list.len()));
             }
 
             // Ok let's get the object and scope
-            let object = list.get_item(0).unwrap();
+            let object = list.get_item(1).unwrap();
             if !object.is_object() {
                 // TODO: pxs_Error
-                return pxs_Var::new_null();
+                return pxs_Var::new_exception("Code Object is not a object".to_string());
             }
-            let scope = list.get_item(1).unwrap();
+            let scope = list.get_item(2).unwrap();
             if !scope.is_object() {
                 // TODO: pxs_Error
-                return pxs_Var::new_null();
+                return pxs_Var::new_exception("Scope is not a object".to_string());
             }
 
             var_to_pocketpyref(code_obj, object, None);
             var_to_pocketpyref(code_scope, scope, None);
         } else {
             // TODO: pxs_Error
-            return pxs_Var::new_null();
+            return pxs_Var::new_exception("Compiled code is not a list".to_string());
+        }
+
+        // Check if a optional scope
+        if scope.is_map() {
+            // Setup
+            var_to_pocketpyref(code_locals, &scope, None);
+        } else {
+            unsafe{
+                pocketpy::py_newdict(code_locals);
+            }
         }
 
         unsafe {
             // Get exec function
-            let exec_func = get_global("exec");
+            let exec_func = get_builtin("exec");
             if exec_func.is_null() {
-                return pxs_Var::new_exception("Could not find `exec` in Python globals".to_string());
+                return pxs_Var::new_exception("Could not find `exec` in Python builtins".to_string());
             }
             pocketpy::py_push(exec_func);
             pocketpy::py_pushnil();
             pocketpy::py_push(code_obj);
             pocketpy::py_push(code_scope);
-            let ok = pocketpy::py_vectorcall(2, 0);
+            pocketpy::py_push(code_locals);
+            let ok = pocketpy::py_vectorcall(3, 0);
             // Pop tmps created by me.
+            pocketpy::py_pop();
             pocketpy::py_pop();
             pocketpy::py_pop();
             if !ok {

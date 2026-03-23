@@ -369,7 +369,7 @@ pub extern "C" fn pxs_object_addfunc(
     let full_name = format!("_{}{}", object_borrow.type_name, name_borrow);
     let idx = lookup_add_function(full_name.as_str(), callback);
 
-    object_borrow.add_callback(name_borrow, full_name.as_str(), idx, false);
+    object_borrow.add_callback(name_borrow, full_name.as_str(), idx, true);
 }
 
 /// Add a callback to a object and make it use the language pointer rather than _pxs_ptr idx.
@@ -1011,7 +1011,6 @@ pub extern "C" fn pxs_listget(list: *mut pxs_Var, index: i32) -> *mut pxs_Var {
     }
 
     // Derefernce list and get the item.
-    // If found, clone the value so now the caller has it's own seperate memory.
     let varlist = borrow_list.get_list().unwrap();
     if let Some(res) = varlist.get_item(index) {
         res as *const pxs_Var as *mut pxs_Var
@@ -1437,50 +1436,46 @@ pub extern "C" fn pxs_listdel(list: pxs_VarT, index: i32) -> bool {
 }
 
 /// Do a Shallow Copy. Which means it gets the same data without get the deleter for (pxs_Object or pxs_Function).
+/// 
+/// Memory is owned by caller.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_new_shallowcopy(var: pxs_VarT) -> pxs_VarT {
     pxs_debug!("pxs_new_shallowcopy");
-    // Clone the var, but keep the deleter.
-    let bvar = borrow_var!(var);
-    let nvar = pxs_newcopy(var);
-
-    // If not a pxs_Object of pxs_Function just return the value.
-    if !bvar.is_object() || !bvar.is_function() {
-        return nvar;
+    if var.is_null() {
+        return pxs_newnull();
     }
 
-    let bnvar = borrow_var!(nvar);
-
-    // Swap deleters
-    let new_deleter = bvar.deleter.get();
-    let old_deleter = bnvar.deleter.get();
-
-    bvar.deleter = Cell::new(old_deleter);
-    bnvar.deleter = Cell::new(new_deleter);
-    nvar
+    // Apply a shallow copy.
+    let bvar = borrow_var!(var);
+    bvar.shallow_copy().into_raw()
 }
 
 /// Compile a code string into a code object for later execution.
 ///
-/// Pass in a optional scope (or null for default). Scope ownership is transferred.
+/// Pass in a optional gloabl scope (or null for default). Scope ownership is transferred.
 /// Returns a `pxs_Var` whichs memory is handled by the caller.
 ///
-/// Resulting `pxs_Var` will contain (Code Object, Scope|default).
+/// Resulting `pxs_Var` will contain (Associated Runtime, Code Object, Scope|default).
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_compile(
     runtime: pxs_Runtime,
     code: *const c_char,
-    scope: pxs_VarT,
+    global_scope: pxs_VarT,
 ) -> pxs_VarT {
     pxs_debug!("pxs_compile");
     assert_initiated!();
 
-    if code.is_null() || scope.is_null() {
+    if code.is_null() || global_scope.is_null() {
         return pxs_newnull();
     }
 
     let rcode = borrow_string!(code);
-    let scope = own_var!(scope);
+    let scope = own_var!(global_scope);
+
+    // Make sure scope is map or is null.
+    if !scope.is_map() && !scope.is_null() {
+        return pxs_Var::new_exception("Global scope must be a Map or Null".to_string()).into_raw();
+    }
 
     let res = match runtime {
         pxs_Runtime::pxs_Lua => {
@@ -1497,15 +1492,13 @@ pub extern "C" fn pxs_compile(
         pxs_Runtime::pxs_PHP => todo!(),
     };
 
-    // Ensure this is a list
-    assert!(
-        res.is_list(),
-        "Result from compile is not a List. Please make sure you are returnig a `pxs_VarList`"
-    );
+    if !res.is_list() {
+        return res.into_raw();
+    }
 
     // Add the runtime to the object.
     let list = res.get_list().unwrap();
-    list.insert_item(0, unsafe { pxs_Runtime::pxs_Python.into_var() });
+    list.insert_item(0, unsafe { runtime.into_var() });
 
     res.into_raw()
 }
@@ -1514,18 +1507,34 @@ pub extern "C" fn pxs_compile(
 ///
 /// Variable ownership is transfered. If this is not desired behavior, pass in a shallow copy.
 /// Returned variable must be freed by caller.
+/// 
+/// Runtime is not required because the object is embedded with it in pxs_compile.
+/// Pass in a optional local scope that gets passed along with the global scope. 
+/// Note: Do not use the same scope as in `pxs_compile`.
+/// 
+/// Scope ownership is transferred.
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_execobject(object: pxs_VarT) -> pxs_VarT {
+pub extern "C" fn pxs_execobject(object: pxs_VarT, local: pxs_VarT) -> pxs_VarT {
     pxs_debug!("pxs_execobject");
     assert_initiated!();
 
-    if object.is_null() {
+    if object.is_null() || local.is_null() {
         return pxs_newnull();
     }
 
     let var = own_var!(object);
 
-    assert!(var.is_list(), "Object passed is not a List");
+    if !var.is_list() {
+        // TODO: error
+        return pxs_Var::new_exception("Compiled object is not the correct type.").into_raw();
+    }
+
+    // Get scope
+    let scope = own_var!(local);
+    // Check if scope is a map
+    if !scope.is_map() && !scope.is_null() {
+        return pxs_Var::new_exception("Scope must be a Map or Null.").into_raw(); 
+    }
 
     let list = var.get_list().unwrap();
     let rt = list.get_item(0);
@@ -1535,12 +1544,12 @@ pub extern "C" fn pxs_execobject(object: pxs_VarT) -> pxs_VarT {
             // Now we can do stuff
             return match runtime {
                 pxs_Runtime::pxs_Lua => {
-                    with_feature!("lua", { LuaScripting::exec_object(var) }, {
+                    with_feature!("lua", { LuaScripting::exec_object(var, scope) }, {
                         panic!("lua feature not enabled")
                     })
                 }
                 pxs_Runtime::pxs_Python => {
-                    with_feature!("python", { PythonScripting::exec_object(var) }, {
+                    with_feature!("python", { PythonScripting::exec_object(var, scope) }, {
                         panic!("python feature not enabled")
                     })
                 }
@@ -1665,6 +1674,57 @@ pub extern "C" fn pxs_mapkeys(map: pxs_VarT) -> pxs_VarT {
     }
 
     result.into_raw()
+}
+
+/// Get a value in a map from a key.
+/// 
+/// Result is not owned by caller. Use `pxs_newcopy` to transfer ownership.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_mapget(map: pxs_VarT, key: pxs_VarT) -> pxs_VarT {
+    pxs_debug!("pxs_mapget");
+    
+    if map.is_null() || key.is_null() {
+        return pxs_newnull();
+    }
+
+    // check map
+    let map = borrow_var!(map);
+    if !map.is_map() {
+        return pxs_newnull();
+    }
+    let internal = map.get_map().unwrap();
+    let res = internal.get_item(borrow_var!(key));
+
+    // Return a const pxs_Var.
+    if let Some(res) = res {
+        res as *const pxs_Var as *mut pxs_Var
+    } else {
+        pxs_newnull()
+    }
+} 
+
+/// Insert a item into a list at a certain index, shifting all other items to the right.
+/// 
+/// Item ownership is transferred.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_listinsert(list: pxs_VarT, index: usize, item: pxs_VarT) {
+    pxs_debug!("pxs_listinsert");
+
+    if list.is_null() || item.is_null() {
+        // TODO: log something?
+        return;
+    }
+
+    // Check is list
+    let list = borrow_var!(list);
+    if !list.is_list() {
+        // TODO: log something?
+        return;
+    }
+
+    let item = own_var!(item);
+    let internal = list.get_list().unwrap();
+    internal.insert_item(index, item);
 }
 
 // ====================================== Core functions Start =======================================

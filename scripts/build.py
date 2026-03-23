@@ -53,7 +53,8 @@ if len(sys.argv) > 0:
 
 target = ""
 rtarget = ""
-features = []
+features = ""
+defaults = True
 run_clear = False
 
 for arg in argv:
@@ -63,7 +64,10 @@ for arg in argv:
         target =  "--target=" + rtarget
     elif "features" in arg:
         # Split features
-        features = arg.split("=")[-1].split(',')
+        features = arg.split("=")[-1]
+    elif "defaults" in arg:
+        if arg.split("=")[-1].lower() == 'n':
+            defaults = False
     elif arg == "clear":
         run_clear = True
 
@@ -73,14 +77,19 @@ cmd = ["cargo", "build", "--release"]
 # Grab target and features if passed
 if target:
     cmd += [target]
-cmd += features
+if not defaults:
+    cmd += ["--no-default-features"]
+if len(features) > 0:
+    cmd += ["--features", f'"{features}"']
+# cmd += features
 
 if run_clear:
     # Run cargo clean before building
     subprocess.call(["cargo", "clean"])
 
 print(" ".join(cmd))
-subprocess.call(cmd)
+os.system(" ".join(cmd))
+# subprocess.call(cmd)
 
 # Find build directory
 path_to_build = "target/release/build"

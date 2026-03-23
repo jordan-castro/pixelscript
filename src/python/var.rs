@@ -88,28 +88,6 @@ unsafe extern "C" fn free_py_mem(ptr: *mut c_void) {
     // TODO: Reference counting 
 }
 
-// /// Python Function for freeing object memory.
-// unsafe extern "C" fn free_py_mem(ptr: *mut c_void) {
-//     if ptr.is_null() {
-//         return;
-//     }
-//     unsafe {
-//         // Deref
-//         let pyref = ptr as pocketpy::py_Ref;
-//         // Check for _pxs_ptr
-//         let name = create_raw_string!("_pxs_ptr");
-//         let res = pocketpy::py_getattr(pyref, pocketpy::py_name(name));
-//         free_raw_string!(name);
-//         if res {
-//             let pxs_ptr_ref = pocketpy::py_retval();
-//             let pxs_ptr = pocketpy::py_toint(pxs_ptr_ref);
-//             clear_object_from_lookup(pxs_ptr as i32);
-//         } else {
-//             let err = consume_error();
-//         }
-//     }
-// }
-
 /// Convert a PocketPy ref into a Var
 pub(super) fn pocketpyref_to_var(pref: pocketpy::py_Ref) -> pxs_Var {
     let tp = unsafe { pocketpy::py_typeof(pref) } as i32;

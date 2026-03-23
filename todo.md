@@ -11,7 +11,7 @@
 - pxs_Error (returned when there is a error in pixelscript not necessarily a error in a backend) This will replace anyhow.
 - pxs_* library functions need to always return a pxs_Var. nullptr will no longer be allowed.
 - ~~Reimp pxs_DirHandle to be a pxs_VarList~~ **DONE**
-- add pxs_compile which will return a `pxs_Code` object.
+- ~~add pxs_compile which will return a `pxs_Code` object.~~ **DONE**
 - Review memory management:
     - All functions return pxs_Var
     - All functions need to be explicit in their docs on ownership
@@ -39,7 +39,7 @@
 - Drop pxs_Object created from factory when it's no longer needed.
 
 ## Vars
-- Add Map
+- ~~Add Map~~ **DONE**
 
 ## STD
 - Add std library via pixelscript runtime. These are optional and handled via features
