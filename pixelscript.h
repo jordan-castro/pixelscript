@@ -69,10 +69,6 @@ typedef enum pxs_Runtime {
    * ES 2020 using rquickjs
    */
   pxs_JavaScript = 2,
-  /**
-   * PHP v5.3 with PH7
-   */
-  pxs_PHP = 3,
 } pxs_Runtime;
 
 /**

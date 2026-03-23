@@ -9,7 +9,6 @@
 
 use shared::{func::pxs_Func, var::pxs_Var};
 use std::{
-    cell::Cell,
     ffi::{CString, c_char, c_void},
     ptr,
     sync::Arc,
@@ -171,7 +170,6 @@ pub extern "C" fn pxs_exec(
             })
         }
         pxs_Runtime::pxs_JavaScript => todo!(),
-        pxs_Runtime::pxs_PHP => todo!(),
     };
 
     if res.is_empty() {
@@ -600,9 +598,6 @@ pub extern "C" fn pxs_objectcall(
             )
         }
         pxs_Runtime::pxs_JavaScript => todo!(),
-        _ => todo!(), // pxs_Runtime::pxs_JavaScript => todo!(),
-                      // pxs_Runtime::pxs_Easyjs => todo!(),
-                      // pxs_Runtime::pxs_RustPython => todo!(),
     };
 
     if let Ok(var) = var {
@@ -931,7 +926,6 @@ pub extern "C" fn pxs_tostring(runtime: *mut pxs_Var, var: *mut pxs_Var) -> *mut
                 })
             }
             pxs_Runtime::pxs_JavaScript => todo!(),
-            _ => todo!(),
         };
 
         if let Ok(res) = res {
@@ -1128,9 +1122,6 @@ pub extern "C" fn pxs_varcall(
                 )
             }
             pxs_Runtime::pxs_JavaScript => todo!(),
-            _ => todo!(), // pxs_Runtime::pxs_JavaScript => todo!(),
-                          // pxs_Runtime::pxs_Easyjs => todo!(),
-                          // pxs_Runtime::pxs_RustPython => todo!(),
         }
         .into_raw()
     } else {
@@ -1273,7 +1264,6 @@ pub extern "C" fn pxs_eval(script: *const c_char, rt: pxs_Runtime) -> pxs_VarT {
             })
         }
         pxs_Runtime::pxs_JavaScript => todo!(),
-        pxs_Runtime::pxs_PHP => todo!(),
     }
 }
 
@@ -1407,7 +1397,6 @@ pub extern "C" fn pxs_var_fromname(rt: pxs_VarT, name: *const c_char) -> pxs_Var
                 )
             }
             pxs_Runtime::pxs_JavaScript => todo!(),
-            pxs_Runtime::pxs_PHP => todo!(),
         }
         .into_raw()
     } else {
@@ -1489,7 +1478,6 @@ pub extern "C" fn pxs_compile(
             })
         }
         pxs_Runtime::pxs_JavaScript => todo!(),
-        pxs_Runtime::pxs_PHP => todo!(),
     };
 
     if !res.is_list() {
@@ -1554,7 +1542,6 @@ pub extern "C" fn pxs_execobject(object: pxs_VarT, local: pxs_VarT) -> pxs_VarT 
                     })
                 }
                 pxs_Runtime::pxs_JavaScript => todo!(),
-                pxs_Runtime::pxs_PHP => todo!(),
             }
             .into_raw();
         } else {

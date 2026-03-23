@@ -204,8 +204,6 @@ pub enum pxs_Runtime {
     pxs_Python = 1,
     /// ES 2020 using rquickjs
     pxs_JavaScript = 2,
-    /// PHP v5.3 with PH7
-    pxs_PHP = 3,
 }
 
 impl pxs_Runtime {
@@ -214,7 +212,6 @@ impl pxs_Runtime {
             pxs_Runtime::pxs_Lua => 0,
             pxs_Runtime::pxs_Python => 1,
             pxs_Runtime::pxs_JavaScript => 2,
-            pxs_Runtime::pxs_PHP => 3,
         }
     }
 
@@ -223,7 +220,6 @@ impl pxs_Runtime {
             0 => Some(Self::pxs_Lua),
             1 => Some(Self::pxs_Python),
             2 => Some(Self::pxs_JavaScript),
-            3 => Some(Self::pxs_PHP),
             _ => None,
         }
     }

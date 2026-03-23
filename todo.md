@@ -4,30 +4,34 @@
 - Fix warnings (remove or ignore)
 
 ## v0.5 Memory and JS support
-- JS support via ejr.
+- JS support via rquickjs.
 - Lazy Init language states on first run.
 - Reference counting for PixelScript object.
 - Decrease number of functions created in pocketpy.
-- pxs_Error (returned when there is a error in pixelscript not necessarily a error in a backend) This will replace anyhow.
+- Return pxs_Exception for errors in pixelscript and backends.
 - pxs_* library functions need to always return a pxs_Var. nullptr will no longer be allowed.
 - ~~Reimp pxs_DirHandle to be a pxs_VarList~~ **DONE**
 - ~~add pxs_compile which will return a `pxs_Code` object.~~ **DONE**
+- ~~Add Map~~ **DONE**
 - Review memory management:
     - All functions return pxs_Var
     - All functions need to be explicit in their docs on ownership
     - Check Factories... why are we not owning the args?
+    - Mark functions as expected return type.
 
-## v0.6 Platforms, STD, Wren support
-- pxs DSL (Might not do this TBH.)
-- WASM support + Wasm web page similar to pocketpy live playground.
+## v0.6 STD
 - pxs_time (Time functions)
 - pxs_os (OS functions like name, version)
 - pxs_io (IO functions like write, read, etc) | This will require that `file_loader` `file_reader` and `dir_reader` are setup. 
-- Add Wren support.
 
-## v0.7 Size Reduction
-- Remove mlua (use raw lua c files instead)
-- Attempting to get pixelscript runtime (not language libraries) <= 10mb
+## v0.7 Wren support, WASM, Docs
+- Add Wren support
+- WASM support + Wasm web page similar to pocketpy live playground.
+- Add the ability to document your functions and export it via markdown.
+
+<!-- ## v0.7 Size Reduction -->
+<!-- - Remove mlua (use raw lua c files instead) -->
+<!-- - Attempting to get pixelscript runtime (not language libraries) <= 10mb -->
 
 ## LSP
 - Remove ModuleCallbacks just use Function
@@ -39,7 +43,6 @@
 - Drop pxs_Object created from factory when it's no longer needed.
 
 ## Vars
-- ~~Add Map~~ **DONE**
 
 ## STD
 - Add std library via pixelscript runtime. These are optional and handled via features
@@ -49,7 +52,6 @@
 
 ## Lua
 - Remove io, os, and hackable modules.
-- Drop down to raw C lua lib...
 
 ## Python (PocketPy)
 - Make callback global. i.e. one per thread

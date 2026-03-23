@@ -44,8 +44,9 @@ This will build the project and place the necessary *static* libraries in a `/px
 |------------------|-------------------|-----------------------|---------------------------------|
 | `lua`            | Lua               | mlua                  | Fast, battle tested, v5.4       |
 | `python`         | Python            | pocketpy V2.1.8       | Requires MSVC on Windows        |
-| `js`             | JavaScript        | ejr                   | easy javascript runtime         |
-| `php`            | PHP               | PH7                   | Only supports v5.3 and the engine is not maintained anymore |
+| `js`             | JavaScript        | rquickjs              | QuickJS small library. Supports ES2023          |
+<!-- | `kora`           | Kora              | korar                 | A 2js and 2wasm language. Maintained by EpochTech.  | -->
+<!-- | `php`            | PHP               | PH7                   | Only supports v5.3 and the engine is not maintained anymore | -->
 <!-- | `luajit`         | Lua               | mlua                  | Uses the same code as the `lua` feature | -->
 
 ## CoreLib
@@ -53,6 +54,9 @@ To include the PixelScript core API, add the `include-core` feature. Or include 
 | Module name | Module purpose | Notes |
 |-------------|----------------|-------|
 | `pxs_json`  | Adds encode/decode functions for all languages. | |
+<!-- | `pxs_time`  | Adds time functions for all languages. Similar to Python `time` module. | | -->
+<!-- | `pxs_io`    | Adds `open`, `File`, `Directory`, `close`, `glob`.      | Requires `pxs_set_filereader`, `pxs_set_filewriter`, and `pxs_set_dirreader` | -->
+<!-- | `pxs_os` | -->
 
 ### pxs_json
 Overview of what is incldued in `pxs_json` module.
@@ -106,12 +110,6 @@ int main() {
     char* error = pxs_execjs(pxs_JavaScript, js_script, "<ctest>");
     pxs_freestr(error);
 
-    // PHP!!!! 
-    const char* php_script = "include('main');\n" // or require
-                            "\\main\\println('Hello World from PHP!');";
-    char* error = pxs_execphp(pxs_PHP, php_script, "<ctest>");
-    pxs_freestr(error);
-
     pxs_finalize();
 
     return 0;
@@ -126,6 +124,6 @@ This will ideally be used by all future epochtech games since it allows for modd
 It's not quite ready to be used in production for anyone other than myself and epochtech. But if you make PRs to fix
 something or open issues, I will be responding and merging. Feel free to add a language, just check out /lua or /python for examples on how to use Var, Func, Module, PixelObject, and PixelScripting.
 
-Note: JS and PHP are still being implemented.
+Note: JS is still being implemented.
 
 Made with ❤️ by [@epochtechgames](https://x.com/epochtechgames)
