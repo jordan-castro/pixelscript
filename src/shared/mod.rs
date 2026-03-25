@@ -12,6 +12,7 @@ use std::{
     sync::{Arc, OnceLock},
 };
 
+use anyhow::Result;
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
 use crate::{
@@ -174,9 +175,9 @@ pub trait PixelScript {
     /// Add a global module to the runtime.
     fn add_module(source: Arc<module::pxs_Module>);
     /// Execute a script in this runtime.
-    fn execute(code: &str, file_name: &str) -> String;
+    fn execute(code: &str, file_name: &str) -> Result<pxs_Var>;
     /// Evaluate a script in this runtime. Returns a pxs_Var.
-    fn eval(code: &str) -> pxs_Var;
+    fn eval(code: &str) -> Result<pxs_Var>;
     /// Allows the language to start a new thread. In this new thread all callbacks/objects/variables will be empty.
     fn start_thread();
     /// Tells the language that we just finished the most recent started thread.
@@ -186,11 +187,11 @@ pub trait PixelScript {
     /// Compile and save for future use.
     /// Pass in a optional global scope, if null, defaults to empty Map.
     /// Result will be a list with: [Runtime, Compiled Object, ...]
-    fn compile(code: &str, global_scope: pxs_Var) -> pxs_Var;
+    fn compile(code: &str, global_scope: pxs_Var) -> Result<pxs_Var>;
     /// Execute a code object.
     /// The code variable will always be a List with: [Runtime, Compiled Object, ...].
     /// Pass in optional local scope that will be included along with the compiled scope.
-    fn exec_object(code: pxs_Var, local_scope: pxs_Var) -> pxs_Var;
+    fn exec_object(code: pxs_Var, local_scope: pxs_Var) -> Result<pxs_Var>;
 }
 
 /// Public enum for supported runtimes.

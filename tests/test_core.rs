@@ -68,6 +68,7 @@ print(f'decoded2 == obj: {decoded2 == obj}')
         let luascript = r#"
 local pxs = require('pxs')
 local obj = {one = 1, two= 2}
+local pxs_json = require('pxs_json')
 local encoded = pxs_json.encode(obj)
 print('encoded: ' .. encoded)
 local decoded = pxs_json.decode(encoded)

@@ -6,7 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_lua --no-default-features --features "lua,pxs-debug" -- --nocapture --test-threads=1
+// cargo test --test test_lua --no-default-features --features "lua,pxs-debug,testing" -- --nocapture --test-threads=1
 
 #[allow(unused)]
 #[cfg(test)]
@@ -19,7 +19,9 @@ mod tests {
 
     use pixelscript::{
         lua::LuaScripting,
-        shared::{PixelScript, PtrMagic, object::pxs_PixelObject, pxs_Runtime, var::{pxs_Var, pxs_VarT}},
+        shared::{PixelScript, PtrMagic, object::pxs_PixelObject, pxs_Runtime, var::{pxs_Var, pxs_VarT},
+        utils::{execute_code}
+},
         *,
     };
 
@@ -389,9 +391,8 @@ mod tests {
             end 
             pxs.print(tostring(pxs.call_function(get_pi)))
         "#;
-        let err = LuaScripting::execute(lua_code, "<test>");
-
-        assert!(err.is_empty(), "Lua Error is not empty: {}", err);
+        let res = execute_code(lua_code, "<test>", pxs_Runtime::pxs_Lua);
+        assert!(res.is_null(), "Lua Error is not empty: {:#?}", res);
 
         // Test eval
         let script = r#"

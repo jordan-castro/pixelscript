@@ -55,6 +55,7 @@ target = ""
 rtarget = ""
 features = ""
 defaults = True
+debug_mode = False
 run_clear = False
 
 for arg in argv:
@@ -68,12 +69,15 @@ for arg in argv:
     elif "defaults" in arg:
         if arg.split("=")[-1].lower() == 'n':
             defaults = False
+    elif "debug" in arg:
+        debug = True
     elif arg == "clear":
         run_clear = True
 
 
+build_mode = "release" if not debug else "debug"
 # Build in release mode
-cmd = ["cargo", "build", "--release"]
+cmd = ["cargo", "build", f"--{build_mode}"]
 # Grab target and features if passed
 if target:
     cmd += [target]
@@ -92,11 +96,11 @@ os.system(" ".join(cmd))
 # subprocess.call(cmd)
 
 # Find build directory
-path_to_build = "target/release/build"
-path_to_release = "target/release"
+path_to_build = f"target/{build_mode}/build"
+path_to_release = f"target/{build_mode}"
 if target:
-    path_to_build = f"target/{rtarget}/release/build"
-    path_to_release = f"target/{rtarget}/release"
+    path_to_build = f"target/{rtarget}/{build_mode}/build"
+    path_to_release = f"target/{rtarget}/{build_mode}"
 
 # Create source
 source = Path(SOURCE)

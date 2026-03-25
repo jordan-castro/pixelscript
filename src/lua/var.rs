@@ -182,9 +182,8 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
         pxs_VarType::pxs_Exception => {
             // Get msg and error it
             let msg = var.get_string().expect("Could not get lua string from exception");
-            let error : Box<dyn std::error::Error + Send + Sync> = Box::from(msg);
-            // let lua_string = 
-            Ok(LuaValue::Error(Box::new(LuaError::ExternalError(error.into()))))
+            // let error : Box<dyn std::error::Error + Send + Sync> = Box::from(msg);
+            Err(mlua::Error::RuntimeError(msg))
         }
         pxs_VarType::pxs_Map => {
             // Key,Value pair table

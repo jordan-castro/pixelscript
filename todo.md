@@ -19,10 +19,16 @@
     - Check Factories... why are we not owning the args?
     - Mark functions as expected return type.
 
-## v0.6 STD
+## v0.6 STD and Tests
 - pxs_time (Time functions)
 - pxs_os (OS functions like name, version)
 - pxs_io (IO functions like write, read, etc) | This will require that `file_loader` `file_reader` and `dir_reader` are setup. 
+- Tests
+    - test_vars (Test all types to and from scripting)
+    - test_all (remove this)
+    - test_exec
+    - test_eval
+    - test_raise (a new test of raising from one langauge to another.)
 
 ## v0.7 Wren support, WASM, Docs
 - Add Wren support

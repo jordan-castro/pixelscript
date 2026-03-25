@@ -11,13 +11,13 @@ pub mod module;
 pub mod object;
 pub mod var;
 
-use anyhow::anyhow;
+use anyhow::{Result, anyhow};
 use mlua::prelude::*;
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 use std::{cell::RefCell, collections::HashMap};
 
 use crate::{
-    lua::var::{from_lua, into_lua}, pxs_newexception, shared::{PixelScript, read_file, var::{ObjectMethods, pxs_Var}}, with_feature
+    lua::var::{from_lua, into_lua}, shared::{PixelScript, read_file, var::{ObjectMethods, pxs_Var}}, with_feature
 };
 
 thread_local! {
@@ -30,16 +30,6 @@ struct State {
     engine: Lua,
     /// Cached Tables
     tables: RefCell<HashMap<String, LuaTable>>,
-}
-
-macro_rules! get_lua_res {
-    ($err:expr, $func:expr, $($arg:tt)*) => {{
-        let res = $func($($arg)*);
-        if res.is_err() {
-            return pxs_Var::new_exception($err);
-        }
-        res.unwrap()
-    }};
 }
 
 /// Preload a lua source code as a module.
@@ -178,8 +168,13 @@ impl PixelScript for LuaScripting {
         module::add_module(source);
     }
 
-    fn execute(code: &str, file_name: &str) -> String {
-        execute(code, file_name)
+    fn execute(code: &str, file_name: &str) -> Result<pxs_Var> {
+        let err = execute(code, file_name);
+        if err.is_empty() {
+            Ok(pxs_Var::new_null())
+        } else {
+            Ok(pxs_Var::new_exception(err))
+        }
     }
 
     fn start() {
@@ -217,78 +212,53 @@ impl PixelScript for LuaScripting {
         }
     }
     
-    fn eval(code: &str) -> pxs_Var {
+    fn eval(code: &str) -> Result<pxs_Var> {
         let state = get_lua_state();
-        let res = state.engine.load(code).call(());
-        if res.is_err() {
-            let msg = res.err().unwrap().to_string();
-            return pxs_Var::new_string(msg);
-        }
-        let res: LuaValue = res.unwrap();
-
-        from_lua(res).unwrap()   
+        let res: LuaValue = state.engine.load(code).call(())?;
+        Ok(from_lua(res)?)   
     }
     
-    fn compile(code: &str, global_scope: pxs_Var) -> pxs_Var {
+    fn compile(code: &str, global_scope: pxs_Var) -> Result<pxs_Var> {
         let state = get_lua_state();
 
         let globals = state.engine.globals();
         // Linking table between scope and globals
-        let mt = state.engine.create_table().expect("Can not create table");
-        mt.set("__index", globals).expect("Could not set __index");
+        let mt = state.engine.create_table()?;
+        mt.set("__index", globals)?;
         let scope_table: LuaTable;
         // Check that scope if a map
         if global_scope.is_map() {
-            let res = into_lua(&state.engine, &global_scope).unwrap_or(LuaNil);
-            if res.is_nil() {
-                return pxs_Var::new_exception("Could not convert global scope into Lua table".to_string());
-            }
-
+            let res = into_lua(&state.engine, &global_scope)?;
             scope_table = res.as_table().unwrap().to_owned();
         } else if global_scope.is_null() {
-            let res = state.engine.create_table();
-            if res.is_err() {
-                return pxs_Var::new_exception("Could not create new table in Lua".to_string());
-            }
-            scope_table = res.unwrap();
+            let res = state.engine.create_table()?;
+            scope_table = res;
         } else {
-            return pxs_Var::new_exception("Expected Map or Null for global scope.".to_string());
+            return Ok(pxs_Var::new_exception("Expected Map or Null for global scope."));
         }
 
-        scope_table.set_metatable(Some(mt)).expect("Could not set meta table");
+        scope_table.set_metatable(Some(mt))?;
 
         // Compile code
         let chunk = state.engine.load(code);
         let chunk = chunk.set_environment(scope_table);
         let our_scope_table = chunk.environment().unwrap().to_owned();
 
-        let res = chunk.into_function();
-        if res.is_err() {
-            return pxs_Var::new_exception("Could not convert chunk into Lua Function.".to_string());
-        }
-        let func = res.unwrap();
+        let func = chunk.into_function()?;
 
         // Now lets return our [CodeObject, Global Scope reference]
         let result = pxs_Var::new_list();
         let list = result.get_list().unwrap();
 
-        let res = from_lua(mlua::Value::Function(func));
-        if res.is_err() {
-            return pxs_Var::new_exception("Could not convert Lua function into PXS.".to_string());
-        }
         // Code Object
-        list.add_item(res.unwrap());
+        list.add_item(from_lua(mlua::Value::Function(func))?);
         // Global Scope
-        let res = from_lua(mlua::Value::Table(our_scope_table));
-        if res.is_err() {
-            return pxs_Var::new_exception("Could not convert Lua table into PXS.".to_string());
-        }
-        list.add_item(res.unwrap());
+        list.add_item(from_lua(mlua::Value::Table(our_scope_table))?);
         
-        result
+        Ok(result)
     }
     
-    fn exec_object(code: pxs_Var, local_scope: pxs_Var) -> pxs_Var {
+    fn exec_object(code: pxs_Var, local_scope: pxs_Var) -> Result<pxs_Var> {
         let state = get_lua_state();
         let lua = &state.engine;
 
@@ -299,14 +269,12 @@ impl PixelScript for LuaScripting {
         };
 
         // Now add local scope to global scope...
-        let res = into_lua(lua, &global_scope);
-        if res.is_err() {
-            return pxs_Var::new_exception("Could not convert global_scope to Lua.".to_string());
+        let binding = into_lua(lua, global_scope)?;
+        let potential_table: Option<&LuaTable> = binding.as_table();
+        if potential_table.is_none() {
+            return Ok(pxs_Var::new_exception("Globals is not a Table."));
         }
-        // This is why it would be nice to remove mlua one day...
-        let binding = res.unwrap();
-        let global_table = binding.as_table();
-        let global_table = global_table.unwrap();
+        let global_table: LuaTable = potential_table.unwrap().to_owned();
         
         // Set local scope if not null
         if !local_scope.is_null() {
@@ -314,48 +282,26 @@ impl PixelScript for LuaScripting {
             let keys = map.keys();
             for k in keys {
                 // Key => LuaValue
-                let res = into_lua(lua, k);
-                if res.is_err() {
-                    return pxs_Var::new_exception("Could not convert key into lua");
-                }
-                let lua_key = res.unwrap();
+                let lua_key = into_lua(lua, k)?;
                 // Value => LuaValue
                 let value = map.get_item(k);
                 if let Some(v) = value { 
-                    let res = into_lua(lua, v);
-                    if res.is_err() {
-                        return pxs_Var::new_exception("Could not convert value into lua");
-                    }
-
-                    let lua_value = res.unwrap();
+                    let lua_value = into_lua(lua, v)?;
                     // Set in table
-                    let ok = global_table.set(lua_key, lua_value);
-                    if ok.is_err() {
-                        return pxs_Var::new_exception("Could not set key=>value in Lua table.");
-                    }
+                    global_table.set(lua_key, lua_value)?;
                 }
             }
         }
 
         // Get the object as a function and call it
-        let res = into_lua(lua, code_object);
-        if res.is_err() {
-            return pxs_Var::new_exception("Could not convert Code Object back into lua.");
+        let binding = into_lua(lua, code_object)?;
+        let potential_func: Option<&LuaFunction> = binding.as_function();
+        if potential_func.is_none() {
+            return Ok(pxs_Var::new_exception("Code Object is not a function."));
         }
-        // UGHHH Freaking borrow checker 
-        let binding = res.unwrap();
-        let func = binding.as_function();
-        let func = func.unwrap();
-
-        let res: LuaResult<LuaValue> = func.call(());
-        if res.is_err() {
-            return pxs_Var::new_exception(res.unwrap_err().to_string());
-        }
-        let result = res.unwrap();
-        let res = from_lua(result);
-        if res.is_err() {
-            return pxs_Var::new_exception(res.unwrap_err().to_string());
-        }
+        let func = potential_func.unwrap();
+        let res: LuaValue = func.call(())?;
+        let pxs_res = from_lua(res)?;
 
         // Now remove the local_state
         if !local_scope.is_null() {
@@ -363,13 +309,13 @@ impl PixelScript for LuaScripting {
             let keys = map.keys();
             for k in keys {
                 // Key => LuaValue
-                let lua_key = get_lua_res!("Could not convert key into lua", into_lua, lua, k);
+                let lua_key = into_lua(lua, k)?;
                 // Remove the pair                
-                let _ = global_table.set(lua_key, LuaNil);
+                global_table.set(lua_key, LuaNil)?;
             }
         }
 
-        res.unwrap()
+        Ok(pxs_res)
     }
 }
 

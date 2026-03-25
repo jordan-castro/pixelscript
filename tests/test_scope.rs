@@ -157,6 +157,7 @@ pxs.print(f'Current loop idx: {loop_id}')
         unsafe{free_raw_string!(loop_name);}
         pxs_freevar(code_object);
     }
+
     fn test_lua() {
         let code = r#"
 local pxs = require('pxs')

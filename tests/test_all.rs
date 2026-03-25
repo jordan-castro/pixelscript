@@ -6,7 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_all --no-default-features --features "lua,python,pxs-debug" -- --nocapture --test-threads=1
+// cargo test --test test_all --no-default-features --features "lua,python,pxs-debug,testing" -- --nocapture --test-threads=1
 
 #[cfg(test)]
 mod tests {
@@ -18,6 +18,7 @@ mod tests {
         lua::LuaScripting, python::PythonScripting, shared::{
             PixelScript, PtrMagic,
             var::{pxs_Var, pxs_VarT},
+            utils::{execute_code}
         }, *
     };
 
@@ -507,8 +508,8 @@ def get_pi():
 
 print(pxs.call_function(get_pi))
         "#;
-        let err = PythonScripting::execute(py_code, "<test>");
-        assert!(err.is_empty(), "Python Error is not empty: {}", err);
+        let res = execute_code(py_code, "file_name", shared::pxs_Runtime::pxs_Python);
+        assert!(res.is_null(), "Python Error is not empty: {:#?}", res);
         println!("Here dayo");
         // 3
         let lua_code = r#"
@@ -530,8 +531,8 @@ pxs.print(msg)
 local result = pxs.add(pxs.n1, pxs.n2)
 pxs.print("Module result: " .. tostring(result))
         "#;
-        let lua_err = LuaScripting::execute(lua_code, "<test>");
-        assert!(lua_err.is_empty(), "Lua Error is not empty: {}", lua_err);
+        let res = execute_code(lua_code, "file_name", shared::pxs_Runtime::pxs_Lua);
+        assert!(res.is_null(), "Lua Error is not empty: {:#?}", res);
 
         pxs_startthread();
         pxs_startthread();

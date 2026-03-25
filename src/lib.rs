@@ -47,28 +47,24 @@ macro_rules! assert_initiated {
     }};
 }
 
-// /// Add the methods for creating a pixel var.
-// macro_rules! make_pixel_var {
-//     ($($ffi_name:ident, $internal_method:ident, $t:ty);*) => {
-//         $(
-//         #[unsafe(no_mangle)]
-//         pub extern "C" fn $ffi_name(val: $t) -> Var {
-//             Var::$internal_method(val)
-//         })*
-//     };
-// }
-
-// /// Create a random string.
-// ///
-// /// Used for PixelTypes
-// fn random_string() -> String {
-//     const STRING_LEN: usize = 8;
-//     let mut rng = SmallRng::from_rng(&mut rand::rng());
-
-//     (0..STRING_LEN)
-//         .map(|_| rng.sample(Alphanumeric) as char)
-//         .collect()
-// }
+/// Use a backend based on a runtime.
+macro_rules! with_backend {
+    ($runtime:expr, $backend_alias:ident => $body:block) => {
+        match $runtime {
+            #[cfg(feature = "python")]
+            pxs_Runtime::pxs_Python => {
+                type $backend_alias = PythonScripting;
+                $body
+            },
+            #[cfg(feature = "lua")]
+            pxs_Runtime::pxs_Lua => {
+                type $backend_alias = LuaScripting;
+                $body
+            },
+            _ => panic!("Runtime not enabled"),
+        }
+    };
+}
 
 /// Is initialized?
 static mut IS_INIT: bool = false;
@@ -146,40 +142,29 @@ pub extern "C" fn pxs_exec(
     assert_initiated!();
 
     if code.is_null() || file_name.is_null() {
-        return pxs_newstring(create_raw_string!("code or file_name are null"));
+        pxs_Var::new_exception("code or file_name are null").into_raw();
     }
 
     let rcode = borrow_string!(code);
     let rfile_name = borrow_string!(file_name);
 
     if rcode.is_empty() || rfile_name.is_empty() {
-        return pxs_newstring(create_raw_string!("code or file_name are empty strings"));
+        return pxs_Var::new_exception("code or file_name are empty strings").into_raw();
     }
 
-    let res = match runtime {
-        pxs_Runtime::pxs_Lua => {
-            with_feature!("lua", { LuaScripting::execute(rcode, rfile_name) }, {
-                // TODO: pxs_Error
-                panic!("lua is not enabled");
-            })
+    with_backend!(runtime, Backend => {
+        let res = Backend::execute(rcode, rfile_name);
+        if res.is_err() {
+            pxs_Var::new_exception(res.unwrap_err().to_string()).into_raw()
+        } else {
+            res.unwrap().into_raw()
         }
-        pxs_Runtime::pxs_Python => {
-            with_feature!("python", { PythonScripting::execute(rcode, rfile_name) }, {
-                // TODO: pxs_Error
-                panic!("python is not enabled");
-            })
-        }
-        pxs_Runtime::pxs_JavaScript => todo!(),
-    };
-
-    if res.is_empty() {
-        pxs_newnull()
-    } else {
-        pxs_newstring(create_raw_string!(res))
-    }
+    })
 }
 
 /// Free the string created by the pixelscript library
+/// 
+/// Memory is transfered.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_freestr(string: *mut c_char) {
     pxs_debug!("pxs_freestr");
@@ -193,6 +178,8 @@ pub extern "C" fn pxs_freestr(string: *mut c_char) {
 }
 
 /// Create a new pixelscript Module.
+/// 
+/// Can return nullptr.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_newmod(name: *const c_char) -> *mut pxs_Module {
     pxs_debug!("pxs_newmod");
@@ -327,6 +314,8 @@ pub extern "C" fn pxs_freemod(module_ptr: *mut pxs_Module) {
 /// This should only be used within a PixelScript function callback. I.e. a constructor.
 ///
 /// This must be wrapped in a `pxs_newhost` before use within a callback. If setting to a variable, this is done automatically for you.
+/// 
+/// Can return nullptr.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_newobject(
     ptr: pxs_Opaque,
@@ -577,34 +566,15 @@ pub extern "C" fn pxs_objectcall(
         return ptr::null_mut();
     }
 
-    // This is tricky since we need to know what runtime we are using...
-    let var: Result<pxs_Var, anyhow::Error> = match runtime {
-        pxs_Runtime::pxs_Lua => {
-            with_feature!(
-                "lua",
-                { LuaScripting::object_call(var_borrow, method_borrow, list) },
-                {
-                    return std::ptr::null_mut();
-                }
-            )
+    with_backend!(runtime, Backend => {
+        let res = Backend::object_call(var_borrow, method_borrow, list);
+        if res.is_err() {
+            pxs_Var::new_exception(res.unwrap_err().to_string())
+        } else {
+            res.unwrap()
         }
-        pxs_Runtime::pxs_Python => {
-            with_feature!(
-                "python",
-                { PythonScripting::object_call(var_borrow, method_borrow, list) },
-                {
-                    return std::ptr::null_mut();
-                }
-            )
-        }
-        pxs_Runtime::pxs_JavaScript => todo!(),
-    };
+    }).into_raw()
 
-    if let Ok(var) = var {
-        var.into_raw()
-    } else {
-        ptr::null_mut()
-    }
 }
 
 /// Get a int (i64) from a var.
@@ -839,30 +809,14 @@ pub extern "C" fn pxs_call(
 
     // Get runtime
     if let Some(rt) = runtime_borrow {
-        let res = match rt {
-            pxs_Runtime::pxs_Lua => {
-                with_feature!("lua", { LuaScripting::call_method(method_borrow, list) }, {
-                    return std::ptr::null_mut();
-                })
+        with_backend!(rt, Backend => {
+            let res = Backend::call_method(method_borrow, list);
+            if res.is_err() {
+                pxs_Var::new_exception(res.unwrap_err().to_string())
+            } else {
+                res.unwrap()
             }
-            pxs_Runtime::pxs_Python => {
-                with_feature!(
-                    "python",
-                    { PythonScripting::call_method(method_borrow, list) },
-                    {
-                        return std::ptr::null_mut();
-                    }
-                )
-            }
-            _ => todo!(), // pxs_Runtime::pxs_JavaScript => todo!(),
-                          // pxs_Runtime::pxs_Easyjs => todo!(),
-                          // pxs_Runtime::pxs_RustPython => todo!(),
-        };
-        if let Ok(res) = res {
-            res.into_raw()
-        } else {
-            ptr::null_mut()
-        }
+        }).into_raw()
     } else {
         ptr::null_mut()
     }
@@ -913,7 +867,6 @@ pub extern "C" fn pxs_tostring(runtime: *mut pxs_Var, var: *mut pxs_Var) -> *mut
         let args = pxs_Var::new_list();
         let list = args.get_list().unwrap();
         list.add_item(b_var.clone());
-        // let args = vec![b_var];
         let res = match runtime {
             pxs_Runtime::pxs_Lua => {
                 with_feature!("lua", { LuaScripting::call_method("tostring", list) }, {
@@ -1102,28 +1055,14 @@ pub extern "C" fn pxs_varcall(
     // Match the runtime
     let runtime = unsafe { pxs_Runtime::from_var_ptr(runtime) };
     if let Some(runtime) = runtime {
-        match runtime {
-            pxs_Runtime::pxs_Lua => {
-                with_feature!(
-                    "lua",
-                    { LuaScripting::var_call(borrow_func, list).unwrap() },
-                    {
-                        return std::ptr::null_mut();
-                    }
-                )
+        with_backend!(runtime, Backend => {
+            let res = Backend::var_call(borrow_func, list);
+            if res.is_err() {
+                pxs_Var::new_exception(res.unwrap_err().to_string())
+            } else {
+                res.unwrap()
             }
-            pxs_Runtime::pxs_Python => {
-                with_feature!(
-                    "python",
-                    { PythonScripting::var_call(borrow_func, list).unwrap() },
-                    {
-                        return std::ptr::null_mut();
-                    }
-                )
-            }
-            pxs_Runtime::pxs_JavaScript => todo!(),
-        }
-        .into_raw()
+        }).into_raw()
     } else {
         ptr::null_mut()
     }
@@ -1163,31 +1102,14 @@ pub extern "C" fn pxs_objectget(runtime: pxs_VarT, obj: pxs_VarT, key: *const c_
     let borrow_rt = unsafe { pxs_Runtime::from_var_ptr(runtime).unwrap() };
     let borrow_key = borrow_string!(key);
 
-    let res = match borrow_rt {
-        pxs_Runtime::pxs_Lua => {
-            with_feature!("lua", { LuaScripting::get(borrow_obj, borrow_key) }, {
-                return ptr::null_mut();
-            })
+    with_backend!(borrow_rt, Backend => {
+        let res = Backend::get(borrow_obj, borrow_key);
+        if res.is_err() {
+            pxs_Var::new_exception(res.unwrap_err().to_string())
+        } else {
+            res.unwrap()
         }
-        pxs_Runtime::pxs_Python => {
-            with_feature!(
-                "python",
-                { PythonScripting::get(borrow_obj, borrow_key) },
-                {
-                    return ptr::null_mut();
-                }
-            )
-        }
-        _ => todo!(), // pxs_Runtime::pxs_JavaScript => todo!(),
-                      // pxs_Runtime::pxs_Easyjs => todo!(),
-                      // pxs_Runtime::pxs_RustPython => todo!(),
-                      // pxs_Runtime::pxs_PHP => todo!(),
-    };
-
-    match res {
-        Ok(t) => t.into_raw(),
-        Err(_) => ptr::null_mut(),
-    }
+    }).into_raw()
 }
 
 /// Call a objects setter.
@@ -1214,32 +1136,16 @@ pub extern "C" fn pxs_objectset(
     // own
     let owned_value = own_var!(value);
 
-    let res = match rt {
-        pxs_Runtime::pxs_Lua => {
-            with_feature!(
-                "lua",
-                { LuaScripting::set(borrow_obj, borrow_key, &owned_value) },
-                {
-                    return false;
-                }
-            )
+    with_backend!(rt, Backend => {
+        let res = Backend::set(borrow_obj, borrow_key, &owned_value);
+        if res.is_err() {
+            false
+            // pxs_Var::new_exception(res.unwrap_err().to_string())
+        } else {
+            true
+            // res.unwrap()
         }
-        pxs_Runtime::pxs_Python => {
-            with_feature!(
-                "python",
-                { PythonScripting::set(borrow_obj, borrow_key, &owned_value) },
-                {
-                    return false;
-                }
-            )
-        }
-        _ => todo!(),
-    };
-
-    match res {
-        Ok(v) => v.get_bool().unwrap(),
-        Err(_) => false,
-    }
+    })
 }
 
 /// Evaluate code. This will return a pxs_Var.
@@ -1252,19 +1158,15 @@ pub extern "C" fn pxs_eval(script: *const c_char, rt: pxs_Runtime) -> pxs_VarT {
 
     let script = borrow_string!(script);
 
-    match rt {
-        pxs_Runtime::pxs_Lua => {
-            with_feature!("lua", { LuaScripting::eval(script).into_raw() }, {
-                pxs_newnull()
-            })
+    with_backend!(rt, Backend => {
+        let res = Backend::eval(script);
+        if res.is_err() {
+            pxs_Var::new_exception(res.unwrap_err().to_string())
+        } else {
+            res.unwrap()
         }
-        pxs_Runtime::pxs_Python => {
-            with_feature!("python", { PythonScripting::eval(script).into_raw() }, {
-                pxs_newnull()
-            })
-        }
-        pxs_Runtime::pxs_JavaScript => todo!(),
-    }
+    }).into_raw()
+
 }
 
 /// Add a factory variable. This variable will be instantiated once at module startup.
@@ -1381,24 +1283,14 @@ pub extern "C" fn pxs_var_fromname(rt: pxs_VarT, name: *const c_char) -> pxs_Var
     let bname = borrow_string!(name);
     let runtime = unsafe { pxs_Runtime::from_var_ptr(rt) };
     if let Some(runtime) = runtime {
-        match runtime {
-            pxs_Runtime::pxs_Lua => {
-                with_feature!(
-                    "lua",
-                    { LuaScripting::get_from_name(bname).unwrap_or(pxs_Var::new_null()) },
-                    { pxs_Var::new_null() }
-                )
+        with_backend!(runtime, Backend => {
+            let res = Backend::get_from_name(bname);
+            if res.is_err() {
+                pxs_Var::new_exception(res.unwrap_err().to_string())
+            } else {
+                res.unwrap()
             }
-            pxs_Runtime::pxs_Python => {
-                with_feature!(
-                    "python",
-                    { PythonScripting::get_from_name(bname).unwrap_or(pxs_Var::new_null()) },
-                    { pxs_Var::new_null() }
-                )
-            }
-            pxs_Runtime::pxs_JavaScript => todo!(),
-        }
-        .into_raw()
+        }).into_raw()
     } else {
         pxs_Var::new_null().into_raw()
     }
@@ -1466,19 +1358,14 @@ pub extern "C" fn pxs_compile(
         return pxs_Var::new_exception("Global scope must be a Map or Null".to_string()).into_raw();
     }
 
-    let res = match runtime {
-        pxs_Runtime::pxs_Lua => {
-            with_feature!("lua", { LuaScripting::compile(rcode, scope) }, {
-                panic!("lua feature is not enabled")
-            })
+    let res = with_backend!(runtime, Backend => {
+        let res = Backend::compile(rcode, scope);
+        if res.is_err() {
+            pxs_Var::new_exception(res.unwrap_err().to_string())
+        } else {
+            res.unwrap()
         }
-        pxs_Runtime::pxs_Python => {
-            with_feature!("python", { PythonScripting::compile(rcode, scope) }, {
-                panic!("python feature is not enabled")
-            })
-        }
-        pxs_Runtime::pxs_JavaScript => todo!(),
-    };
+    });
 
     if !res.is_list() {
         return res.into_raw();
@@ -1530,20 +1417,14 @@ pub extern "C" fn pxs_execobject(object: pxs_VarT, local: pxs_VarT) -> pxs_VarT 
         let runtime = pxs_Runtime::from_var(rt);
         if let Some(runtime) = runtime {
             // Now we can do stuff
-            return match runtime {
-                pxs_Runtime::pxs_Lua => {
-                    with_feature!("lua", { LuaScripting::exec_object(var, scope) }, {
-                        panic!("lua feature not enabled")
-                    })
+            with_backend!(runtime, Backend => {
+                let res = Backend::exec_object(var, scope);
+                if res.is_err() {
+                    pxs_Var::new_exception(res.unwrap_err().to_string())
+                } else {
+                    res.unwrap()
                 }
-                pxs_Runtime::pxs_Python => {
-                    with_feature!("python", { PythonScripting::exec_object(var, scope) }, {
-                        panic!("python feature not enabled")
-                    })
-                }
-                pxs_Runtime::pxs_JavaScript => todo!(),
-            }
-            .into_raw();
+            }).into_raw()
         } else {
             panic!("Not a valid runtime supplied.");
         }

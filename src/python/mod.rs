@@ -11,7 +11,7 @@ use std::{
     collections::{HashMap, HashSet},
 };
 
-use anyhow::anyhow;
+use anyhow::{Result, anyhow};
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
 use crate::{
@@ -419,9 +419,14 @@ impl PixelScript for PythonScripting {
         create_module(&source);
     }
 
-    fn execute(code: &str, file_name: &str) -> String {
+    fn execute(code: &str, file_name: &str) -> Result<pxs_Var> {
         let res = exec_main_py(code, file_name);
-        res
+        if res.is_empty() {
+            Ok(pxs_Var::new_null())
+        } else {
+            Ok(pxs_Var::new_exception(res))
+        }
+        // res
     }
 
     fn start_thread() {
@@ -467,16 +472,16 @@ impl PixelScript for PythonScripting {
         }
     }
 
-    fn eval(code: &str) -> pxs_Var {
+    fn eval(code: &str) -> Result<pxs_Var> {
         let res = exec_main_py(code, "eval");
-        if res.is_empty() {
+        Ok(if res.is_empty() {
             pocketpyref_to_var(unsafe { pocketpy::py_retval() })
         } else {
             pxs_Var::new_string(res)
-        }
+        })
     }
 
-    fn compile(code: &str, scope: pxs_Var) -> pxs_Var {
+    fn compile(code: &str, scope: pxs_Var) -> Result<pxs_Var> {
         let source = create_raw_string!(code);
         let file_name = create_raw_string!("<compile>");
         unsafe {
@@ -486,8 +491,9 @@ impl PixelScript for PythonScripting {
             if !ok {
                 #[allow(unused)]
                 let err = consume_error();
-                pxs_debug!("err: {err}");
-                return pxs_Var::new_null();
+                // pxs_debug!("err: {err}");
+                return Ok(pxs_Var::new_exception(err))
+                // return pxs_Var::new_null();
             }
             let ud = pocketpy::py_retval();
             // To pxs
@@ -510,7 +516,7 @@ impl PixelScript for PythonScripting {
             } else {
                 // Unsupported
                 pocketpy::py_pop();
-                return pxs_Var::new_exception(format!("Unsupported scope for Python: {:#?}", scope));
+                return Ok(pxs_Var::new_exception(format!("Unsupported scope for Python: {:#?}", scope)));
             }
 
             // Convert into pxs
@@ -518,11 +524,11 @@ impl PixelScript for PythonScripting {
             // Pop ref
             pocketpy::py_pop();
 
-            result
+            Ok(result)
         }
     }
     
-    fn exec_object(code: pxs_Var, scope: pxs_Var) -> pxs_Var {
+    fn exec_object(code: pxs_Var, scope: pxs_Var) -> Result<pxs_Var> {
         // Check if a list or a regular obj
         let code_obj = unsafe{pocketpy::py_pushtmp()};
         let code_scope = unsafe{pocketpy::py_pushtmp()};
@@ -534,26 +540,26 @@ impl PixelScript for PythonScripting {
             let list = code.get_list().unwrap();
             if list.len() != 3 {
                 // TODO: pxs_Error
-                return pxs_Var::new_exception(format!("List length is not 3. Len: {}", list.len()));
+                return Ok(pxs_Var::new_exception(format!("List length is not 3. Len: {}", list.len())));
             }
 
             // Ok let's get the object and scope
             let object = list.get_item(1).unwrap();
             if !object.is_object() {
                 // TODO: pxs_Error
-                return pxs_Var::new_exception("Code Object is not a object".to_string());
+                return Ok(pxs_Var::new_exception("Code Object is not a object".to_string()));
             }
             let scope = list.get_item(2).unwrap();
             if !scope.is_object() {
                 // TODO: pxs_Error
-                return pxs_Var::new_exception("Scope is not a object".to_string());
+                return Ok(pxs_Var::new_exception("Scope is not a object".to_string()));
             }
 
             var_to_pocketpyref(code_obj, object, None);
             var_to_pocketpyref(code_scope, scope, None);
         } else {
             // TODO: pxs_Error
-            return pxs_Var::new_exception("Compiled code is not a list".to_string());
+            return Ok(pxs_Var::new_exception("Compiled code is not a list".to_string()));
         }
 
         // Check if a optional scope
@@ -570,7 +576,7 @@ impl PixelScript for PythonScripting {
             // Get exec function
             let exec_func = get_builtin("exec");
             if exec_func.is_null() {
-                return pxs_Var::new_exception("Could not find `exec` in Python builtins".to_string());
+                return Ok(pxs_Var::new_exception("Could not find `exec` in Python builtins".to_string()));
             }
             pocketpy::py_push(exec_func);
             pocketpy::py_pushnil();
@@ -584,10 +590,10 @@ impl PixelScript for PythonScripting {
             pocketpy::py_pop();
             if !ok {
                 let err = consume_error();
-                return pxs_Var::new_exception(err);
+                return Ok(pxs_Var::new_exception(err));
             }
 
-            pocketpyref_to_var(pocketpy::py_retval())            
+            Ok(pocketpyref_to_var(pocketpy::py_retval()))            
         }
     }
 }

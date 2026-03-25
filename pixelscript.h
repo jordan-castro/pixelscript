@@ -337,11 +337,15 @@ pxs_VarT pxs_exec(enum pxs_Runtime runtime, const char *code, const char *file_n
 
 /**
  * Free the string created by the pixelscript library
+ *
+ * Memory is transfered.
  */
 void pxs_freestr(char *string);
 
 /**
  * Create a new pixelscript Module.
+ *
+ * Can return nullptr.
  */
 struct pxs_Module *pxs_newmod(const char *name);
 
@@ -386,6 +390,8 @@ void pxs_freemod(struct pxs_Module *module_ptr);
  * This should only be used within a PixelScript function callback. I.e. a constructor.
  *
  * This must be wrapped in a `pxs_newhost` before use within a callback. If setting to a variable, this is done automatically for you.
+ *
+ * Can return nullptr.
  */
 struct pxs_PixelObject *pxs_newobject(pxs_Opaque ptr,
                                       FreeMethod free_method,
