@@ -8,8 +8,8 @@
 - Lazy Init language states on first run.
 - Reference counting for PixelScript object.
 - Decrease number of functions created in pocketpy.
-- Return pxs_Exception for errors in pixelscript and backends.
-- pxs_* library functions need to always return a pxs_Var. nullptr will no longer be allowed.
+- Return pxs_Exception for errors in pixelscript.
+- pxs_* library functions that return pxs_VarT need to always return a pxs_Var. nullptr will no longer be allowed.
 - ~~Reimp pxs_DirHandle to be a pxs_VarList~~ **DONE**
 - ~~add pxs_compile which will return a `pxs_Code` object.~~ **DONE**
 - ~~Add Map~~ **DONE**
