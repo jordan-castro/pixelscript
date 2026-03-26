@@ -1,3 +1,4 @@
+use anyhow::{Result, anyhow};
 // Copyright 2026 Jordan Castro <jordan@grupojvm.com>
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
@@ -12,8 +13,8 @@ use mlua::prelude::*;
 use crate::{lua::{from_lua, into_lua}, shared::{pxs_Runtime, func::call_function, var::pxs_Var}};
 
 /// For internal use since modules also need to use the same logic for adding a Lua callback.
-pub(super) fn internal_add_callback(lua: &Lua, fn_idx: i32) -> LuaFunction {
-    lua.create_function(move |lua, args: LuaMultiValue| {
+pub(super) fn internal_add_callback(lua: &Lua, fn_idx: i32) -> Result<LuaFunction> {
+    let func = lua.create_function(move |lua, args: LuaMultiValue| -> Result<LuaValue, LuaError> {
         // Convert args -> argv for pixelmods
         let mut argv: Vec<pxs_Var> = vec![];
 
@@ -21,8 +22,12 @@ pub(super) fn internal_add_callback(lua: &Lua, fn_idx: i32) -> LuaFunction {
         argv.push(pxs_Var::new_i64(pxs_Runtime::pxs_Lua as i64));
 
         for arg in args {
-            argv.push(from_lua(arg).expect("Could not convert value into pxs_Var from Lua."));
-        }        
+            let lua_arg = from_lua(arg);
+            if lua_arg.is_err() {
+                return Err(LuaError::RuntimeError(lua_arg.unwrap_err().to_string()));
+            }
+            argv.push(lua_arg.unwrap());
+        }
 
         unsafe {
             let res = call_function(fn_idx, argv);
@@ -31,12 +36,10 @@ pub(super) fn internal_add_callback(lua: &Lua, fn_idx: i32) -> LuaFunction {
             lua_val
             // Memory will drop here, and Var will be automatically freed!
         }
-    }).expect("Could not create lua function")
+    });
+    if func.is_err() {
+        Err(anyhow!(func.unwrap_err().to_string()))
+    } else {
+        Ok(func.unwrap())
+    }
 }
-
-// /// Add a callback to lua __main__ context.
-// pub(super) fn add_callback(name: &str, fn_idx: i32) {
-//     let state = get_lua_state();
-//     let lua_func = internal_add_callback(&state.engine, fn_idx);
-//     state.engine.globals().set(name, lua_func).expect("Could not add callback to Lua.");
-// }

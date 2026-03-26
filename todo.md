@@ -4,20 +4,21 @@
 - Fix warnings (remove or ignore)
 
 ## v0.5 Memory and JS support
-- JS support via rquickjs.
+- JS support via rquickjs. *JS*
 - Lazy Init language states on first run.
 - Reference counting for PixelScript object.
-- Decrease number of functions created in pocketpy.
-- Return pxs_Exception for errors in pixelscript.
-- pxs_* library functions that return pxs_VarT need to always return a pxs_Var. nullptr will no longer be allowed.
+- Decrease number of functions created in pocketpy. *python*
+- ~~Return pxs_Exception for errors in pixelscript.~~ **DONE**
+- ~~pxs_* library functions that return pxs_VarT need to always return a pxs_Var. nullptr will no longer be allowed.~~ **DONE**
 - ~~Reimp pxs_DirHandle to be a pxs_VarList~~ **DONE**
 - ~~add pxs_compile which will return a `pxs_Code` object.~~ **DONE**
 - ~~Add Map~~ **DONE**
 - Review memory management:
-    - All functions return pxs_Var
+    - ~~All functions return pxs_Var~~
     - All functions need to be explicit in their docs on ownership
     - Check Factories... why are we not owning the args?
     - Mark functions as expected return type.
+- Add properties to Objects
 
 ## v0.6 STD and Tests
 - pxs_time (Time functions)
@@ -30,7 +31,7 @@
     - test_eval
     - test_raise (a new test of raising from one langauge to another.)
 
-## v0.7 Wren support, WASM, Docs
+## v0.7 Wren support, WASM, Property support
 - Add Wren support
 - WASM support + Wasm web page similar to pocketpy live playground.
 - Add the ability to document your functions and export it via markdown.

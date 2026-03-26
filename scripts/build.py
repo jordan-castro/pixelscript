@@ -55,7 +55,7 @@ target = ""
 rtarget = ""
 features = ""
 defaults = True
-debug_mode = False
+debug = False
 run_clear = False
 
 for arg in argv:
@@ -76,8 +76,9 @@ for arg in argv:
 
 
 build_mode = "release" if not debug else "debug"
+build_flag = "--release" if not debug else ""
 # Build in release mode
-cmd = ["cargo", "build", f"--{build_mode}"]
+cmd = ["cargo", "build", build_flag]
 # Grab target and features if passed
 if target:
     cmd += [target]

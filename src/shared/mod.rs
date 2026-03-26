@@ -31,21 +31,26 @@ pub mod utils;
 /// The internal PixelScript Var logic.
 pub mod var;
 
+#[allow(non_camel_case_types)]
 /// Function Type for Loading a file.
-pub type LoadFileFn = unsafe extern "C" fn(file_path: *const c_char) -> *mut c_char;
+pub type pxs_LoadFileFn = unsafe extern "C" fn(file_path: *const c_char) -> *mut c_char;
+
+#[allow(non_camel_case_types)]
 /// Function Type for writing a file.
-pub type WriteFileFn = unsafe extern "C" fn(file_path: *const c_char, contents: *const c_char);
+pub type pxs_WriteFileFn = unsafe extern "C" fn(file_path: *const c_char, contents: *const c_char);
+
+#[allow(non_camel_case_types)]
 /// Function Type for reading a Dir. Should return a `pxs_List`
-pub type ReadDirFn = unsafe extern "C" fn(dir_path: *const c_char) -> pxs_VarT;
+pub type pxs_ReadDirFn = unsafe extern "C" fn(dir_path: *const c_char) -> pxs_VarT;
 
 #[allow(non_camel_case_types)]
 pub type pxs_Opaque = *mut c_void;
 
 /// This is the PixelScript state.
 pub(crate) struct PixelState {
-    pub load_file: RefCell<Option<LoadFileFn>>,
-    pub write_file: RefCell<Option<WriteFileFn>>,
-    pub read_dir: RefCell<Option<ReadDirFn>>,
+    pub load_file: RefCell<Option<pxs_LoadFileFn>>,
+    pub write_file: RefCell<Option<pxs_WriteFileFn>>,
+    pub read_dir: RefCell<Option<pxs_ReadDirFn>>,
 }
 
 /// The State static variable for PixelScript.

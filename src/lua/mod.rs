@@ -64,13 +64,13 @@ fn init_state() -> State {
 
     with_feature!("pxs_json", {
         // Load dkjson module
-        preload_lua_module(&engine, include_str!("../../libs/dkjson.lua"), "__dkjson__").expect("Could not load dkjson.lua");
+        let _ = preload_lua_module(&engine, include_str!("../../libs/dkjson.lua"), "__dkjson__");
         // Load in the pxs_json module
-        preload_lua_module(&engine, include_str!("../../core/lua/pxs_json.lua"), "pxs_json").expect("Could not load pxs_json.lua");
+        let _ = preload_lua_module(&engine, include_str!("../../core/lua/pxs_json.lua"), "pxs_json");
         // Import it globally
         lua_globals.push_str("\npxs_json = require('pxs_json')\n");
     });
-    engine.load(lua_globals).exec().expect("Could not set lua global functions.");
+    let _ = engine.load(lua_globals).set_name("<lua_globals>").exec();
 
     State {
         engine: engine,
@@ -104,30 +104,23 @@ pub(self) fn store_metatable(name: &str, table: LuaTable) {
 pub fn execute(code: &str, file_name: &str) -> String {
     let res = {
         let state = get_lua_state();
-        state.engine.load(code).exec()
+        state.engine.load(code).set_name(file_name).exec()
     };
     if res.is_err() {
-        let error_str = format!(
-            "Error in LUA: {}, for file: {}",
-            res.unwrap_err().to_string(),
-            file_name
-        );
-        return error_str;
+        return res.unwrap_err().to_string();
     }
 
     String::from("")
 }
 
 /// Custom moduile loader function
-fn setup_module_loader(lua: &Lua) {
+fn setup_module_loader(lua: &Lua) -> Result<()> {
     // Get package.searchers
     let package: LuaTable = lua
         .globals()
-        .get("package")
-        .expect("Could not get package Lua.");
+        .get("package")?;
     let searchers: LuaTable = package
-        .get("searchers")
-        .expect("Could not get searchers Lua.");
+        .get("searchers")?;
 
     // Custom loader function
     let loader = lua
@@ -149,23 +142,25 @@ fn setup_module_loader(lua: &Lua) {
                 Ok(func) => Ok(LuaValue::Function(func)),
                 Err(_) => Ok(LuaNil),
             }
-        })
-        .expect("Could not create loader function Lua.");
+        })?;
 
     // Set our loader in searchers list
     let len = searchers
-        .len()
-        .expect("Could not get len of searchers Lua.");
+        .len()?;
     searchers
-        .set(len + 1, loader)
-        .expect("Could not set loader in searchers Lua.");
+        .set(len + 1, loader)?;
+
+    Ok(())
 }
 
 pub struct LuaScripting;
 
 impl PixelScript for LuaScripting {
     fn add_module(source: std::sync::Arc<crate::shared::module::pxs_Module>) {
-        module::add_module(source);
+        let res = module::add_module(source);
+        if res.is_err() {
+            panic!("{:#?}", res);
+        }
     }
 
     fn execute(code: &str, file_name: &str) -> Result<pxs_Var> {
@@ -180,7 +175,10 @@ impl PixelScript for LuaScripting {
     fn start() {
         // Initalize the state
         let state = get_lua_state();
-        setup_module_loader(&state.engine);
+        let res = setup_module_loader(&state.engine);
+        if res.is_err() {
+            panic!("{:#?}", res);
+        }
     }
 
     fn stop() {
@@ -214,7 +212,7 @@ impl PixelScript for LuaScripting {
     
     fn eval(code: &str) -> Result<pxs_Var> {
         let state = get_lua_state();
-        let res: LuaValue = state.engine.load(code).call(())?;
+        let res: LuaValue = state.engine.load(code).set_name("<lua_eval>").call(())?;
         Ok(from_lua(res)?)   
     }
     
@@ -241,7 +239,7 @@ impl PixelScript for LuaScripting {
 
         // Compile code
         let chunk = state.engine.load(code);
-        let chunk = chunk.set_environment(scope_table);
+        let chunk = chunk.set_environment(scope_table).set_name("<lua_code_block>");
         let our_scope_table = chunk.environment().unwrap().to_owned();
 
         let func = chunk.into_function()?;
@@ -324,7 +322,11 @@ fn args_to_lua(args: &Vec<pxs_Var>) -> LuaMultiValue {
     let mut lua_args = vec![];
     let state = get_lua_state();
     for arg in args.iter() {
-        lua_args.push(into_lua(&state.engine, arg).expect("Could not convert Var into Lua Var"));
+        let lua_arg = into_lua(&state.engine, arg);
+        if lua_arg.is_err() {
+            lua_args.push(into_lua(&state.engine, &pxs_Var::new_exception(lua_arg.unwrap_err().to_string())).unwrap_or(LuaNil));
+        }
+        lua_args.push(into_lua(&state.engine, arg).unwrap_or(LuaNil));
     }
 
     // Pack lua args
@@ -346,10 +348,9 @@ impl ObjectMethods for LuaScripting {
 
         let lua_args = args_to_lua(&args.vars);
         let res = table
-            .call_function(method, lua_args)
-            .expect("Could not call function on Lua Table.");
+            .call_function(method, lua_args)?;
 
-        let pixel_res = from_lua(res).expect("Could not convert LuaVar into PixelScript Var.");
+        let pixel_res = from_lua(res)?;
 
         Ok(pixel_res)
         // Drop state
@@ -365,8 +366,7 @@ impl ObjectMethods for LuaScripting {
 
         let function: LuaFunction = state.engine.globals().get(method)?;
         let res: LuaValue = function
-            .call(lua_args)
-            .expect("Could not call Lua method.");
+            .call(lua_args)?;
 
         from_lua(res)
     }
@@ -387,7 +387,7 @@ impl ObjectMethods for LuaScripting {
         let lua_args = args_to_lua(&args.vars);
 
         // Call function
-        let res: LuaValue = (unsafe { &*lua_function }).call(lua_args).expect("Could not call Lua method.");
+        let res: LuaValue = (unsafe { &*lua_function }).call(lua_args)?;
 
         // Convert into pxs
         from_lua(res)
@@ -402,7 +402,6 @@ impl ObjectMethods for LuaScripting {
         };
 
         let value: LuaValue = table.raw_get(key)?;
-        
         from_lua(value)
     }
     

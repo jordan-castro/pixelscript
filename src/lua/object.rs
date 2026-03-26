@@ -12,11 +12,12 @@ use crate::{
     lua::{from_lua, get_metatable, into_lua, store_metatable},
     shared::{func::call_function, object::pxs_PixelObject, pxs_Runtime, var::pxs_Var},
 };
+use anyhow::{Result, anyhow};
 use mlua::prelude::*;
 
-fn create_object_callback(lua: &Lua, fn_idx: i32, is_id: bool) -> LuaFunction {
-    lua.create_function(
-        move |lua, (internal_obj, args): (LuaTable, LuaMultiValue)| {
+fn create_object_callback(lua: &Lua, fn_idx: i32, is_id: bool) -> Result<LuaFunction> {
+    let func = lua.create_function(
+        move |lua, (internal_obj, args): (LuaTable, LuaMultiValue)| -> Result<LuaValue, LuaError> {
             let mut argv = vec![];
 
             // Add runtime
@@ -26,20 +27,26 @@ fn create_object_callback(lua: &Lua, fn_idx: i32, is_id: bool) -> LuaFunction {
             if is_id {
                 // Get obj id
                 let obj_id: i64 = internal_obj
-                    .get("_pxs_ptr")
-                    .expect("Could not grab ID from Object.");
+                    .get("_pxs_ptr")?;
 
                 // Add object id
                 argv.push(pxs_Var::new_i64(obj_id));
             } else {
+                let obj_value = from_lua(internal_obj.to_value());
+                if obj_value.is_err() {
+                    return Err(LuaError::RuntimeError(obj_value.unwrap_err().to_string()));
+                }
                 argv.push(
-                    from_lua(internal_obj.to_value())
-                        .expect("Could not convert object into lua value."),
+                    obj_value.unwrap()
                 );
             }
             // Add args
             for arg in args {
-                argv.push(from_lua(arg).expect("Could not convert Lua Value into Var."));
+                let lua_arg = from_lua(arg);
+                if lua_arg.is_err() {
+                    return Err(LuaError::RuntimeError(lua_arg.unwrap_err().to_string()));
+                }
+                argv.push(lua_arg.unwrap());
             }
 
             // Call
@@ -50,16 +57,18 @@ fn create_object_callback(lua: &Lua, fn_idx: i32, is_id: bool) -> LuaFunction {
                 lua_val
             }
         },
-    )
-    .expect("Could not create function on object")
+    );
+
+    if func.is_err() {
+        Err(anyhow!("{:#}", func.unwrap_err()))
+    } else {
+        Ok(func.unwrap())
+    }
 }
 
-pub(super) fn create_object(lua: &Lua, idx: i32, source: Arc<pxs_PixelObject>) -> LuaTable {
-    let table = lua.create_table().expect("Could not create table.");
-    table
-        .set("_pxs_ptr", LuaValue::Integer(idx as i64))
-        .expect("Could not set _pxs_ptr on Lua Table.");
-    // Check if the meta table exists already
+pub(super) fn create_object(lua: &Lua, idx: i32, source: Arc<pxs_PixelObject>) -> Result<LuaTable> {
+    let table = lua.create_table()?;
+    table.set("_pxs_ptr", LuaValue::Integer(idx as i64))?;
 
     let metatable = get_metatable(&source.type_name);
 
@@ -68,23 +77,19 @@ pub(super) fn create_object(lua: &Lua, idx: i32, source: Arc<pxs_PixelObject>) -
         mt.clone()
     } else {
         // Create new metatable
-        let mt = lua.create_table().expect("Could not create Metatable");
+        let mt = lua.create_table()?;
         // Add methods
         for method in source.callbacks.iter() {
-            let func = create_object_callback(lua, method.cbk.idx, method.is_id);
-            mt.set(method.cbk.name.clone(), func)
-                .expect("Could not set method");
+            let func = create_object_callback(lua, method.cbk.idx, method.is_id)?;
+            mt.set(method.cbk.name.clone(), func)?;
         }
 
-        mt.set("__index", mt.clone())
-            .expect("Could not set __index");
+        mt.set("__index", mt.clone())?;
         // save it
         store_metatable(&source.type_name, mt.clone());
         mt
     };
 
-    table
-        .set_metatable(Some(metatable))
-        .expect("Could not attach Metatable Lua.");
-    table
+    table.set_metatable(Some(metatable))?;
+    Ok(table)
 }

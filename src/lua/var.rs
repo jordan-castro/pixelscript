@@ -95,7 +95,7 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
         pxs_VarType::pxs_UInt64 => Ok(mlua::Value::Integer(var.get_u64().unwrap() as i64)),
         pxs_VarType::pxs_String => {
             let contents = var.get_string().unwrap().clone();
-            let lua_str = lua.create_string(contents).expect("test");
+            let lua_str = lua.create_string(contents)?;
 
             Ok(mlua::Value::String(lua_str))
         }
@@ -181,9 +181,12 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
         }
         pxs_VarType::pxs_Exception => {
             // Get msg and error it
-            let msg = var.get_string().expect("Could not get lua string from exception");
-            // let error : Box<dyn std::error::Error + Send + Sync> = Box::from(msg);
-            Err(mlua::Error::RuntimeError(msg))
+            let msg = var.get_string();
+            if msg.is_err() {
+                Err(mlua::Error::RuntimeError(msg.unwrap_err().to_string()))
+            } else {
+                Err(mlua::Error::RuntimeError(msg.unwrap()))
+            }
         }
         pxs_VarType::pxs_Map => {
             // Key,Value pair table

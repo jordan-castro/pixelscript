@@ -80,7 +80,7 @@ macro_rules! write_is_methods {
 
 /// This represents the variable type that is being read or created.
 #[repr(C)]
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 #[allow(non_camel_case_types)]
 pub enum pxs_VarType {
     pxs_Int64,
@@ -390,10 +390,14 @@ impl pxs_Var {
         unsafe { std::slice::from_raw_parts(argv, argc) }
     }
 
-    /// Get the direct host pointer. (Not the idx)
+    /// Get the direct host pointer. (Not the idx) OR null if not found!
     pub fn get_host_ptr(&self) -> *mut c_void {
-        let object = get_object(self.get_host_idx()).unwrap();
-        object.ptr
+        let object = get_object(self.get_host_idx());
+        if let Some(obj) = object {
+            obj.ptr
+        } else {
+            std::ptr::null_mut()
+        }
     }
 
     /// Get the Rust string from the Var.
@@ -1061,6 +1065,49 @@ impl Hash for pxs_Var {
                 _ => panic!("Can not Hash none basic pxs_VarType")
             }
         }
+    }
+}
+
+impl pxs_Var {
+    /// Return a error saying that the found type was not expected.
+    pub fn incorrect_type_ep(expected: pxs_VarType, found: pxs_VarType) -> Self {
+        Self::new_exception(format!("Expected {:#?}, found {:#?}", expected, found))
+    }
+    
+    /// Return a error saying that the found type was not expected of a vector of types
+    pub fn incorrect_types_ep(allowed: Vec<pxs_VarType>, found: pxs_VarType) -> Self {
+        Self::new_exception(format!("Allowed types: {:#?}, found: {:#?}", allowed, found))
+    }
+
+    /// A general error saying that paramaters passed in to the function were null.
+    pub fn null_params_ep() -> Self {
+        Self::new_exception("Paramaters are null")
+    }
+
+    /// A specific error that a specific param was null.
+    pub fn null_param_ep<T: ToString>(name:T) -> Self {
+        Self::new_exception(format!("{} is null", name.to_string()))
+    }
+
+    /// Unkownn runtime exception
+    pub fn unkown_runtime_ep(runtime: i64) -> Self {
+        Self::new_exception(format!("Unkown runtime: {runtime}"))
+    }
+
+    /// Unkown runtime var exception
+    pub fn unkown_runtime_var_ep(runtime: pxs_VarT) -> Self {
+        let var = unsafe{Self::from_borrow(runtime)};
+        Self::new_exception(format!("Unkown runtime: {:#?}", var))
+    }
+
+    /// When a item is not found in list or map.
+    pub fn item_not_found_ep() -> Self {
+        Self::new_exception("Item not found")
+    }
+
+    /// Feature not enabled
+    pub fn feature_not_enabled_ep(feature: &str) -> Self {
+        Self::new_exception(format!("{feature} is not enabled."))
     }
 }
 

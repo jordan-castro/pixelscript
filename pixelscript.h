@@ -297,17 +297,17 @@ typedef void (*FreeMethod)(void *ptr);
 /**
  * Function Type for Loading a file.
  */
-typedef char *(*LoadFileFn)(const char *file_path);
+typedef char *(*pxs_LoadFileFn)(const char *file_path);
 
 /**
  * Function Type for writing a file.
  */
-typedef void (*WriteFileFn)(const char *file_path, const char *contents);
+typedef void (*pxs_WriteFileFn)(const char *file_path, const char *contents);
 
 /**
  * Function Type for reading a Dir. Should return a `pxs_List`
  */
-typedef pxs_VarT (*ReadDirFn)(const char *dir_path);
+typedef pxs_VarT (*pxs_ReadDirFn)(const char *dir_path);
 
 #ifdef __cplusplus
 extern "C" {
@@ -447,51 +447,49 @@ void pxs_addobject(struct pxs_Module *module_ptr, const char *name, pxs_Func obj
 /**
  * Make a new Var string.
  */
-struct pxs_Var *pxs_newstring(const char *str);
+pxs_VarT pxs_newstring(const char *str);
 
 /**
  * Make a new Null var.
  */
-struct pxs_Var *pxs_newnull(void);
+pxs_VarT pxs_newnull(void);
 
 /**
  * Make a new HostObject var.
  *
- * If not a valid pointer, will return null
- *
  * Transfers ownership
  */
-struct pxs_Var *pxs_newhost(struct pxs_PixelObject *pixel_object);
+pxs_VarT pxs_newhost(struct pxs_PixelObject *pixel_object);
 
 /**
  * Create a new variable int. (i64)
  */
-struct pxs_Var *pxs_newint(int64_t val);
+pxs_VarT pxs_newint(int64_t val);
 
 /**
  * Create a new variable uint. (u64)
  */
-struct pxs_Var *pxs_newuint(uint64_t val);
+pxs_VarT pxs_newuint(uint64_t val);
 
 /**
  * Create a new variable bool.
  */
-struct pxs_Var *pxs_newbool(bool val);
+pxs_VarT pxs_newbool(bool val);
 
 /**
  * Create a new variable float. (f64)
  */
-struct pxs_Var *pxs_newfloat(double val);
+pxs_VarT pxs_newfloat(double val);
 
 /**
  * Call a function on a object, and use a Enum for runtime rather than a var.
  *
  * var is self.
  */
-struct pxs_Var *pxs_object_callrt(enum pxs_Runtime runtime,
-                                  struct pxs_Var *var,
-                                  const char *method,
-                                  struct pxs_Var *args);
+pxs_VarT pxs_object_callrt(enum pxs_Runtime runtime,
+                           struct pxs_Var *var,
+                           const char *method,
+                           struct pxs_Var *args);
 
 /**
  * Object call.
@@ -551,21 +549,21 @@ bool pxs_varis(struct pxs_Var *var, enum pxs_VarType var_type);
  *
  * This is used to load files via import, require, etc
  */
-void pxs_set_filereader(LoadFileFn func);
+void pxs_set_filereader(pxs_LoadFileFn func);
 
 /**
  * Set a function for writing a file.
  *
  * This is used to write files via pxs_json
  */
-void pxs_set_filewriter(WriteFileFn func);
+void pxs_set_filewriter(pxs_WriteFileFn func);
 
 /**
  * Set a function for reading a directory.
  *
  * This is used to read a dir.
  */
-void pxs_set_dirreader(ReadDirFn func);
+void pxs_set_dirreader(pxs_ReadDirFn func);
 
 /**
  * Free a PixelScript var.
@@ -605,7 +603,7 @@ struct pxs_Var *pxs_call(struct pxs_Var *runtime, const char *method, struct pxs
  *
  * Host must free this memory with `pxs_free_var`
  */
-struct pxs_Var *pxs_tostring(struct pxs_Var *runtime, struct pxs_Var *var);
+struct pxs_Var *pxs_tostring(struct pxs_Var *runtime_var, struct pxs_Var *var);
 
 /**
  * Create a new pxs_VarList.
