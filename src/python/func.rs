@@ -53,6 +53,7 @@ pub(super) unsafe fn get_builtin(key: &str) -> pocketpy::py_Ref {
     }
 }
 
+#[allow(unused)]
 pub(super) unsafe fn get_global(key: &str) -> pocketpy::py_Ref {
     unsafe{
         let ckey = create_raw_string!(key);

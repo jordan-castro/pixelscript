@@ -21,7 +21,7 @@ Because most games pick only one language for scripting. PixelScript gives modde
 Each language runtime uses the same PixelScript bindings.
 
 ## Version
-pixelscript crate is currently at version 0.5.6.
+pixelscript crate is currently at version 0.5.7.
 
 ## How to use
 pixelscript can be used within a rust application or via ffi.

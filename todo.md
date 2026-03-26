@@ -21,6 +21,7 @@
 - Add properties to Objects
 
 ## v0.6 STD and Tests
+- Remove lua hacks (io, os, what else?)
 - pxs_time (Time functions)
 - pxs_os (OS functions like name, version)
 - pxs_io (IO functions like write, read, etc) | This will require that `file_loader` `file_reader` and `dir_reader` are setup. 
