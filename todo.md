@@ -32,10 +32,11 @@
     - test_eval
     - test_raise (a new test of raising from one langauge to another.)
 
-## v0.7 Wren support, WASM, Property support
+## v0.7 Wren support, WASM
 - Add Wren support
 - WASM support + Wasm web page similar to pocketpy live playground.
-- Add the ability to document your functions and export it via markdown.
+
+## v0
 
 <!-- ## v0.7 Size Reduction -->
 <!-- - Remove mlua (use raw lua c files instead) -->

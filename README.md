@@ -42,12 +42,12 @@ This will build the project and place the necessary *static* libraries in a `/px
 ## Supported languages
 | Feature flag     | Language          | Engine                | Notes                           |
 |------------------|-------------------|-----------------------|---------------------------------|
-| `lua`            | Lua               | mlua                  | Fast, battle tested, v5.4       |
-| `python`         | Python            | pocketpy V2.1.8       | Requires MSVC on Windows        |
-| `js`             | JavaScript        | rquickjs              | QuickJS small library. Supports ES2023          |
-<!-- | `kora`           | Kora              | korar                 | A 2js and 2wasm language. Maintained by EpochTech.  | -->
-<!-- | `php`            | PHP               | PH7                   | Only supports v5.3 and the engine is not maintained anymore | -->
-<!-- | `luajit`         | Lua               | mlua                  | Uses the same code as the `lua` feature | -->
+| `lua`            | Lua               | [mlua](https://github.com/mlua-rs/mlua)                 | Fast, battle tested, v5.4       |
+| `python`         | Python            | [pocketpy](https://github.com/pocketpy/pocketpy)        | Requires MSVC on Windows        |
+| `js`             | JavaScript        | [rquickjs](https://github.com/delskayn/rquickjs)        | QuickJS small library. Supports ES2023          |
+<!-- | `kora`           | Kora              | kor                   | A 2js and 2wasm language. Maintained by @epochtechgames.  | -->
+<!-- | `php`            | PHP               | PH7                   | Only and the ensupports v5.3 gine is not maintained anymore | -->
+<!-- | `luajit`         | Lua               | mlua                  | requires `lua` feature. Does not give true JIT on iOS. | -->
 
 ## CoreLib
 To include the PixelScript core API, add the `include-core` feature. Or include the specific modules as feature tags.
@@ -66,14 +66,15 @@ Overview of what is incldued in `pxs_json` module.
 | `decode` | Function | Decodes a JSON string into a language object |
 
 ## Example
-Here is a "Hello World" example supporting Lua, Python, JavaScript and PHP.
+Here is a "Hello World" example supporting Lua, Python, and JavaScript.
 ```c
 #include "pixelscript.h"
 
-// One without the macro
+// Define a simple `println` function.
 pxs_VarT println(pxs_VarT args) {
     // Get contents (0 is always Runtime)
     pxs_VarT contents_var = pxs_listget(args, 1);
+    // We are assuming this is a string.
     char* contents_str = pxs_getstring(contents_var);
 
     printf("%s", contents_str);
@@ -94,20 +95,26 @@ int main() {
     // Lua
     const char* lua_script = "local main = require('main')\n"
         "main.println('Hello World from Lua!')";
-    char* error = pxs_exec(pxs_Lua, lua_script, "<ctest>");
-    pxs_freestr(error);
+    pxs_VarT error = pxs_exec(pxs_Lua, lua_script, "<ctest>");
+    // Check error
+    if (!pxs_varis(error, pxs_Null)) {
+        char* msg = pxs_getstring(error);
+        printf("%s", msg);
+        pxs_freestr(msg);
+    }
+    pxs_freevar(error);
 
     // Python
     const char* python_script = "import main\n"
                                 "main.println('Hello World from Python')\n";
 
-    char* error = pxs_execpython(pxs_Python, python_script, "<ctest>");
+    char* error = pxs_exec(pxs_Python, python_script, "<ctest>");
     pxs_freestr(error);
 
     // JavaScript
     const char* js_script = "import * as main from 'main';\n"
                             "main.println('Hello World from JavaScript!');";
-    char* error = pxs_execjs(pxs_JavaScript, js_script, "<ctest>");
+    char* error = pxs_exec(pxs_JavaScript, js_script, "<ctest>");
     pxs_freestr(error);
 
     pxs_finalize();
