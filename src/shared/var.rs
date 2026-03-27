@@ -18,7 +18,7 @@ use anyhow::{Error, anyhow};
 
 use crate::{
     borrow_string, create_raw_string,
-    shared::{PtrMagic, object::get_object, pxs_Runtime},
+    shared::{PtrMagic, object::{apply_ref_count_alloc, apply_ref_count_delete, get_object}, pxs_Runtime},
 };
 
 /// Macro for writing out the Var:: get methods.
@@ -108,6 +108,69 @@ pub enum pxs_VarType {
     pxs_Map,
 }
 
+/// A `Object` in pixelscript is wrapped with a potential host_ptr. This allows for non language specific ref counting.
+/// 
+/// To access the raw pointer, use `get_raw()`. Reference counting is automatically applied when this struct is dropped.
+#[allow(non_camel_case_types)]
+pub struct pxs_VarObject {
+    object_val: *mut c_void,
+    host_ptr: i32
+}
+
+impl PtrMagic for pxs_VarObject {}
+
+impl pxs_VarObject {
+    pub fn new(val: *mut c_void, host_ptr: i32) -> Self {
+        Self {
+            object_val: val,
+            host_ptr: host_ptr
+        }
+    }
+
+    /// Get the raw object pointer.
+    pub fn get_raw(&self) -> *mut c_void {
+        self.object_val
+    }
+
+    /// New HostObject Object
+    pub fn new_as_host(val: *mut c_void, host_ptr: i32) -> Self {
+        Self::new(val, host_ptr)
+    }
+
+    /// New Non host object.
+    pub fn new_lang_only(val: *mut c_void) -> Self {
+        Self::new(val, -1)
+    }
+}
+
+impl Clone for pxs_VarObject {
+    fn clone(&self) -> Self {
+        // Do ref counting
+        if self.host_ptr != -1 {
+            apply_ref_count_alloc(self.host_ptr);
+        }
+
+        Self {
+            object_val: self.object_val,
+            host_ptr: self.host_ptr
+        }
+    }
+}
+
+impl Drop for pxs_VarObject {
+    fn drop(&mut self) {
+        if self.host_ptr == -1 {
+            return;
+        }
+
+        // Ref counting
+        apply_ref_count_delete(self.host_ptr);
+    }
+}
+
+/// A `Map` in pixelscript is very simply a Key (pxs_Var) to Value (pxs_Var) pair.
+/// 
+/// In Python it's a dictionary, in Lua it's a table, and in JS it's a object.
 #[allow(non_camel_case_types)]
 pub struct pxs_VarMap {
     /// Key of pxs_Var => value of pxs_Var.
@@ -206,6 +269,17 @@ impl pxs_FactoryHolder {
 }
 
 impl PtrMagic for pxs_FactoryHolder {}
+
+impl Drop for pxs_FactoryHolder {
+    fn drop(&mut self) {
+        if self.args.is_null() {
+            return;
+        }
+
+        // Drop args
+        let _ = pxs_Var::from_raw(self.args);
+    }
+}
 
 /// Holds data for a pxs_Var of list.
 ///
@@ -329,7 +403,7 @@ pub union pxs_VarValue {
     pub bool_val: bool,
     pub f64_val: f64,
     pub null_val: *const c_void,
-    pub object_val: *mut c_void,
+    pub object_val: *mut pxs_VarObject,
     pub host_object_val: i32,
     pub list_val: *mut pxs_VarList,
     pub function_val: *mut c_void,
@@ -464,7 +538,7 @@ impl pxs_Var {
     }
 
     /// Create a new Object var.
-    pub fn new_object(ptr: *mut c_void, deleter: Option<pxs_DeleterFn>) -> Self {
+    pub fn new_object(ptr: pxs_VarObject, deleter: Option<pxs_DeleterFn>) -> Self {
         let deleter = if let Some(d) = deleter {
             d
         } else {
@@ -472,7 +546,7 @@ impl pxs_Var {
         };
         pxs_Var {
             tag: pxs_VarType::pxs_Object,
-            value: pxs_VarValue { object_val: ptr },
+            value: pxs_VarValue { object_val: ptr.into_raw() },
             deleter: Cell::new(deleter),
         }
     }
@@ -566,7 +640,10 @@ impl pxs_Var {
     /// Get the raw pointer to a `pxs_Object` type
     pub fn get_object_ptr(&self) -> *mut c_void {
         match self.tag {
-            pxs_VarType::pxs_Object => unsafe { self.value.object_val },
+            pxs_VarType::pxs_Object => unsafe {
+                let object = pxs_VarObject::from_borrow(self.value.object_val);
+                object.get_raw()
+            },
             _ => std::ptr::null_mut(),
         }
     }
@@ -720,11 +797,12 @@ impl pxs_Var {
                 pxs_VarType::pxs_Exception => self.clone(),
                 pxs_VarType::pxs_HostObject => self.clone(),
                 pxs_VarType::pxs_Object => {
+                    let object = pxs_VarObject::from_borrow(self.value.object_val);
                     // Copy without deleter
                     pxs_Var {
                         tag: pxs_VarType::pxs_Object,
                         value: pxs_VarValue {
-                            object_val: self.value.object_val
+                            object_val: object.clone().into_raw()
                         },
                         deleter: Cell::new(default_deleter)
                     }
@@ -837,14 +915,16 @@ impl Drop for pxs_Var {
                 if self.value.object_val.is_null() {
                     return;
                 }
-                (self.deleter.get())(self.value.object_val)
+                let object = pxs_VarObject::from_raw(self.value.object_val);
+                (self.deleter.get())(object.get_raw());
+                // object dropped here.
             };
         } else if self.tag == pxs_VarType::pxs_Function {
             unsafe {
                 if self.value.object_val.is_null() {
                     return;
                 }
-                (self.deleter.get())(self.value.object_val)
+                (self.deleter.get())(self.value.function_val)
             };
         } else if self.tag == pxs_VarType::pxs_Factory {
             // Free args
@@ -852,12 +932,12 @@ impl Drop for pxs_Var {
                 if self.value.factory_val.is_null() {
                     return;
                 }
-                let val = pxs_FactoryHolder::from_borrow(self.value.factory_val);
-                if val.args.is_null() {
-                    return;
-                }
-                // Drop list
-                let _ = pxs_Var::from_raw(val.args);
+                let _ = pxs_FactoryHolder::from_raw(self.value.factory_val);
+                // if val.args.is_null() {
+                //     return;
+                // }
+                // // Drop list
+                // let _ = pxs_Var::from_raw(val.args);
             }
         } else if self.tag == pxs_VarType::pxs_Map {
             let _ = unsafe {
@@ -891,10 +971,12 @@ impl Clone for pxs_Var {
                 pxs_VarType::pxs_Float64 => pxs_Var::new_f64(self.value.f64_val),
                 pxs_VarType::pxs_Null => pxs_Var::new_null(),
                 pxs_VarType::pxs_Object => {
+                    let object = pxs_VarObject::from_borrow(self.value.object_val);
+
                     let r = pxs_Var {
                         tag: pxs_VarType::pxs_Object,
                         value: pxs_VarValue {
-                            object_val: self.value.object_val,
+                            object_val: object.clone().into_raw(),
                         },
                         deleter: Cell::new(self.deleter.get()),
                     };

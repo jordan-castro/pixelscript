@@ -13,12 +13,12 @@ use std::{
 
 use crate::{
     borrow_string, create_raw_string, free_raw_string, pxs_debug, python::{
-        consume_error, func::{get_string_from_obj, py_assign}, object::create_object, pocketpy::{self}, python_pxs_get_register, python_pxs_new_register, python_pxs_remove_ref
+        consume_error, func::{get_from_obj, get_string_from_obj, py_assign}, object::create_object, pocketpy::{self}, python_pxs_get_register, python_pxs_new_register, python_pxs_remove_ref
     }, shared::{
         PtrMagic,
         object::get_object,
         pxs_Runtime,
-        var::{pxs_Var, pxs_VarType},
+        var::{pxs_Var, pxs_VarObject, pxs_VarType},
     }
 };
 
@@ -83,9 +83,8 @@ unsafe extern "C" fn free_py_mem(ptr: *mut c_void) {
         return;
     }
     let pp = PythonPointer::from_raw(ptr as *mut PythonPointer);
-    // Pop stack
+    // Remove from dict.
     python_pxs_remove_ref(pp.get_int());
-    // TODO: Reference counting 
 }
 
 /// Convert a PocketPy ref into a Var
@@ -149,24 +148,11 @@ pub(super) fn pocketpyref_to_var(pref: pocketpy::py_Ref) -> pxs_Var {
         let msg = consume_error();
         pxs_Var::new_exception(msg)
     } 
-    // else if tp == pocketpy::py_PredefinedType::tp_tuple as i32 {
-    //     // We have to get all items in the tuple
-    //     let mut vars = vec![];
-    //     let tuple_len = unsafe{pocketpy::py_tuple_len(pref)};
-
-    //     // Parse
-    //     for i in 0..tuple_len {
-    //         let item = unsafe{pocketpy::py_tuple_getitem(pref, i)};
-    //         if item.is_null() {
-    //             continue;
-    //         }
-    //         vars.push(pocketpyref_to_var(item));
-    //     }
-
-    //     pxs_Var::new_list_with(vars)
-    // } 
     else {
-        pxs_Var::new_object(unsafe { make_python_pointer(pref).into_raw() as *mut c_void }, Some(free_py_mem))
+        unsafe {
+            // Check if object has `_pxs_ptr` assigned
+            pxs_Var::new_object(pxs_VarObject::new_lang_only(make_python_pointer(pref).into_raw() as *mut c_void), Some(free_py_mem))
+        }
     }
 }
 

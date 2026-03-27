@@ -106,7 +106,10 @@ pub struct pxs_PixelObject {
     ///
     /// The first Var will always be the ptr.
     pub callbacks: Vec<ObjectCallback>,
-    // PixelObject does not hold variables. They are all getters/setters
+    // PixelObject does not hold variables. They are all getters/
+
+    /// Refernce Counting. This is internal reference counting PXS side.
+    pub ref_count: Mutex<u16>
 }
 
 impl pxs_PixelObject {
@@ -118,6 +121,7 @@ impl pxs_PixelObject {
             lang_ptr: Mutex::new(ptr::null_mut()),
             type_name: type_name.to_string(),
             free_lang_ptr: Mutex::new(true),
+            ref_count: Mutex::new(1)
         }
     }
 
@@ -146,6 +150,24 @@ impl pxs_PixelObject {
         let mut guard = self.free_lang_ptr.lock().unwrap();
 
         *guard = val;
+    }
+
+    /// Add to reference counting
+    pub fn add_reference(&self) {
+        let mut guard = self.ref_count.lock().unwrap();
+        *guard += 1;
+    }
+
+    /// Remove from reference counting
+    pub fn sub_reference(&self) {
+        let mut guard = self.ref_count.lock().unwrap();
+        *guard -= 1;
+    }
+
+    /// Check current ref count
+    pub fn current_ref_count(&self) -> u16 {
+        let guard = self.ref_count.lock().unwrap();
+        return *guard;
     }
 }
 
@@ -197,12 +219,38 @@ fn get_object_lookup() -> std::sync::MutexGuard<'static, ObjectLookup> {
         .unwrap()
 }
 
-#[allow(unused)]
-/// Remove a pxs_Object from the lookup.
-pub(crate) fn clear_object_from_lookup(idx: i32) {
+// #[allow(unused)]
+// /// Remove a pxs_Object from the lookup.
+// pub(crate) fn clear_object_from_lookup(idx: i32) {
+//     let mut lookup = get_object_lookup();
+//     pxs_debug!("Clearing object from lookup: {}", idx);
+//     lookup.object_hash.remove(&idx);
+// }
+
+/// Apply reference counting to object in lookup.
+pub(crate) fn apply_ref_count_delete(idx: i32) {
     let mut lookup = get_object_lookup();
-    pxs_debug!("Clearing object from lookup: {}", idx);
-    lookup.object_hash.remove(&idx);
+    // Check for object
+    let object = lookup.object_hash.get(&idx);
+    if let Some(object) = object {
+        object.sub_reference();
+        // Check # of references
+        if object.current_ref_count() == 0 {
+            // Drop it
+            lookup.object_hash.remove(&idx);
+        }
+    }
+}
+
+/// Apply reference counting to a object in lookup.
+/// Adds a new count if found.
+pub(crate) fn apply_ref_count_alloc(idx: i32) {
+    let lookup = get_object_lookup();
+    // Check for object.
+    let object = lookup.object_hash.get(&idx);
+    if let Some(object) = object {
+        object.add_reference();
+    }
 }
 
 pub(crate) fn clear_object_lookup() {

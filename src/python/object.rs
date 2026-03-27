@@ -133,6 +133,6 @@ class _{}:
         &rmodule_name,
     );
     if !res.is_empty() {
-        println!("Python create_object error: {res}");
+        pxs_debug!("Python create_object error: {res}");
     }
 }

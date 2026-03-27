@@ -752,7 +752,7 @@ impl ObjectMethods for PythonScripting {
                 return Err(anyhow!("var.value.object_val is Null"));
             }
             // Deref
-            let python_pointer = PythonPointer::from_borrow_void(var.value.object_val);
+            let python_pointer = PythonPointer::from_borrow_void(var.get_object_ptr());
             let object = python_pointer.get_ptr();
             let raw_key = create_raw_string!(key);
             let py_key = pocketpy::py_name(raw_key);
@@ -776,7 +776,7 @@ impl ObjectMethods for PythonScripting {
             }
 
             // Deref
-            let object = PythonPointer::from_borrow_void(var.value.object_val).get_ptr();
+            let object = PythonPointer::from_borrow_void(var.get_object_ptr()).get_ptr();
             // Key
             let raw_key = create_raw_string!(key);
             let py_key = pocketpy::py_name(raw_key);

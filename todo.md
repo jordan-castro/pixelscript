@@ -6,7 +6,7 @@
 ## v0.5 Memory and JS support
 - JS support via rquickjs. *JS*
 - Lazy Init language states on first run.
-- Reference counting for PixelScript object.
+- ~~Reference counting for PixelScript object.~~ **DONE**
 - Decrease number of functions created in pocketpy. *python*
 - ~~Return pxs_Exception for errors in pixelscript.~~ **DONE**
 - ~~pxs_* library functions that return pxs_VarT need to always return a pxs_Var. nullptr will no longer be allowed.~~ **DONE**

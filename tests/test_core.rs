@@ -94,6 +94,7 @@ print(decoded2.two)
         }
 
         assert!(err.is_null(), "Python error is not empty{}", err.get_string().unwrap());
+        println!("====================== CHANGING TO LUA ========================");
 
         let raw_luascript = create_raw_string!(luascript);
         let err = own_var!(pxs_exec(pxs_Runtime::pxs_Lua, raw_luascript, raw_file_name));

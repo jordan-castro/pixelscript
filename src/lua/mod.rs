@@ -342,7 +342,7 @@ impl ObjectMethods for LuaScripting {
         // Get the lua table.
         let table = unsafe {
             // Just grab it from the ptr itself
-            let table_ptr = var.value.object_val as *const LuaTable;
+            let table_ptr = var.get_object_ptr() as *const LuaTable;
             (&*table_ptr).clone()
         };
 
@@ -397,7 +397,7 @@ impl ObjectMethods for LuaScripting {
         // Get object from lua
         let table = unsafe {
             // Just grab it from the ptr itself
-            let table_ptr = var.value.object_val as *const LuaTable;
+            let table_ptr = var.get_object_ptr() as *const LuaTable;
             (&*table_ptr).clone()
         };
 
@@ -409,7 +409,7 @@ impl ObjectMethods for LuaScripting {
         // Get object from lua
         let table = unsafe {
             // Just grab it from the ptr itself
-            let table_ptr = var.value.object_val as *const LuaTable;
+            let table_ptr = var.get_object_ptr() as *const LuaTable;
             (&*table_ptr).clone()
         };
 

@@ -207,7 +207,19 @@ typedef struct pxs_PixelObject pxs_PixelObject;
  */
 typedef struct pxs_VarList pxs_VarList;
 
+/**
+ * A `Map` in pixelscript is very simply a Key (pxs_Var) to Value (pxs_Var) pair.
+ *
+ * In Python it's a dictionary, in Lua it's a table, and in JS it's a object.
+ */
 typedef struct pxs_VarMap pxs_VarMap;
+
+/**
+ * A `Object` in pixelscript is wrapped with a potential host_ptr. This allows for non language specific ref counting.
+ *
+ * To access the raw pointer, use `get_raw()`. Reference counting is automatically applied when this struct is dropped.
+ */
+typedef struct pxs_VarObject pxs_VarObject;
 
 /**
  * The Variables actual value union.
@@ -219,7 +231,7 @@ typedef union pxs_VarValue {
   bool bool_val;
   double f64_val;
   const void *null_val;
-  void *object_val;
+  struct pxs_VarObject *object_val;
   int32_t host_object_val;
   struct pxs_VarList *list_val;
   void *function_val;

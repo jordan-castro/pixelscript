@@ -14,6 +14,10 @@
 mod tests {
     use pixelscript::{create_raw_string, free_raw_string, pxs_finalize, pxs_initialize, pxs_newmod, shared::module::pxs_Module};
     
+    fn print_helper(lang: &str) {
+        print!("====================== {lang} ===================");
+    }
+
     fn test_python() {
     }
     fn test_lua() {}
@@ -22,7 +26,9 @@ mod tests {
     fn run_test() {
         pxs_initialize();
 
+        print_helper("PYTHON");
         test_python();
+        print_helper("LUA");
         test_lua();
 
         pxs_finalize();

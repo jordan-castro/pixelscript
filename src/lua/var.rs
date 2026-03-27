@@ -17,7 +17,7 @@ use crate::{
     shared::{
         object::get_object,
         pxs_Runtime,
-        var::{pxs_Var, pxs_VarType},
+        var::{pxs_Var, pxs_VarObject, pxs_VarType},
     },
 };
 
@@ -66,7 +66,7 @@ pub(super) fn from_lua(value: LuaValue) -> Result<pxs_Var, anyhow::Error> {
             if t_length == 0 {
                 // Regular table
                 let obj = Box::into_raw(Box::new(t));
-                Ok(pxs_Var::new_object(obj as *mut c_void, Some(free_lua_mem)))
+                Ok(pxs_Var::new_object(pxs_VarObject::new_lang_only(obj as *mut c_void), Some(free_lua_mem)))
             } else {
                 // It's a list.
                 let mut values = vec![];
@@ -105,7 +105,7 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
         pxs_VarType::pxs_Object => {
             unsafe {
                 // This MUST BE A TABLE!
-                let table_ptr = var.value.object_val as *const LuaTable;
+                let table_ptr = var.get_object_ptr() as *const LuaTable;
                 if table_ptr.is_null() {
                     return Err(mlua::Error::RuntimeError(
                         "Null pointer in Object".to_string(),
