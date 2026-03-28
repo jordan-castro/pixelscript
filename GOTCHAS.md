@@ -1,5 +1,5 @@
 # Gotchas
-A list of headaches that I've run into while using this library. That will be changed if possible.
+A list of headaches that I've run into while using this library. Some could be changed, but no promise.
 
 ## General
 - The first argument in every function call is the runtime it is currently in.
@@ -11,9 +11,13 @@ A list of headaches that I've run into while using this library. That will be ch
         - Float64
         - Bool
         - String
-    - Any non valid key will return a `pxs_Error`.
+    - Any non valid key will return a `pxs_Exception`.
 - Passing `pxs_Object` around runtimes is UB.
-    - To implement something similar it's best to implement a custom wrapper system or add the `wrapper` feature. This feature allows you to use `pxs_newwrapper(obj)`
+    - To implement something similar it's best to implement a custom wrapper system. If the object comes from a `pxs_HostObject` you can recreate the host and 
+    pass it into the language. `pxs_Factory` can also be used here for this. So your options are:
+    - Custom wrapper system in your host language.
+    - Recreate the `pxs_HostObject`.
+    - Pass a `pxs_Factory`.
 
 ## Python (pocketpy)
 - When running `pxs_call` it will go through a checklist until the function is found BY NAME.

@@ -18,7 +18,7 @@
     - All functions need to be explicit in their docs on ownership
     - Check Factories... why are we not owning the args?
     - Mark functions as expected return type.
-- Add properties to Objects
+- Add properties to PixelObjects
 
 ## v0.6 STD and Tests
 - Remove lua hacks (io, os, what else?)
