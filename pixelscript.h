@@ -422,6 +422,14 @@ void pxs_object_add_reffunc(struct pxs_PixelObject *object_ptr,
                             pxs_Func callback);
 
 /**
+ * Add a property to a object. Expects a name and a callback. The same as `pxs_object_addfunc` but that it saves
+ * it differently for the backend to convert it into a property.
+ */
+void pxs_object_addprop(struct pxs_PixelObject *ptr,
+                        const char *name,
+                        pxs_Func callback);
+
+/**
  * Add a object to a Module.
  *
  * This essentially makes it so that when constructing this Module, this object is instanced.

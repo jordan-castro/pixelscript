@@ -10,12 +10,12 @@ use std::sync::Arc;
 
 use crate::{
     lua::{from_lua, get_metatable, into_lua, store_metatable},
-    shared::{func::call_function, object::pxs_PixelObject, pxs_Runtime, var::pxs_Var},
+    shared::{func::call_function, object::{ObjectFlags, pxs_PixelObject}, pxs_Runtime, var::pxs_Var},
 };
 use anyhow::{Result, anyhow};
 use mlua::prelude::*;
 
-fn create_object_callback(lua: &Lua, fn_idx: i32, is_id: bool) -> Result<LuaFunction> {
+fn create_object_callback(lua: &Lua, fn_idx: i32, flags: u8) -> Result<LuaFunction> {
     let func = lua.create_function(
         move |lua, (internal_obj, args): (LuaTable, LuaMultiValue)| -> Result<LuaValue, LuaError> {
             let mut argv = vec![];
@@ -24,7 +24,7 @@ fn create_object_callback(lua: &Lua, fn_idx: i32, is_id: bool) -> Result<LuaFunc
             argv.push(pxs_Var::new_i64(pxs_Runtime::pxs_Lua as i64));
 
             // Check whether to pass id or not
-            if is_id {
+            if flags & (ObjectFlags::UsesId as u8) == 1 {
                 // Get obj id
                 let obj_id: i64 = internal_obj
                     .get("_pxs_ptr")?;
@@ -80,7 +80,7 @@ pub(super) fn create_object(lua: &Lua, idx: i32, source: Arc<pxs_PixelObject>) -
         let mt = lua.create_table()?;
         // Add methods
         for method in source.callbacks.iter() {
-            let func = create_object_callback(lua, method.cbk.idx, method.is_id)?;
+            let func = create_object_callback(lua, method.cbk.idx, method.flags)?;
             mt.set(method.cbk.name.clone(), func)?;
         }
 

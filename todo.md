@@ -19,7 +19,6 @@
     - Check Factories... why are we not owning the args?
     - Mark functions as expected return type.
 - Add properties to PixelObjects
-- Add pxs_Runtime::pxs_Unsupported
 - Add anonyamous functions.
 
 ## v0.6 STD and Tests

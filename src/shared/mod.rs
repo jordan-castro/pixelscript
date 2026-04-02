@@ -150,6 +150,11 @@ pub trait PtrMagic: Sized {
         Box::into_raw(Box::new(self))
     }
 
+    /// Get a direct *mut c_void
+    fn into_void(self) -> *mut c_void {
+        self.into_raw() as *mut c_void
+    }
+
     /// Safety: Only call this on a pointer created via `into_raw`.
     fn from_raw(ptr: *mut Self) -> Self {
         assert!(!ptr.is_null(), "Attempted to own a null pointer.");

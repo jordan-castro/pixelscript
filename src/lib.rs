@@ -20,13 +20,7 @@ use crate::lua::LuaScripting;
 use crate::python::PythonScripting;
 
 use crate::shared::{
-    pxs_LoadFileFn, PixelScript, PtrMagic, pxs_ReadDirFn, pxs_WriteFileFn,
-    func::{clear_function_lookup, lookup_add_function},
-    get_pixel_state,
-    module::pxs_Module,
-    object::{FreeMethod, clear_object_lookup, lookup_add_object, pxs_PixelObject},
-    pxs_Opaque, pxs_Runtime,
-    var::{ObjectMethods, pxs_VarT, pxs_VarType},
+    PixelScript, PtrMagic, func::{clear_function_lookup, lookup_add_function}, get_pixel_state, module::pxs_Module, object::{FreeMethod, ObjectFlags, clear_object_lookup, lookup_add_object, pxs_PixelObject}, pxs_LoadFileFn, pxs_Opaque, pxs_ReadDirFn, pxs_Runtime, pxs_WriteFileFn, var::{ObjectMethods, pxs_VarT, pxs_VarType}
 };
 
 pub mod shared;
@@ -334,6 +328,15 @@ pub extern "C" fn pxs_newobject(
     pxs_PixelObject::new(ptr, free_method, type_name).into_raw()
 }
 
+/// Add a callback to a object
+fn add_callback_to_object(object: &mut pxs_PixelObject, name: &str, callback: pxs_Func, flags: u8) {
+    // Add to function lookup
+    let full_name = format!("_{}{}", object.type_name, name);
+    let idx = lookup_add_function(full_name.as_str(), callback);
+
+    object.add_callback(name, full_name.as_str(), idx, flags);
+}
+
 /// Add a callback to a object.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_object_addfunc(
@@ -352,11 +355,7 @@ pub extern "C" fn pxs_object_addfunc(
     let object_borrow = unsafe { pxs_PixelObject::from_borrow(object_ptr) };
     let name_borrow = borrow_string!(name);
 
-    // Add to function lookup
-    let full_name = format!("_{}{}", object_borrow.type_name, name_borrow);
-    let idx = lookup_add_function(full_name.as_str(), callback);
-
-    object_borrow.add_callback(name_borrow, full_name.as_str(), idx, true);
+    add_callback_to_object(object_borrow, name_borrow, callback, ObjectFlags::UsesId as u8);
 }
 
 /// Add a callback to a object and make it use the language pointer rather than _pxs_ptr idx.
@@ -377,11 +376,26 @@ pub extern "C" fn pxs_object_add_reffunc(
     let object_borrow = unsafe { pxs_PixelObject::from_borrow(object_ptr) };
     let name_borrow = borrow_string!(name);
 
-    // Add to function lookup
-    let full_name = format!("_{}{}", object_borrow.type_name, name_borrow);
-    let idx = lookup_add_function(full_name.as_str(), callback);
+    add_callback_to_object(object_borrow, name_borrow, callback, ObjectFlags::UsesRef as u8);
+}
 
-    object_borrow.add_callback(name_borrow, full_name.as_str(), idx, false);
+/// Add a property to a object. Expects a name and a callback. The same as `pxs_object_addfunc` but that it saves
+/// it differently for the backend to convert it into a property.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_object_addprop(ptr: *mut pxs_PixelObject, name: *const c_char, callback: pxs_Func) {
+    pxs_debug!("pxs_object_addprop");
+    assert_initiated!();
+
+    if ptr.is_null() || name.is_null() {
+        return;
+    }
+
+    let object_borrow = unsafe { pxs_PixelObject::from_borrow(ptr) };
+    let name_borrow = borrow_string!(name);
+    
+    let flags = ObjectFlags::UsesId as u8 | ObjectFlags::IsProp as u8;
+
+    add_callback_to_object(object_borrow, name_borrow, callback, flags);
 }
 
 /// Add a object to a Module.

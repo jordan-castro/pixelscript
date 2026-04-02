@@ -1,6 +1,9 @@
+use std::ffi::c_char;
+
+use crate::{create_raw_string, free_raw_string};
 #[cfg(feature = "testing")]
 use crate::{
-    create_raw_string, free_raw_string, own_var, pxs_addfunc, pxs_addmod, pxs_exec, pxs_freevar, pxs_listget, pxs_listlen, pxs_newmod, pxs_newnull, pxs_tostring, shared::{PtrMagic, func::pxs_Func, module::pxs_Module, pxs_Runtime, var::{pxs_Var, pxs_VarT}}
+    own_var, pxs_addfunc, pxs_addmod, pxs_exec, pxs_freevar, pxs_listget, pxs_listlen, pxs_newmod, pxs_newnull, pxs_tostring, shared::{PtrMagic, func::pxs_Func, module::pxs_Module, pxs_Runtime, var::{pxs_Var, pxs_VarT}}
 };
 
 /// A useful macro for debuggin in pixelscript.
@@ -104,4 +107,34 @@ pub fn setup_pxs() {
     add_function(module, "print", print);
     // Save module
     pxs_addmod(module);
+}
+
+/// CString maker
+pub struct CStringSafe {
+    ptrs: Vec<*mut c_char>
+}
+
+impl Drop for CStringSafe {
+    fn drop(&mut self) {
+        for p in &self.ptrs {
+            if p.is_null() {
+                continue;
+            }
+            unsafe { free_raw_string!(*p); }
+        }
+        self.ptrs.clear();
+    }
+}
+
+impl CStringSafe {
+    pub fn new() -> Self {
+        CStringSafe { ptrs: vec![] }
+    }
+
+    pub fn new_string(&mut self, contents: &str) -> *const c_char {
+        let raw = create_raw_string!(contents);
+        // Save raw
+        self.ptrs.push(raw);
+        raw.cast_const()
+    }
 }

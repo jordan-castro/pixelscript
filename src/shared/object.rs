@@ -7,21 +7,53 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 use std::{
-    collections::HashMap,
-    os::raw::c_void,
-    ptr,
-    sync::{Arc, Mutex, OnceLock},
+    collections::HashMap, ops::{BitAnd, BitOr}, os::raw::c_void, ptr, sync::{Arc, Mutex, OnceLock}
 };
 
 use crate::{pxs_debug, shared::{PtrMagic, module::ModuleCallback}};
 
 pub type FreeMethod = unsafe extern "C" fn(ptr: *mut c_void);
 
+/// Flags for `ObjectCallback`.
+/// 
+/// Define how to setup the object in backend.
+/// 
+/// When `UsesId`, the callback should use `_pxs_ptr`.
+/// When `UsesRef`, the callback should use the language reference.
+/// When `IsProp`, the callback should be used as a getter/setter.
+pub enum ObjectFlags {
+    UsesId = 1 << 0,
+    UsesRef = 1 << 1,
+    IsProp = 1 << 2
+}
+
+impl BitOr for ObjectFlags {
+    type Output = u8;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        (self as u8) | (rhs as u8)
+    }
+}
+
+impl BitAnd for ObjectFlags {
+    type Output = u8;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        (self as u8) & (rhs as u8)
+    }
+}
+
+/// What objects use for callbacks. They are wrappers around ModuleCallbck.
+/// 
+/// When `is_id` is true, when setting up this callback it should pass the `_pxs_ptr`.
+/// Otherwise it will pass the actual language reference.
+/// 
+/// When `is_prop` is true, the method will act as a property. 
 pub struct ObjectCallback {
     /// The internal callback structure (same as module.)
     pub cbk: ModuleCallback,
-    /// Whether or not this callback takes in the ID or the actual reference.
-    pub is_id: bool
+    /// Flags for determining how a object method should be defined
+    pub flags: u8
 }
 
 /// A PixelScript Object.
@@ -125,14 +157,14 @@ impl pxs_PixelObject {
         }
     }
 
-    pub fn add_callback(&mut self, name: &str, full_name: &str, idx: i32, is_id: bool) {
+    pub fn add_callback(&mut self, name: &str, full_name: &str, idx: i32, flags: u8) {
         self.callbacks.push(
             ObjectCallback {
                 cbk: ModuleCallback {
             name: name.to_string(),
             full_name: full_name.to_string(),
             idx,
-        }, is_id});
+        }, flags});
     }
 
     pub fn update_lang_ptr(&self, n_ptr: *mut c_void) {
@@ -218,14 +250,6 @@ fn get_object_lookup() -> std::sync::MutexGuard<'static, ObjectLookup> {
         .lock()
         .unwrap()
 }
-
-// #[allow(unused)]
-// /// Remove a pxs_Object from the lookup.
-// pub(crate) fn clear_object_from_lookup(idx: i32) {
-//     let mut lookup = get_object_lookup();
-//     pxs_debug!("Clearing object from lookup: {}", idx);
-//     lookup.object_hash.remove(&idx);
-// }
 
 /// Apply reference counting to object in lookup.
 pub(crate) fn apply_ref_count_delete(idx: i32) {

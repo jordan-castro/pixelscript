@@ -9,9 +9,12 @@
 use std::sync::Arc;
 
 use crate::{
-    create_raw_string, free_raw_string, pxs_debug, python::{
-        add_new_defined_object, add_new_name_idx_fn, eval_py, exec_py, is_object_defined, make_private_prefix, pocketpy, pocketpy_bridge
-    }, shared::object::pxs_PixelObject
+    create_raw_string, free_raw_string, pxs_debug,
+    python::{
+        add_new_defined_object, add_new_name_idx_fn, eval_py, exec_py, is_object_defined,
+        make_private_prefix, pocketpy, pocketpy_bridge,
+    },
+    shared::object::{ObjectFlags, pxs_PixelObject},
 };
 
 /// Save the object function. Returns the name of the function.
@@ -67,7 +70,7 @@ pub(super) fn create_object(idx: i32, source: Arc<pxs_PixelObject>, module_name:
             module_name,
         );
         // if eval_err.len() > 0 {
-            // TODO: use py_raise here
+        // TODO: use py_raise here
         // }
         return;
     }
@@ -80,22 +83,35 @@ pub(super) fn create_object(idx: i32, source: Arc<pxs_PixelObject>, module_name:
         // pxs_debug!("Adding method name: {method_name}");
         // let private_name = make_private(&method.name);
         let private_name = save_object_function(&method_name, method.cbk.idx, module_name);
-        let input = if method.is_id {
+
+        // Check input type
+        let input = if method.flags & ObjectFlags::UsesId as u8 == 1 {
             "._pxs_ptr"
         } else {
             ""
         };
-        methods_str.push_str(
-            format!(
-                r#"
+
+        // Check for property
+        if method.flags & ObjectFlags::IsProp as u8 == 1 {
+            methods_str.push_str("\n\t@property");
+        }
+
+        let function_string = format!(
+            r#"
     def {}(self, *args):
         return {}('{}', self{}, *args)
-        
 "#,
-                method.cbk.name, private_name, method_name, input
-            )
-            .as_str(),
+        method.cbk.name, private_name, method_name, input
         );
+        methods_str.push_str(&function_string);
+
+        println!("flags: {}", method.flags);
+
+        if method.flags & ObjectFlags::IsProp as u8 == 1 {
+            methods_str.push_str(format!("\n\t@{}.setter", method.cbk.name).as_str());
+            // Add function
+            methods_str.push_str(&function_string);
+        }
     }
 
     let object_string = format!(
