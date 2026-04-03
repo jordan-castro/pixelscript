@@ -15,7 +15,7 @@ mod tests {
     use pixelscript::{create_raw_string, free_raw_string, pxs_finalize, pxs_initialize, pxs_newmod, shared::{module::pxs_Module, utils}};
     
     fn print_helper(lang: &str) {
-        print!("====================== {lang} ===================");
+        println!("====================== {lang} ===================");
     }
 
     fn test_python() {

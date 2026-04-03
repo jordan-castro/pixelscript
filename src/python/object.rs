@@ -85,14 +85,14 @@ pub(super) fn create_object(idx: i32, source: Arc<pxs_PixelObject>, module_name:
         let private_name = save_object_function(&method_name, method.cbk.idx, module_name);
 
         // Check input type
-        let input = if method.flags & ObjectFlags::UsesId as u8 == 1 {
+        let input = if method.flags & ObjectFlags::UsesId as u8 != 0 {
             "._pxs_ptr"
         } else {
             ""
         };
 
         // Check for property
-        if method.flags & ObjectFlags::IsProp as u8 == 1 {
+        if method.flags & ObjectFlags::IsProp as u8 != 0 {
             methods_str.push_str("\n\t@property");
         }
 
@@ -105,9 +105,7 @@ pub(super) fn create_object(idx: i32, source: Arc<pxs_PixelObject>, module_name:
         );
         methods_str.push_str(&function_string);
 
-        println!("flags: {}", method.flags);
-
-        if method.flags & ObjectFlags::IsProp as u8 == 1 {
+        if method.flags & ObjectFlags::IsProp as u8 != 0 {
             methods_str.push_str(format!("\n\t@{}.setter", method.cbk.name).as_str());
             // Add function
             methods_str.push_str(&function_string);

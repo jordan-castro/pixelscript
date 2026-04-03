@@ -6,20 +6,20 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_objects --no-default-features --features "lua,python,pxs-debug,testing" -- --nocapture --test-threads=1
+// cargo test --test test_objects --no-default-features --features "lua,python,testing,include-core" -- --nocapture --test-threads=1
 
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
-    use std::ffi::c_void;
+    use std::ffi::c_void; 
 
-    use pixelscript::{create_raw_string, free_raw_string, own_string, pxs_addmod, pxs_addobject, pxs_finalize, pxs_gethost, pxs_getint, pxs_getstring, pxs_getuint, pxs_initialize, pxs_listadd, pxs_listget, pxs_listlen, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_newobject, pxs_newstring, pxs_newuint, pxs_object_addprop, shared::{PtrMagic, module::pxs_Module, pxs_Runtime, utils::{self, CStringSafe}, var::pxs_VarT}};
+    use pixelscript::{borrow_var, create_raw_string, free_raw_string, own_string, pxs_addmod, pxs_addobject, pxs_finalize, pxs_gethost, pxs_getint, pxs_getstring, pxs_getuint, pxs_initialize, pxs_listadd, pxs_listget, pxs_listlen, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_newobject, pxs_newstring, pxs_newuint, pxs_object_addfunc, pxs_object_addprop, shared::{PtrMagic, module::pxs_Module, pxs_Runtime, utils::{self, CStringSafe}, var::{pxs_Var, pxs_VarT}}};
     
     fn print_helper(lang: &str) {
-        print!("====================== {lang} ===================");
+        println!("====================== {lang} ===================");
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug)]
     struct Person {
         name: String,
         age: u32
@@ -99,7 +99,7 @@ mod tests {
     }
 
     extern "C" fn diary_entries_prop(args: pxs_VarT) -> pxs_VarT {
-                let diary = unsafe{Diary::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))};
+        let diary = unsafe{Diary::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))};
         if pxs_listlen(args) == 2 {
             let list = pxs_newlist();
             let mut cstrgen = CStringSafe::new();
@@ -108,11 +108,24 @@ mod tests {
             }
             list
         } else {
-            // Add new entry
-            let entry = own_string!(pxs_getstring(pxs_listget(args, 2)));
-            diary.entries.push(entry);
+            // println!("{:#?}", borrow_var!(pxs_listget(args, 2)));
+            // Update entries?
+            let list = pxs_listget(args, 2);
+            let mut items = vec![];
+            for i in 0..pxs_listlen(list) {
+                items.push(own_string!(pxs_getstring(pxs_listget(list, i))));
+            }
+            println!("items: {:#?}", items);
+            diary.entries = items;
             pxs_newnull()
         }
+    }
+
+    extern "C" fn diary_string(args: pxs_VarT) -> pxs_VarT {
+        let diary = unsafe{Diary::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))};
+        let mut cstrgen = CStringSafe::new();
+        let string = format!("{:#?}, {:#?}", diary.owner, diary.entries);
+        pxs_newstring(cstrgen.new_string(&string))
     }
 
     extern "C" fn new_diary(args: pxs_VarT) -> pxs_VarT {
@@ -125,6 +138,8 @@ mod tests {
 
         pxs_object_addprop(obj, cstrgen.new_string("owner"), diary_owner_prop);
         pxs_object_addprop(obj, cstrgen.new_string("entries"), diary_entries_prop);
+        pxs_object_addfunc(obj, cstrgen.new_string("__str__"), diary_string);
+        pxs_object_addfunc(obj, cstrgen.new_string("__tostring"), diary_string);
 
         pxs_newhost(obj)
     }
@@ -136,8 +151,9 @@ from test import *
 
 p = Person('Jordan', 24)
 d = Diary(p)
-d.entries += "Test dude"
-d.entried += "Another one"
+d.entries += ["Test dude"]
+d.entries += ["Another one"]
+d.entries += ["Dude did I just make this work?"]
 
 print(d.entries)
 print(p.name)
@@ -148,7 +164,32 @@ print(p.age)
         let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_Python);
         assert!(res.is_null(), "Error: {:#?}", res);
     }
-    fn test_lua() {}
+    fn test_lua() {
+        let script = r#"
+local pxs  = require('pxs')
+local test = require('test')
+
+local p = test.Person('Jordan', 24)
+local d = test.Diary(p)
+d.entries = {'test'}
+local e = d.entries
+e[2] = 'test 2'
+d.entries = e
+pxs.print(pxs_json.encode(d.entries))
+
+-- d.entries = d.entries + {'Test dude'}
+-- d.entries = d.entries + {'Another one'}
+-- d.entries = d.entries + {'Dude did I just make this work?'}
+
+pxs.print(tostring(d))
+pxs.print(p.name)
+p.age = p.age + 1
+pxs.print(p.age)
+
+"#;
+        let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_Lua);
+        assert!(res.is_null(), "Error: {:#?}", res);
+    }
 
     #[test]
     fn run_test() {

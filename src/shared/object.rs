@@ -49,6 +49,7 @@ impl BitAnd for ObjectFlags {
 /// Otherwise it will pass the actual language reference.
 /// 
 /// When `is_prop` is true, the method will act as a property. 
+#[derive(Clone)]
 pub struct ObjectCallback {
     /// The internal callback structure (same as module.)
     pub cbk: ModuleCallback,

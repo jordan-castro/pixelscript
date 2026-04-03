@@ -6,11 +6,16 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::{
     lua::{from_lua, get_metatable, into_lua, store_metatable},
-    shared::{func::call_function, object::{ObjectFlags, pxs_PixelObject}, pxs_Runtime, var::pxs_Var},
+    shared::{
+        func::call_function,
+        object::{ObjectCallback, ObjectFlags, pxs_PixelObject},
+        pxs_Runtime,
+        var::pxs_Var,
+    },
 };
 use anyhow::{Result, anyhow};
 use mlua::prelude::*;
@@ -24,10 +29,9 @@ fn create_object_callback(lua: &Lua, fn_idx: i32, flags: u8) -> Result<LuaFuncti
             argv.push(pxs_Var::new_i64(pxs_Runtime::pxs_Lua as i64));
 
             // Check whether to pass id or not
-            if flags & (ObjectFlags::UsesId as u8) == 1 {
+            if flags & (ObjectFlags::UsesId as u8) != 0 {
                 // Get obj id
-                let obj_id: i64 = internal_obj
-                    .get("_pxs_ptr")?;
+                let obj_id: i64 = internal_obj.get("_pxs_ptr")?;
 
                 // Add object id
                 argv.push(pxs_Var::new_i64(obj_id));
@@ -36,9 +40,7 @@ fn create_object_callback(lua: &Lua, fn_idx: i32, flags: u8) -> Result<LuaFuncti
                 if obj_value.is_err() {
                     return Err(LuaError::RuntimeError(obj_value.unwrap_err().to_string()));
                 }
-                argv.push(
-                    obj_value.unwrap()
-                );
+                argv.push(obj_value.unwrap());
             }
             // Add args
             for arg in args {
@@ -66,6 +68,49 @@ fn create_object_callback(lua: &Lua, fn_idx: i32, flags: u8) -> Result<LuaFuncti
     }
 }
 
+/// The __index function
+fn lua_index(source: &LuaTable, table: &LuaTable, key: String, callbacks: HashMap<String, ObjectCallback>) -> LuaResult<LuaValue> {
+    // Oki dok, here we need to go through callback names
+    let method = callbacks.get(&key);
+    if let Some(method) = method {
+        // Check if it is a property
+        if method.flags & ObjectFlags::IsProp as u8 != 0 {
+            let func_name = format!("__pxs_{}__", method.cbk.name);
+            let func: LuaFunction = source.raw_get(func_name)?;
+            let res: LuaValue = func.call((table,))?;
+            return Ok(res);
+        } else {
+            let value: LuaValue = source.raw_get(key.clone())?;
+            if !value.is_nil() {
+                return Ok(value);
+            }
+        }
+    }
+
+    Ok(LuaNil)
+}
+
+/// The __newindex function
+fn lua_newindex(source: &LuaTable, table: &LuaTable, key: String, value: &LuaValue, callbacks: HashMap<String, ObjectCallback>) -> LuaResult<LuaValue> {
+    let method = callbacks.get(&key);
+    if let Some(method) = method {
+        // Check if it is a property
+        if method.flags & ObjectFlags::IsProp as u8 != 0 {
+            let func_name = format!("__pxs_{}__", method.cbk.name);
+            let func: LuaFunction = source.raw_get(func_name)?;
+            let res: LuaValue = func.call((table, value))?;
+            return Ok(res);
+        } else {
+            let value: LuaValue = source.raw_get(key.clone())?;
+            if !value.is_nil() {
+                return Ok(value);
+            }
+        }
+    }
+
+    Ok(LuaNil)
+}
+
 pub(super) fn create_object(lua: &Lua, idx: i32, source: Arc<pxs_PixelObject>) -> Result<LuaTable> {
     let table = lua.create_table()?;
     table.set("_pxs_ptr", LuaValue::Integer(idx as i64))?;
@@ -78,13 +123,39 @@ pub(super) fn create_object(lua: &Lua, idx: i32, source: Arc<pxs_PixelObject>) -
     } else {
         // Create new metatable
         let mt = lua.create_table()?;
+
+        // HashMap of String -> ObjectCallbackc
+        let mut map: HashMap<String, ObjectCallback> = HashMap::new();
+
         // Add methods
         for method in source.callbacks.iter() {
+            map.insert(method.cbk.name.clone(), method.clone());
             let func = create_object_callback(lua, method.cbk.idx, method.flags)?;
-            mt.set(method.cbk.name.clone(), func)?;
+
+            // Name needs to be warped potentially.
+            let name = if method.flags & ObjectFlags::IsProp as u8 != 0 {
+                format!("__pxs_{}__", method.cbk.name)
+            } else {
+                method.cbk.name.clone()
+            };
+            mt.set(name.clone(), func)?;
         }
 
-        mt.set("__index", mt.clone())?;
+
+        // Our custom index function
+        let index_source_clone = mt.clone();
+        let newindex_source_clone = mt.clone();
+        let index_callbacks_clone = map.clone();
+        let newindex_callbacks_clone = map.clone();
+        let custom_index = lua.create_function(move |_lua, (table, key): (LuaTable, String) | {
+            Ok(lua_index(&index_source_clone, &table, key, index_callbacks_clone.clone())?)
+        })?;
+        let custom_newindex = lua.create_function(move |_lua, (table, key, value): (LuaTable, String, LuaValue) | {
+            Ok(lua_newindex(&newindex_source_clone, &table, key, &value, newindex_callbacks_clone.clone())?)
+        })?;
+
+        mt.set("__index", custom_index)?;
+        mt.set("__newindex", custom_newindex)?;
         // save it
         store_metatable(&source.type_name, mt.clone());
         mt
