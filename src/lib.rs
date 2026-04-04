@@ -18,9 +18,11 @@ use std::{
 use crate::lua::LuaScripting;
 #[cfg(feature = "python")]
 use crate::python::PythonScripting;
+#[cfg(feature = "js")]
+use crate::js::JSScripting;
 
 use crate::shared::{
-    PixelScript, PtrMagic, func::{clear_function_lookup, lookup_add_function}, get_pixel_state, module::pxs_Module, object::{FreeMethod, ObjectFlags, clear_object_lookup, lookup_add_object, pxs_PixelObject}, pxs_LoadFileFn, pxs_Opaque, pxs_ReadDirFn, pxs_Runtime, pxs_WriteFileFn, var::{ObjectMethods, pxs_VarT, pxs_VarType}
+    PixelScript, PtrMagic, func::{clear_function_lookup, lookup_add_function}, get_pixel_state, module::pxs_Module, object::{FreeMethod, ObjectFlags, clear_object_lookup, lookup_add_object, pxs_PixelObject}, pxs_LoadFileFn, pxs_Opaque, pxs_ReadDirFn, pxs_Runtime, pxs_WriteFileFn, var::{ObjectMethods, pxs_VarList, pxs_VarT, pxs_VarType}
 };
 
 pub mod shared;
@@ -31,6 +33,8 @@ pub mod core;
 pub mod lua;
 #[cfg(feature = "python")]
 pub mod python;
+#[cfg(feature = "js")]
+pub mod js;
 
 /// Assert that the module is initiated.
 macro_rules! assert_initiated {
@@ -55,6 +59,11 @@ macro_rules! with_backend {
                 type $backend_alias = LuaScripting;
                 $body
             },
+            #[cfg(feature = "js")]
+            pxs_Runtime::pxs_JavaScript => {
+                type $backend_alias = JSScripting;
+                $body
+            }
             _ => panic!("Runtime not enabled"),
         }
     };
@@ -91,6 +100,10 @@ pub extern "C" fn pxs_initialize() {
             with_feature!("python", {
                 PythonScripting::start();
             });
+
+            with_feature!("js", {
+                JSScripting::start();
+            });
         }
         IS_INIT = true;
     }
@@ -120,6 +133,10 @@ pub extern "C" fn pxs_finalize() {
 
     with_feature!("python", {
         PythonScripting::stop();
+    });
+
+    with_feature!("js", {
+        JSScripting::stop();
     });
 }
 
@@ -285,6 +302,9 @@ pub extern "C" fn pxs_addmod(module_ptr: *mut pxs_Module) {
     });
     with_feature!("python", {
         PythonScripting::add_module(Arc::clone(&module));
+    });
+    with_feature!("js", {
+        JSScripting::add_module(Arc::clone(&module));
     });
 
     // Module gets dropped here, and that is good!
@@ -756,6 +776,9 @@ pub extern "C" fn pxs_startthread() {
     with_feature!("python", {
         PythonScripting::start_thread();
     });
+    with_feature!("js", {
+        JSScripting::start_thread();
+    });
 }
 
 /// Tells PixelScript that we just stopped the most recent thread.
@@ -768,6 +791,9 @@ pub extern "C" fn pxs_stopthread() {
     });
     with_feature!("python", {
         PythonScripting::stop_thread();
+    });
+    with_feature!("js", {
+        JSScripting::stop_thread();
     });
 }
 
@@ -789,6 +815,9 @@ pub extern "C" fn pxs_clearstate(gc_collect: bool) {
     with_feature!("python", {
         PythonScripting::clear_state(gc_collect);
     });
+    with_feature!("js", {
+        JSScripting::clear_state(gc_collect);
+    })
 }
 
 /// Call a method within a specifed runtime.
@@ -885,15 +914,22 @@ pub extern "C" fn pxs_tostring(runtime_var: *mut pxs_Var, var: *mut pxs_Var) -> 
         let res = match runtime {
             pxs_Runtime::pxs_Lua => {
                 with_feature!("lua", { LuaScripting::call_method("tostring", list) }, {
-                    return std::ptr::null_mut();
+                    return pxs_Var::feature_not_enabled_ep("lua");
                 })
             }
             pxs_Runtime::pxs_Python => {
                 with_feature!("python", { PythonScripting::call_method("str", list) }, {
-                    return std::ptr::null_mut();
+                    return pxs_Var::feature_not_enabled_ep("python");
                 })
             }
-            pxs_Runtime::pxs_JavaScript => todo!(),
+            pxs_Runtime::pxs_JavaScript => {
+                with_feature!("js", {
+                    let mut empty_list = pxs_VarList::new();
+                    JSScripting::object_call(b_var, "toString", &mut empty_list)    
+                }, {
+                    return pxs_Var::feature_not_enabled_ep("js");
+                })
+            },
         };
 
         if let Ok(res) = res {

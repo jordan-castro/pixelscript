@@ -15,6 +15,7 @@ mlua = { version = "0.11", features = ["lua54", "vendored", "send"], optional = 
 anyhow = "1.0.100"
 parking_lot = "0.12.5"
 thread_local = "1.1.9"
+rquickjs = { version = "0.11.0", optional = true}
 
 [build-dependencies]
 cbindgen = "0.29.2"
@@ -23,7 +24,7 @@ bindgen = "0.72.1"
 
 [features]
 # Default includes all languages and cores.
-default = ["lua", "python", "include-core"]
+default = ["lua", "python", "js", "include-core"]
 # Include LUA scripting.
 lua = ["dep:mlua"]
 # Include Python scripting. Via pocketpy
@@ -32,6 +33,7 @@ python = []
 php = []
 # luajit uses the same lua engine but with JIT flags
 luajit = ["lua"]
+js = ["dep:rquickjs"]
 
 # Core libs
 # Include all core libs

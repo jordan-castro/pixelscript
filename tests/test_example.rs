@@ -12,18 +12,45 @@
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
-    use pixelscript::{create_raw_string, free_raw_string, pxs_finalize, pxs_initialize, pxs_newmod, shared::{module::pxs_Module, utils}};
+    use pixelscript::{create_raw_string, free_raw_string, pxs_finalize, pxs_initialize, pxs_newmod, shared::{module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT}};
     
     fn print_helper(lang: &str) {
         println!("====================== {lang} ===================");
     }
 
     fn test_python() {
+        let script = r#"
+from pxs import *
+
+print('Working Python')
+"#;
+        let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_Python);
+        assert!(res.is_null(), "Python error is not null: {:#?}", res);
     }
-    fn test_lua() {}
+
+    fn test_lua() {
+        let script = r#"
+local pxs = require('pxs')
+
+pxs.print('Working Lua')
+"#;
+        let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_Lua);
+        assert!(res.is_null(), "Lua error is not null: {:#?}", res);
+    }
+
+    fn test_js() {
+        let script = r#"
+import * as pxs from 'pxs';
+
+pxs.print('Working JS');
+"#;
+        let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_JavaScript);
+        assert!(res.is_null(), "JS error is not null: {:#?}", res);
+    }
 
     #[test]
     fn run_test() {
+        println!();
         pxs_initialize();
         utils::setup_pxs();
 
@@ -31,6 +58,8 @@ mod tests {
         test_python();
         print_helper("LUA");
         test_lua();
+        print_helper("JS");
+        test_js();
 
         pxs_finalize();
     }

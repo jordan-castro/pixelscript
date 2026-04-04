@@ -172,9 +172,9 @@ fn build_pocketpy_bindings() {
         .allowlist_type("py_.*")
         .allowlist_var("py_.*");
 
-    for arg in find_gnu_include_path() {
-        builder = builder.clang_arg(arg);
-    }
+    // for arg in find_gnu_include_path() {
+    //     builder = builder.clang_arg(arg);
+    // }
 
     let bindings = builder.generate().expect("Unable to build Pocketpy rust bindings");
  
@@ -205,7 +205,7 @@ fn main() {
     {
         build_ph7();
         build_ph7_bindings();
-        println!("carg:rerun-if-changed=libs/ph7/ph7.c");
-        println!("carg:rerun-if-changed=libs/ph7/ph7.h");
+        println!("cargo:rerun-if-changed=libs/ph7/ph7.c");
+        println!("cargo:rerun-if-changed=libs/ph7/ph7.h");
     }
 }
