@@ -20,6 +20,7 @@
     - Mark functions as expected return type.
 - ~~Add properties to PixelObjects~~ **DONE**
 - Add anonyamous functions.
+- Use pxs_Map instead for Module variables.
 
 ## v0.6 STD and Tests
 - Remove lua hacks (io, os, what else?)
@@ -32,6 +33,7 @@
     - test_exec
     - test_eval
     - test_raise (a new test of raising from one langauge to another.)
+    - test_ft (a test that builds pixel ai dashs fast terrain system. If this runs, then it most likely works fine.)
 
 ## v0.7 Wren support, WASM
 - Add Wren support

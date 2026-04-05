@@ -108,7 +108,7 @@ fn build_pocketpy() {
     build.compile("pocketpy");
 }
 
-fn find_gnu_include_path() -> Vec<String> {
+fn _find_gnu_include_path() -> Vec<String> {
     // Get current os
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     if target_os != "windows" {
@@ -161,7 +161,7 @@ fn build_pocketpy_bindings() {
     // If using gcc on windows, we might need to find the gcc include paths
     // let include_paths = 
 
-    let mut builder = bindgen::Builder::default()
+    let builder = bindgen::Builder::default()
         .header("libs/pocketpy/pocketpy.h")
         .clang_arg("-DPK_IS_PUBLIC_INCLUDE")
         .clang_arg("-Ilibs/pocketpy")

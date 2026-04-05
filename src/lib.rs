@@ -22,7 +22,7 @@ use crate::python::PythonScripting;
 use crate::js::JSScripting;
 
 use crate::shared::{
-    PixelScript, PtrMagic, func::{clear_function_lookup, lookup_add_function}, get_pixel_state, module::pxs_Module, object::{FreeMethod, ObjectFlags, clear_object_lookup, lookup_add_object, pxs_PixelObject}, pxs_LoadFileFn, pxs_Opaque, pxs_ReadDirFn, pxs_Runtime, pxs_WriteFileFn, var::{ObjectMethods, pxs_VarList, pxs_VarT, pxs_VarType}
+    PixelScript, PtrMagic, func::{clear_function_lookup, lookup_add_function}, get_pixel_state, module::pxs_Module, object::{pxs_FreeMethod, ObjectFlags, clear_object_lookup, lookup_add_object, pxs_PixelObject}, pxs_LoadFileFn, pxs_Opaque, pxs_ReadDirFn, pxs_Runtime, pxs_WriteFileFn, var::{ObjectMethods, pxs_VarList, pxs_VarT, pxs_VarType}
 };
 
 pub mod shared;
@@ -141,8 +141,7 @@ pub extern "C" fn pxs_finalize() {
 }
 
 #[unsafe(no_mangle)]
-/// Execute code in a runtime. Will return a pxs_VarT. Null means no error
-/// String means yes error.
+/// Execute code in a runtime. Will return a pxs_VarT. Null means no error, otherwise error.
 /// The result will need to be freed by calling `pxs_freevar`
 pub extern "C" fn pxs_exec(
     runtime: pxs_Runtime,
@@ -333,7 +332,7 @@ pub extern "C" fn pxs_freemod(module_ptr: *mut pxs_Module) {
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_newobject(
     ptr: pxs_Opaque,
-    free_method: FreeMethod,
+    free_method: pxs_FreeMethod,
     type_name: *const c_char,
 ) -> *mut pxs_PixelObject {
     pxs_debug!("pxs_newobject");
@@ -673,6 +672,8 @@ pub extern "C" fn pxs_getfloat(var: *mut pxs_Var) -> f64 {
 }
 
 /// Get a Bool
+/// 
+/// CAN_CRASH
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_getbool(var: *mut pxs_Var) -> bool {
     pxs_debug!("pxs_getbool");
@@ -685,7 +686,7 @@ pub extern "C" fn pxs_getbool(var: *mut pxs_Var) -> bool {
 
 /// Get a String
 ///
-/// DANGEROUS
+/// CAN_CRASH, CALLER
 ///
 /// You have to free this memory by calling `pxs_free_str`
 #[unsafe(no_mangle)]
@@ -914,12 +915,12 @@ pub extern "C" fn pxs_tostring(runtime_var: *mut pxs_Var, var: *mut pxs_Var) -> 
         let res = match runtime {
             pxs_Runtime::pxs_Lua => {
                 with_feature!("lua", { LuaScripting::call_method("tostring", list) }, {
-                    return pxs_Var::feature_not_enabled_ep("lua");
+                    return pxs_Var::feature_not_enabled_ep("lua").into_raw();
                 })
             }
             pxs_Runtime::pxs_Python => {
                 with_feature!("python", { PythonScripting::call_method("str", list) }, {
-                    return pxs_Var::feature_not_enabled_ep("python");
+                    return pxs_Var::feature_not_enabled_ep("python").into_raw();
                 })
             }
             pxs_Runtime::pxs_JavaScript => {
@@ -927,7 +928,7 @@ pub extern "C" fn pxs_tostring(runtime_var: *mut pxs_Var, var: *mut pxs_Var) -> 
                     let mut empty_list = pxs_VarList::new();
                     JSScripting::object_call(b_var, "toString", &mut empty_list)    
                 }, {
-                    return pxs_Var::feature_not_enabled_ep("js");
+                    return pxs_Var::feature_not_enabled_ep("js").into_raw();
                 })
             },
         };

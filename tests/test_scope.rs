@@ -109,7 +109,9 @@ mod tests {
         // Setup scope
         let scope = pxs_newmap();
         // New factory
-        let state_factory = pxs_newfactory(new_state, pxs_newlist());
+        let state_args = pxs_newlist();
+        let state_factory = new_state(state_args);
+        // let state_factory = pxs_newfactory(new_state, pxs_newlist());
         let self_name = create_raw_string!("self");
         // Add state
         pxs_map_addpair(scope, pxs_newstring(self_name), state_factory);

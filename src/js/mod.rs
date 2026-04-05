@@ -1,4 +1,11 @@
+use rquickjs::Runtime;
+
 use crate::shared::{PixelScript, var::ObjectMethods};
+
+/// JS specific State.
+struct State {
+    rt: Runtime,
+}
 
 pub struct JSScripting;
 
