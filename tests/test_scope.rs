@@ -13,7 +13,7 @@
 mod tests {
     use std::{collections::HashMap, ffi::c_void};
 
-    use pixelscript::{borrow_var, create_raw_string, free_raw_string, own_string, own_var, pxs_compile, pxs_execobject, pxs_finalize, pxs_freevar, pxs_gethost, pxs_getstring, pxs_initialize, pxs_listget, pxs_map_addpair, pxs_new_shallowcopy, pxs_newcopy, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmap, pxs_newnull, pxs_newobject, pxs_newstring, pxs_object_addfunc, shared::{PtrMagic, utils::setup_pxs, var::{pxs_Var, pxs_VarT}}};
+    use pixelscript::{borrow_var, create_raw_string, free_raw_string, own_string, own_var, pxs_clearstate, pxs_compile, pxs_exec, pxs_execobject, pxs_finalize, pxs_freevar, pxs_gethost, pxs_getstring, pxs_initialize, pxs_listget, pxs_map_addpair, pxs_new_shallowcopy, pxs_newcopy, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmap, pxs_newnull, pxs_newobject, pxs_newstring, pxs_object_addfunc, pxs_startthread, pxs_stopthread, pxs_tostring, shared::{PtrMagic, pxs_Runtime, utils::setup_pxs, var::{pxs_Var, pxs_VarT}}};
 
     struct State {
         pub internals: HashMap<String, pxs_VarT>
@@ -137,13 +137,18 @@ self.set('age', age + 1)
 
 pxs.print(f'Current loop idx: {loop_id}')
 "#;
-
         let raw_code = create_raw_string!(code);
+        pxs_startthread();
+        setup_pxs();
         // Compile python code to object
         let code_object = pxs_compile(pixelscript::shared::pxs_Runtime::pxs_Python, raw_code, scope());
         unsafe{
             free_raw_string!(raw_code);
         }
+
+        // Print code object just to test
+        let code_object_str = own_string!(pxs_getstring(pxs_tostring(pxs_newint(1), pxs_listget(code_object, 1))));
+        println!("code object str: {code_object_str}");
 
         let loop_name = create_raw_string!("loop_id");  
         for i in 0..5 {
@@ -203,8 +208,12 @@ pxs.print("Current loop idx: " .. tostring(loop_id))
     fn run_test() {
         pxs_initialize();
 
+        pxs_startthread();
         // Setup module
         setup_pxs();
+        pxs_clearstate(true);
+        pxs_stopthread();
+        pxs_startthread();
 
         test_python();
         println!("===================== Chaning Languages =====================");

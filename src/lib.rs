@@ -911,7 +911,7 @@ pub extern "C" fn pxs_tostring(runtime_var: *mut pxs_Var, var: *mut pxs_Var) -> 
     if let Some(runtime) = runtime {
         let args = pxs_Var::new_list();
         let list = args.get_list().unwrap();
-        list.add_item(b_var.clone());
+        list.add_item(b_var.shallow_copy());
         let res = match runtime {
             pxs_Runtime::pxs_Lua => {
                 with_feature!("lua", { LuaScripting::call_method("tostring", list) }, {
