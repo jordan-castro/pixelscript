@@ -21,6 +21,7 @@
 - ~~Add properties to PixelObjects~~ **DONE**
 - Add anonyamous functions.
 - Use pxs_Map instead for Module variables.
+- Add `mutex` feature which allows for running thread code unlocked. 
 
 ## v0.6 STD and Tests
 - Remove lua hacks (io, os, what else?)
