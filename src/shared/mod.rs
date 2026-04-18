@@ -188,9 +188,11 @@ pub trait PixelScript {
     fn execute(code: &str, file_name: &str) -> Result<pxs_Var>;
     /// Evaluate a script in this runtime. Returns a pxs_Var.
     fn eval(code: &str) -> Result<pxs_Var>;
-    /// Allows the language to start a new thread. In this new thread all callbacks/objects/variables will be empty.
+    /// Some langauges (pocketpy) need to be explicitly told that a new thread is starting.
+    /// For most languages this is NOT needed.
     fn start_thread();
-    /// Tells the language that we just finished the most recent started thread.
+    /// Some languages (pocketpy) need to be expliclity told that a recent thread has stopped.
+    /// For most languages this is NOT needed.
     fn stop_thread();
     /// Clear the current threads state. Optionally calls garbage collector.
     fn clear_state(call_gc: bool);

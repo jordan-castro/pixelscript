@@ -1,14 +1,17 @@
-use parking_lot::ReentrantMutex;
+use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 use rquickjs::{Context, Runtime};
 
 use crate::shared::{PixelScript, var::ObjectMethods};
+
+mod var;
+mod func;
 
 /// JS specific State.
 struct State {
     /// The JS runtime.
     rt: Runtime,
     /// The `__main__` context. Each state DOES NOT get it's own context.
-    main_context: Context
+    main_context: Context,
 }
 
 thread_local! {
@@ -17,50 +20,32 @@ thread_local! {
 
 /// Initialize the JS state.
 fn init_state() -> State {
-    let runtime = Runtime::new().expect("Could not load JS Runtime");
-    // let ctx = runtime.
+    let runtime = Runtime::new().expect("JS Runtime could not be created.");
+    let context = Context::full(&runtime).expect("JS Context could not be created.");
+    
+    // TODO: setup pxs stuff.
 
-    State { rt: runtime }
-//     /// Initialize Lua state per thread.
-// fn init_state() -> State {
-//     // Define a global function in engine
-//     let engine = Lua::new();
+    State { rt: runtime, main_context: context }
+}
 
-//     let mut lua_globals = String::new();
-//     lua_globals.push_str(include_str!("../../core/lua/main.lua"));
-
-//     // with_feature!("pxs_utils", {
-//     //     // Load in the pxs_utils methods into GLOBAL scope.
-//     //     lua_globals.push_str(include_str!("../../core/lua/pxs_utils.lua"));
-//     // });
-
-//     with_feature!("pxs_json", {
-//         // Load dkjson module
-//         let _ = preload_lua_module(&engine, include_str!("../../libs/dkjson.lua"), "__dkjson__");
-//         // Load in the pxs_json module
-//         let _ = preload_lua_module(&engine, include_str!("../../core/lua/pxs_json.lua"), "pxs_json");
-//         // Import it globally
-//         lua_globals.push_str("\npxs_json = require('pxs_json')\n");
-//     });
-//     let _ = engine.load(lua_globals).set_name("<lua_globals>").exec();
-
-//     State {
-//         engine: engine,
-//         tables: RefCell::new(HashMap::new()),
-//     }
-// }
-
+fn get_js_state() -> ReentrantMutexGuard<'static, State> {
+    JSTATE.with(|mutex| {
+        let guard = mutex.lock();
+        // Transmute the lifetime so the guard can be passed around the thread
+        unsafe { std::mem::transmute(guard) }
+    })
 }
 
 pub struct JSScripting;
 
 impl PixelScript for JSScripting {
     fn start() {
-        todo!()
+        init_state();
     }
 
     fn stop() {
-        todo!()
+        let state = get_js_state();
+        state.rt.run_gc();
     }
 
     fn add_module(source: std::sync::Arc<crate::shared::module::pxs_Module>) {
@@ -76,15 +61,19 @@ impl PixelScript for JSScripting {
     }
 
     fn start_thread() {
-        todo!()
+        // Not needed for JS.
     }
 
     fn stop_thread() {
-        todo!()
+        // Not needed for JS.
     }
 
     fn clear_state(call_gc: bool) {
-        todo!()
+        let state = get_js_state();
+
+        if call_gc {
+            state.rt.run_gc();
+        }
     }
 
     fn compile(code: &str, global_scope: crate::shared::var::pxs_Var) -> anyhow::Result<crate::shared::var::pxs_Var> {
