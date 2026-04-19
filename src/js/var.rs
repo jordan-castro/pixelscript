@@ -1,13 +1,12 @@
 // Convert PXS vars to JS vars.
 // Convert JS vars to PXS vars.
 
-use std::ffi::c_void;
+use std::{ffi::c_void, ptr::NonNull};
 
-use rquickjs::{Ctx, IntoJs, Result, Value, qjs};
+use rquickjs::{Array, Ctx, Error, IntoJs, Object, Result, Value, qjs};
 
 use crate::shared::{
-    PtrMagic,
-    var::{pxs_Var, pxs_VarObject},
+    PtrMagic, pxs_Runtime, var::{pxs_Var, pxs_VarObject}
 };
 
 /// JS PXS Container.
@@ -20,6 +19,7 @@ struct JSPXSContaner {
 }
 
 impl JSPXSContaner {
+    /// Create a new JSPXSContainer from a Value.
     pub unsafe fn from_value(value: Value, is_object: bool) -> Self {
         let raw_ptr: qjs::JSValue = value.as_raw();
 
@@ -34,8 +34,26 @@ impl JSPXSContaner {
                 value: ptr,
                 is_object: is_object,
             }
+        }
+    }
 
-            // Ok(pxs_Var::new_object(pxs_VarObject::new_lang_only(container.into_raw() as *mut c_void), Some(js_deleter)))
+    /// Recreate the JSValue (qjs)
+    pub fn recreate(self: &Self) -> qjs::JSValue {
+        qjs::JSValue {
+            u: qjs::JSValueUnion {
+                ptr: self.value,
+            },
+            tag: qjs::JS_TAG_OBJECT as i64,
+        }
+    }
+
+    /// Send into a `rquickjs::Value`
+    pub fn into_value<'js>(self: &Self) -> Result<Value<'js>> {
+        unsafe {
+            let val = self.recreate();
+            let non_null_context = NonNull::new(self.context).unwrap();
+            let ctx = Ctx::from_raw(non_null_context);
+            Ok(Value::from_raw(ctx, val))
         }
     }
 }
@@ -53,12 +71,7 @@ unsafe extern "C" fn js_deleter(ptr: *mut c_void) {
 
     // construct the value to drop it
     unsafe {
-        let val = qjs::JSValue {
-            u: qjs::JSValueUnion {
-                ptr: container.value,
-            },
-            tag: qjs::JS_TAG_OBJECT as i64,
-        };
+        let val = container.recreate();
         // Free the value
         qjs::JS_FreeValue(container.context, val);
     }
@@ -131,16 +144,65 @@ pub(super) fn pxs_into_js<'js>(ctx: &Ctx<'js>, var: &pxs_Var) -> Result<Value<'j
         crate::shared::var::pxs_VarType::pxs_Null => Ok(Value::new_null(ctx.clone())),
         crate::shared::var::pxs_VarType::pxs_Object => {
             // Pass pointer back
-            let container = var.get_object_ptr();
-            if container.is_null() {
-                return Err(Value::n)
+            let container_ptr = var.get_object_ptr();
+            if container_ptr.is_null() {
+                // I want to return Exception("Object pointer not found.")
+                return Err(ctx.throw("Object pointer not found".into_js(ctx)?));
             }
+            let container = unsafe{JSPXSContaner::from_borrow_void(container_ptr)};
+
+            // Return a Value. (Do not perform duplication. Duplication is only performed from quick -> pxs not the other way around.)
+            container.into_value()
         },
         crate::shared::var::pxs_VarType::pxs_HostObject => todo!(),
-        crate::shared::var::pxs_VarType::pxs_List => todo!(),
-        crate::shared::var::pxs_VarType::pxs_Function => todo!(),
-        crate::shared::var::pxs_VarType::pxs_Factory => todo!(),
-        crate::shared::var::pxs_VarType::pxs_Exception => todo!(),
-        crate::shared::var::pxs_VarType::pxs_Map => todo!(),
+        crate::shared::var::pxs_VarType::pxs_List => {
+            let arr = Array::new(ctx.clone())?;
+
+            let vars = &var.get_list().unwrap().vars;
+            for i in 0..vars.len() {
+                // convert to JS value
+                let value = pxs_into_js(ctx, &vars[i])?;
+                arr.set(i, value);
+            }
+
+            Ok(arr.into_value())
+        },
+        crate::shared::var::pxs_VarType::pxs_Function => {
+            // What?
+            let container_ptr = var.get_function().unwrap();
+            if container_ptr.is_null() {
+                return Err(ctx.throw("Function pointer not found".into_js(ctx)?));
+            }
+            let container = unsafe{JSPXSContaner::from_borrow_void(container_ptr)};
+            container.into_value()
+        },
+        crate::shared::var::pxs_VarType::pxs_Factory => {
+            // Call and return
+            let factory = var.get_factory().unwrap();
+            let res = factory.call(pxs_Runtime::pxs_JavaScript);
+            // convert into js
+            pxs_into_js(ctx, &res)
+        },
+        crate::shared::var::pxs_VarType::pxs_Exception => {
+            Err(ctx.throw(var.get_string().unwrap().into_js(ctx)?))
+        },
+        crate::shared::var::pxs_VarType::pxs_Map => {
+            let object = Object::new(ctx.clone())?;
+            
+            let map = var.get_map().unwrap();
+            let keys = map.keys();
+
+            for k in keys {
+                let item = map.get_item(k);
+                if let Some(item) = item {
+                    let js_key = pxs_into_js(ctx, k)?;
+                    let js_val = pxs_into_js(ctx, item)?;
+
+                    object.set(js_key, js_val)?;
+                }
+            }
+            
+            Ok(object.into_value())
+        },
     }
 }

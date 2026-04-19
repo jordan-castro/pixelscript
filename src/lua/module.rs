@@ -41,7 +41,7 @@ fn create_module(context: &Lua, module: &pxs_Module) -> Result<LuaTable> {
 }
 
 /// Add a module to Lua!
-pub fn add_module(module: Arc<pxs_Module>) -> Result<()> {
+pub(super) fn add_module(module: Arc<pxs_Module>) -> Result<()> {
     // First get lua state
     let state = get_lua_state();
 

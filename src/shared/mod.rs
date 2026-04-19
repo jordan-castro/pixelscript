@@ -69,7 +69,8 @@ pub(crate) fn get_pixel_state() -> ReentrantMutexGuard<'static, PixelState> {
     mutex.lock()
 }
 
-/// Read a file
+/// Read a file using pxs api.
+/// This must be set by host anguage.
 pub fn read_file(file_path: &str) -> String {
     // Get state
     let state = get_pixel_state();
@@ -90,7 +91,8 @@ pub fn read_file(file_path: &str) -> String {
     res_owned
 }
 
-/// Write a file
+/// Write a file using pxs api.
+/// This must be set by host language.
 pub fn write_file(file_path: &str, contents: &str) {
     // Get state
     let state = get_pixel_state();
@@ -108,7 +110,8 @@ pub fn write_file(file_path: &str, contents: &str) {
     unsafe { cbk(c_file_path.as_ptr(), c_contents.as_ptr()) };
 }
 
-/// Read a Directory.
+/// Read a Directory using pxs api.
+/// This must be set by host language.
 pub fn read_file_dir(dir_path: &str) -> Vec<String> {
     let state = get_pixel_state();
     let cbk = state.read_dir.borrow();
@@ -262,7 +265,7 @@ impl pxs_Runtime {
     }
 
     /// Turns current runtime into a `pxs_Int64`
-    pub unsafe fn into_var(&self) -> pxs_Var {
+    pub fn into_var(&self) -> pxs_Var {
         let idx = self.into_i64();
         pxs_Var::new_i64(idx)
     }

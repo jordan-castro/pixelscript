@@ -1,0 +1,30 @@
+# script for running /tests
+# I def like '#' as comments
+
+from core import os, sys, io
+
+skipped_tests := sys.argv[1:]
+tests := os.listdir("tests")
+
+for t in tests
+    if skipped_tests.includes(t) 
+        continue
+    end
+
+    # Line 9
+    line := ""
+    file := "tests/$t"
+    if io.file_exists(file)
+        line = io.read_file(file).split("\n")[8]
+    end
+
+    if not line.starts_with('//')
+        continue
+    end
+
+    # cmd
+    cmd = line.split("// )[-1]
+    print(cmd)
+
+    os.system(cmd)
+end
