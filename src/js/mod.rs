@@ -1,9 +1,9 @@
 use std::{cell::RefCell, collections::HashMap, sync::Arc};
 
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
-use rquickjs::{Context, Ctx, Error, IntoJs, Module, Runtime, loader::{Loader, Resolver}};
+use rquickjs::{Context, Ctx, Error, IntoJs, Module, Runtime, Value, loader::{Loader, Resolver}};
 
-use crate::{js::{func::create_callback, var::pxs_into_js}, shared::{PixelScript, PtrMagic, module::pxs_Module, read_file, var::{ObjectMethods, pxs_Var}}};
+use crate::{js::{func::create_callback, var::{js_into_pxs, pxs_into_js}}, shared::{PixelScript, PtrMagic, module::pxs_Module, read_file, var::{ObjectMethods, pxs_Var}}};
 
 mod var;
 mod func;
@@ -134,7 +134,13 @@ impl PixelScript for JSScripting {
     }
 
     fn execute(code: &str, file_name: &str) -> anyhow::Result<crate::shared::var::pxs_Var> {
-        todo!()
+        let state = get_js_state();
+        let res = state.main_context.with(|ctx| -> rquickjs::Result<Value> {
+            let promise = ctx.eval_promise(code)?;
+            promise.finish()
+        })?;
+
+        js_into_pxs(res)
     }
 
     fn eval(code: &str) -> anyhow::Result<crate::shared::var::pxs_Var> {
