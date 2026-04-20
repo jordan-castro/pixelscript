@@ -5,9 +5,9 @@ use std::{ffi::c_void, ptr::NonNull};
 
 use rquickjs::{Array, Ctx, Error, IntoJs, Object, Result, Value, qjs};
 
-use crate::shared::{
+use crate::{pxs_debug, shared::{
     PtrMagic, pxs_Runtime, var::{pxs_Var, pxs_VarObject}
-};
+}};
 
 /// JS PXS Container.
 /// Holds the context that the Value is made from.
@@ -78,7 +78,7 @@ unsafe extern "C" fn js_deleter(ptr: *mut c_void) {
 }
 
 /// Convert a JS Value into a pxs_Var
-pub(super) fn js_into_pxs(value: Value) -> anyhow::Result<pxs_Var> {
+pub(super) fn js_into_pxs(value: Value) -> rquickjs::Result<pxs_Var> {
     if value.is_int() {
         Ok(pxs_Var::new_i64(value.as_int().unwrap_or_default().into()))
     } else if value.is_float() {

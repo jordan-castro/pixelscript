@@ -1,10 +1,9 @@
-use anyhow::{Result, anyhow};
 use rquickjs::{Ctx, Function, IntoJs, Value, prelude::Rest};
 
 use crate::{js::var::{js_into_pxs, pxs_into_js}, shared::{func::call_function, pxs_Runtime, var::pxs_Var}};
 
 /// Create a JS callback. Can be assigned to a module, object, etc.
-pub(super) fn create_callback<'js>(ctx: Ctx<'js>, fn_idx: i32) -> Result<Function<'js>> {
+pub(super) fn create_callback<'js>(ctx: Ctx<'js>, fn_idx: i32) -> rquickjs::Result<Function<'js>> {
     let func = Function::new(ctx.clone(), move |ctx: Ctx<'js>, args: Rest<Value>| -> rquickjs::Result<Value> {
         // Convert args -> pxs args
         let mut argv = vec![];

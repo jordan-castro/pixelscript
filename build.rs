@@ -108,6 +108,7 @@ fn build_pocketpy() {
     build.compile("pocketpy");
 }
 
+// TODO: remove this
 fn _find_gnu_include_path() -> Vec<String> {
     // Get current os
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();

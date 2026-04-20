@@ -931,6 +931,9 @@ pub extern "C" fn pxs_tostring(runtime_var: *mut pxs_Var, var: *mut pxs_Var) -> 
                     return pxs_Var::feature_not_enabled_ep("js").into_raw();
                 })
             },
+            pxs_Runtime::pxs_Wren => {
+                todo!()
+            }
         };
 
         if let Ok(res) = res {

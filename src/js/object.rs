@@ -1,11 +1,10 @@
 use std::sync::Arc;
 
-use anyhow::{Result, anyhow};
 use rquickjs::{Ctx, Function, IntoJs, Object, Value, prelude::Rest};
 
 use crate::{js::{func::create_callback, var::{js_into_pxs, pxs_into_js}}, shared::{func::call_function, object::{ObjectFlags, pxs_PixelObject}, pxs_Runtime, var::pxs_Var}};
 
-fn create_object_callback<'js>(ctx: Ctx<'js>, fn_idx: i32, flags: u8) -> Result<Function<'js>> {
+fn create_object_callback<'js>(ctx: Ctx<'js>, fn_idx: i32, flags: u8) -> rquickjs::Result<Function<'js>> {
     let func = Function::new(ctx.clone(), move |this: Object, args: Rest<Value>| -> rquickjs::Result<Value> {
         let mut argv = vec![];
         // Add runtime
@@ -41,14 +40,15 @@ fn create_object_callback<'js>(ctx: Ctx<'js>, fn_idx: i32, flags: u8) -> Result<
         }
     });
 
-    if func.is_err() {
-        Err(anyhow!("{:#?}", func.unwrap_err()))
-    } else {
-        Ok(func.unwrap())
-    }
+    func
+    // if func.is_err() {
+    //     Err(anyhow!("{:#?}", func.unwrap_err()))
+    // } else {
+    //     Ok(func.unwrap())
+    // }
 }
 
-pub(super) fn create_object<'js>(ctx: &Ctx<'js>, idx: i32, source: Arc<pxs_PixelObject>) -> Result<Value<'js>> {
+pub(super) fn create_object<'js>(ctx: &Ctx<'js>, idx: i32, source: Arc<pxs_PixelObject>) -> rquickjs::Result<Value<'js>> {
     let type_name = &source.type_name;
 
     // Constructor

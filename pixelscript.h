@@ -69,6 +69,7 @@ typedef enum pxs_Runtime {
    * ES 2020 using rquickjs
    */
   pxs_JavaScript = 2,
+  pxs_Wren = 3,
 } pxs_Runtime;
 
 /**

@@ -1,9 +1,10 @@
 use std::{cell::RefCell, collections::HashMap, sync::Arc};
 
+use anyhow::anyhow;
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 use rquickjs::{Context, Ctx, Error, IntoJs, Module, Runtime, Value, loader::{Loader, Resolver}};
 
-use crate::{js::{func::create_callback, var::{js_into_pxs, pxs_into_js}}, shared::{PixelScript, PtrMagic, module::pxs_Module, read_file, var::{ObjectMethods, pxs_Var}}};
+use crate::{js::{func::create_callback, var::{js_into_pxs, pxs_into_js}}, pxs_debug, shared::{PixelScript, PtrMagic, module::pxs_Module, read_file, var::{ObjectMethods, pxs_Var}}};
 
 mod var;
 mod func;
@@ -29,6 +30,7 @@ struct PassthroughResolver;
 
 impl Resolver for PassthroughResolver {
     fn resolve<'js>(&mut self, _ctx: &Ctx<'js>, _base: &str, name: &str) -> rquickjs::Result<String> {
+        pxs_debug!("{name}");
         // We ignore 'base' entirely. 
         // Whatever they typed is the unique ID for the module cache.
         Ok(name.to_string())
@@ -135,16 +137,36 @@ impl PixelScript for JSScripting {
 
     fn execute(code: &str, file_name: &str) -> anyhow::Result<crate::shared::var::pxs_Var> {
         let state = get_js_state();
-        let res = state.main_context.with(|ctx| -> rquickjs::Result<Value> {
-            let promise = ctx.eval_promise(code)?;
-            promise.finish()
+        let res = state.main_context.with(|ctx| -> anyhow::Result<pxs_Var> {
+            let promise = Module::evaluate(ctx.clone(), file_name, code)?;
+            let val: Value = promise.finish()?;
+            let pxs = js_into_pxs(val);
+            if pxs.is_err() {
+                Err(anyhow!("{}", pxs.unwrap_err().to_string()))
+            } else {
+                Ok(pxs.unwrap())
+            }
         })?;
-
-        js_into_pxs(res)
+        if res.is_exception() {
+            Ok(res)
+        } else {
+            Ok(pxs_Var::new_null())
+        }
     }
 
     fn eval(code: &str) -> anyhow::Result<crate::shared::var::pxs_Var> {
-        todo!()
+        let state = get_js_state();
+        let res = state.main_context.with(|ctx| -> anyhow::Result<pxs_Var> {
+            let promise = ctx.eval_promise(code)?;
+            let val: Value = promise.finish()?;
+            let pxs = js_into_pxs(val);
+            if pxs.is_err() {
+                Err(anyhow!("{}", pxs.unwrap_err().to_string()))
+            } else {
+                Ok(pxs.unwrap())
+            }
+        })?;
+        Ok(res)
     }
 
     fn start_thread() {
