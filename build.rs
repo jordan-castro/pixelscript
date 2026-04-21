@@ -69,7 +69,7 @@ fn build_ph7_bindings() {
 
 /// Build PocketPy library
 #[cfg(feature = "python")]
-fn build_pocketpy() {
+fn build_pocketpy(target_os: &str, target_env: &str) {
     let mut build = cc::Build::new();
     build.warnings(false);
 
@@ -82,14 +82,12 @@ fn build_pocketpy() {
     build.std("c11");
 
     // When MSVC, gotta set some stuff
-    let builder = std::env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
-    let compiler = build.get_compiler();
-    if builder == "msvc" {
+    if target_env == "msvc" {
         build.flag("/utf-8");
         build.flag("/experimental:c11atomics");
         // Compile as a static lib
         build.static_crt(true);
-    } else if compiler.is_like_gnu() {
+    } else {
         build.flag("-O3");
         build.flag("-fPIC");
     }
@@ -106,6 +104,28 @@ fn build_pocketpy() {
 
     // Now we can compile pocketpy.
     build.compile("pocketpy");
+}
+
+/// Build QuickJS-NG Library
+#[cfg(feature = "js")]
+fn build_quickjsng(target_os: &str, target_env: &str) {
+    let mut build = cc::Build::new();
+    build.warnings(false);
+    build.file("libs/quickjs-ng/quickjs-amalgam.c");
+    build.include("libs/quickjs-ng");
+    build.std("c11");
+
+    if target_env == "msvc" {
+        build.flag("/experimental:c11atomics");
+        build.static_crt(true);
+    } else {
+        build.flag("-fPIC");
+        build.flag("-funsigned-char");
+        build.flag("-fno-exceptions");
+        build.flag("-fno-asynchronous-unwind-tables");
+    }
+
+    build.compile("quickjs");
 }
 
 // TODO: remove this
@@ -183,8 +203,21 @@ fn build_pocketpy_bindings() {
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
     bindings
         .write_to_file(out_path.join("pocketpy_bindings.rs"))
-        .expect("Couldn't write bindings!");    
+        .expect("Couldn't write PocketPy bindings!");    
 } 
+
+/// Create QuickJS-NG Rust bindings
+#[cfg(feature = "js")]
+fn build_quickjsng_bindings() {
+    let bindings = bindgen::Builder::default()
+        .header("libs/quickjs-ng/quickjs.h")
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+        .generate()
+        .expect("Could not generate QuickJS-NG bindings");
+
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    bindings.write_to_file(out_path.join("quickjsng_bindings.rs")).expect("Couldn't write QuickJS-NG bindings!");
+}
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
@@ -192,13 +225,25 @@ fn main() {
     println!("cargo:rerun-if-changed=src/lib.rs");
     println!("cargo:rerun-if-changed=cbindgen.toml");
 
+    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
+    let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
+
     // Compile pocketpy
     #[cfg(feature = "python")] 
     {
-        build_pocketpy();
+        build_pocketpy(&target_os, &target_env);
         build_pocketpy_bindings();
         println!("cargo:rerun-if-changed=libs/pocketpy/pocketpy.c");
         println!("cargo:rerun-if-changed=libs/pocketpy/pocketpy.h");
+    }
+
+    // Compile quickjs-ng
+    #[cfg(feature = "js")]
+    {
+        build_quickjsng(&target_os, &target_env);
+        build_quickjsng_bindings();
+        println!("cargo:rerun-if-changed=libs/quickjs-ng/quickjs-amalgam.c");
+        println!("cargo:rerun-if-changed=libs/quickjs-ng/quickjs.h");
     }
 
     // Compile PH7

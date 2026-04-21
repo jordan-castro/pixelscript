@@ -1,0 +1,434 @@
+use anyhow::{Result, anyhow};
+
+use crate::{
+    borrow_string,
+    js::{
+        get_js_state,
+        quickjs::{
+            self, JS_IsArray, JS_IsError, JS_IsFunction, JS_TAG_BOOL, JS_TAG_EXCEPTION, JS_TAG_FLOAT64, JS_TAG_INT, JS_TAG_OBJECT, JS_TAG_STRING, JS_TAG_UNDEFINED
+        },
+    },
+    own_string,
+    shared::utils::CStringSafe,
+};
+
+/// Macro for writing out the JS_Is functions
+macro_rules! write_is_func {
+    ($($func:ident, $t:ident);*) => {
+        $(
+            #[doc = concat!("Check if Value tag is: ", stringify!($t))]
+            pub(super) fn $func(value: &quickjs::JSValue) -> bool {
+                (value.tag as i32) == quickjs::$t
+            }
+        )*
+    };
+}
+
+/// Macro for writing out the methods for SmartJSValue
+macro_rules! write_is_methods {
+    ($($func:ident);*) => {
+        $(
+            pub fn $func(&self) -> bool {
+                $func(&self.value)
+            }
+        )*
+    };
+}
+
+write_is_func! {
+    is_undefined, JS_TAG_UNDEFINED;
+    is_int, JS_TAG_INT;
+    is_string, JS_TAG_STRING;
+    is_float, JS_TAG_FLOAT64;
+    is_exception, JS_TAG_EXCEPTION;
+    is_bool, JS_TAG_BOOL;
+    is_object, JS_TAG_OBJECT
+}
+
+/// Smart JSValue
+pub(super) struct SmartJSValue {
+    /// The internal value.
+    pub value: quickjs::JSValue,
+    /// The context that owns the value.
+    pub context: *mut quickjs::JSContext,
+    /// Own the value (drop it once leave scope)
+    pub owned: bool,
+}
+
+impl SmartJSValue {
+    /// Create a new smart value.
+    pub fn new(value: quickjs::JSValue, context: *mut quickjs::JSContext, owned: bool) -> Self {
+        Self {
+            value,
+            context,
+            owned,
+        }
+    }
+
+    /// Create new unonwned value
+    pub fn new_borrow(value: quickjs::JSValue, context: *mut quickjs::JSContext) -> Self {
+        Self::new(value, context, false)
+    }
+
+    /// Create new owned
+    pub fn new_owned(value: quickjs::JSValue, context: *mut quickjs::JSContext) -> Self {
+        Self::new(value, context, true)
+    }
+
+    /// Create new undefined (OWNED)
+    pub fn new_undefined(context: *mut quickjs::JSContext) -> Self {
+        let v = quickjs::JSValue{
+            u: quickjs::JSValueUnion {
+                int32: 0
+            },
+            tag: quickjs::JS_TAG_UNDEFINED as i64,
+        };
+
+        Self::new_owned(v, context)
+    }
+
+    /// Create a new i32 (OWNED)
+    pub fn new_i32(context: *mut quickjs::JSContext, int: i32) -> Self {
+        let v = quickjs::JSValue {
+            u: quickjs::JSValueUnion {
+                int32: int
+            },
+            tag: quickjs::JS_TAG_INT as i64
+        };
+
+        Self::new_owned(v, context)
+    }
+
+    /// Create a new f64 (OWNED)
+    pub fn new_f64(context: *mut quickjs::JSContext, float: f64) -> Self {
+        let v = quickjs::JSValue {
+            u: quickjs::JSValueUnion {
+                float64: float
+            },
+            tag: quickjs::JS_TAG_FLOAT64 as i64
+        };
+
+        Self::new_owned(v, context)
+    }
+
+    /// Create a new boolean (owned)
+    pub fn new_bool(context: *mut quickjs::JSContext, val: bool) -> Self {
+        let v = quickjs::JSValue {
+            u: quickjs::JSValueUnion {
+                int32: val as i32
+            },
+            tag: quickjs::JS_TAG_BOOL as i64
+        };
+
+        Self::new_owned(v, context)
+    }
+
+    /// Create a new string (owned)
+    pub fn new_string(context: *mut quickjs::JSContext, val: String) -> Self {
+        let mut cstrgen = CStringSafe::new();
+        unsafe {
+            let source = cstrgen.new_string(&val);
+            let v = quickjs::JS_NewStringLen(context, source, val.len());
+
+            Self::new_owned(v, context)
+        }
+    }
+
+    /// Create a new Array (owned)
+    pub fn new_array(context: *mut quickjs::JSContext) -> Self {
+        unsafe {
+            let arr = quickjs::JS_NewArray(context);
+            Self::new_owned(arr, context)
+        }
+    }
+
+    /// Create a new null (owned)
+    pub fn new_null(context: *mut quickjs::JSContext) -> Self {
+        let v = quickjs::JSValue {
+            u: quickjs::JSValueUnion {
+                int32: 0
+            },
+            tag: quickjs::JS_TAG_NULL as i64
+        };
+
+        Self::new_owned(v, context)
+    }
+
+    /// Create a new object (owned)
+    pub fn new_object(context: *mut quickjs::JSContext) -> Self {
+        unsafe {
+            let val = quickjs::JS_NewObject(context);
+            Self::new_owned(val, context)
+        }
+    }
+
+    /// Create a new exception (owned)
+    pub fn new_exception(context: *mut quickjs::JSContext, message: String, name: String) -> Self {
+        let value = SmartJSValue::new_owned(unsafe {
+            quickjs::JS_NewError(context)
+        }, context);
+        let message_val = SmartJSValue::new_string(context, message);
+        let name_val = SmartJSValue::new_string(context, name);
+        value.set_prop("name", &name_val);
+        value.set_prop("message", &message_val);
+
+        return value;
+    }
+
+    #[allow(non_snake_case)]
+    /// Get globalThis
+    pub fn globalThis(context: *mut quickjs::JSContext) -> Self {
+        unsafe {
+            let global_this = quickjs::JS_GetGlobalObject(context);
+            Self::new_owned(global_this, context)
+        }
+    }
+
+    /// Copy
+    pub fn copy(&self) -> Self {
+        Self {
+            value: self.value,
+            context: self.context,
+            owned: false,
+        }
+    }
+
+    write_is_methods! {
+        is_string;
+        is_undefined;
+        is_float;
+        is_int;
+        is_exception;
+        is_bool;
+        is_object
+    }
+
+    /// Check is number
+    pub fn is_number(&self) -> bool {
+        self.is_int() || self.is_float()
+    }
+
+    /// Check is error
+    pub fn is_error(&self) -> bool {
+        unsafe { JS_IsError(self.value) }
+    }
+
+    /// Check is function
+    pub fn is_function(&self) -> bool {
+        unsafe { JS_IsFunction(self.context, self.value) }
+    }
+
+    /// Check is array
+    pub fn is_array(&self) -> bool {
+        unsafe { JS_IsArray(self.value) }
+    }
+
+    /// Get As String (only works on strings)
+    pub fn as_string(&self) -> Result<String> {
+        if !self.is_string() {
+            return Err(anyhow!("JSValue is not a string"));
+        }
+
+        unsafe {
+            let cstring =
+                quickjs::JS_ToCStringLen2(self.context, std::ptr::null_mut(), self.value, false);
+            if cstring.is_null() {
+                Err(anyhow!("String result is NULL"))
+            } else {
+                let val = borrow_string!(cstring).to_string();
+                quickjs::JS_FreeCString(self.context, cstring);
+                Ok(val)
+            }
+        }
+    }
+
+    /// Get as i32 (only works on numbers)
+    pub fn as_i32(&self) -> Result<i32> {
+        if !self.is_number() {
+            return Err(anyhow!("JSValue is not a i32"));
+        }
+
+        unsafe {
+            let mut int32 = -1;
+            quickjs::JS_ToInt32(self.context, &mut int32, self.value);
+            Ok(int32)
+        }
+    }
+
+    /// Get as f64 (only works on numbers)
+    pub fn as_f64(&self) -> Result<f64> {
+        if !self.is_number() {
+            return Err(anyhow!("JSValue is not a f64"));
+        }
+        
+        unsafe {
+            let mut float = -1.0f64;
+            quickjs::JS_ToFloat64(self.context, &mut float, self.value);
+            Ok(float)
+        }
+    }
+
+    /// Get as bool
+    pub fn as_bool(&self) -> bool {
+        unsafe {
+            let i = quickjs::JS_ToBool(self.context, self.value);
+            i == 1
+        }
+    }
+
+    /// Get a property off a Value.
+    pub fn get_prop<T: ToString>(&self, key: T) -> Self {
+        unsafe {
+            let mut cstrgen = CStringSafe::new();
+            let prop = quickjs::JS_GetPropertyStr(
+                self.context,
+                self.value,
+                cstrgen.new_string(&key.to_string()),
+            );
+            Self::new_owned(prop, self.context)
+        }
+    }
+
+    /// Get a property off a Value.
+    pub fn get_prop_pos(&self, key: u32) -> Self {
+        unsafe {
+            let prop = quickjs::JS_GetPropertyUint32(self.context, self.value, key);
+            Self::new_owned(prop, self.context)
+        }
+    }
+
+    /// Set a property
+    pub fn set_prop<T: ToString>(&self, key: T, value: &SmartJSValue) {
+        unsafe {
+            let mut cstrgen = CStringSafe::new();
+            quickjs::JS_SetPropertyStr(
+                self.context,
+                self.value,
+                cstrgen.new_string(&key.to_string()),
+                value.value,
+            );
+        }
+    }
+
+    /// Set a property
+    pub fn set_prop_pos(&self, key: u32, value: &SmartJSValue) {
+        unsafe {
+            quickjs::JS_SetPropertyUint32(self.context, self.value, key, value.value);
+        }
+    }
+
+    /// Set a property
+    pub fn set_prop_value(&self, key: &SmartJSValue, value: &SmartJSValue) {
+        unsafe {
+            let atom = quickjs::JS_ValueToAtom(self.context, key.value);
+            quickjs::JS_SetProperty(self.context, self.value, atom, value.value);
+            quickjs::JS_FreeAtom(self.context, atom);
+        }
+    }
+
+    /// Remove a property
+    pub fn del_prop(&self, prop: &SmartJSValue) {
+        unsafe {
+            let atom = quickjs::JS_ValueToAtom(self.context, prop.value);
+            quickjs::JS_DeleteProperty(self.context, self.value, atom, 0);
+            quickjs::JS_FreeAtom(self.context, atom);
+        }
+    }
+
+    /// Get a Error/Exception
+    pub fn get_error_exception(&self) -> Option<String> {
+        if !self.is_error() && !self.is_exception() {
+            return None;
+        }
+
+        unsafe {
+            if self.is_exception() {
+                let exce = Self::new_owned(quickjs::JS_GetException(self.context), self.context);
+                Some(exce.to_string())
+            } else if self.is_error() {
+                let message = self.get_prop("message");
+                let name = self.get_prop("name");
+
+                // Result
+                let res = format!(
+                    "Exception: {}, with message: {}",
+                    name.to_string(),
+                    message.to_string()
+                );
+                Some(res)
+            } else {
+                None
+            }
+        }
+    }
+
+    /// ToString
+    pub fn to_string(&self) -> String {
+        // already string
+        if self.is_string() {
+            return self.as_string().unwrap();
+        }
+
+        unsafe {
+            // Convert
+            let val = SmartJSValue::new_owned(
+                quickjs::JS_ToString(self.context, self.value),
+                self.context,
+            );
+
+            if val.is_error() || val.is_exception() {
+                return self.get_error_exception().unwrap();
+            }
+
+            val.to_string()
+        }
+    }
+
+    /// Call a function on this value.
+    ///
+    /// Returns OWNED value.
+    pub fn call<T: ToString>(&self, name: T, args: &Vec<SmartJSValue>) -> SmartJSValue {
+        let mut js_args = vec![];
+        for i in args.iter() {
+            js_args.push(i.value);
+        }
+        let argv = js_args.as_mut_ptr();
+        unsafe {
+            let function = self.get_prop(name);
+            let result = SmartJSValue::new_owned(
+                quickjs::JS_Call(self.context, function.value, self.value, args.len().try_into().unwrap(), argv),
+                self.context,
+            );
+            result
+        }
+    }
+    // let result = quickjs::JS_Call(state.context, new_register_func, pxs_register, 1, argv.0);
+}
+
+impl Clone for SmartJSValue {
+    fn clone(&self) -> Self {
+        // Duplicate the value
+        unsafe {
+            let dupped = quickjs::JS_DupValue(self.context, self.value);
+            Self {
+                value: dupped,
+                context: self.context,
+                owned: true,
+            }
+        }
+    }
+}
+
+impl Drop for SmartJSValue {
+    fn drop(&mut self) {
+        // Dont free when owned.
+        if !self.owned || self.context.is_null() {
+            return;
+        }
+        // Free
+        unsafe {
+            quickjs::JS_FreeValue(self.context, self.value);
+            self.context = std::ptr::null_mut();
+        }
+    }
+}
