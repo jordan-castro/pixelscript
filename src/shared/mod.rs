@@ -273,3 +273,6 @@ impl pxs_Runtime {
         pxs_Var::new_i64(idx)
     }
 }
+
+/// PXS PTR name string
+pub const PXS_PTR_NAME: &str = "_pxs_ptr";

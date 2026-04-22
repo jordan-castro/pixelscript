@@ -1,11 +1,11 @@
 // Convert PXS vars to JS vars.
 // Convert JS vars to PXS vars.
 
-use std::ffi::c_void;
+use std::{ffi::c_void, sync::Arc};
 use anyhow::{Result, anyhow};
 
-use crate::{js::{SmartJSValue, quickjs, register_add_object, register_del_object, register_get_object}, pxs_debug, shared::{
-    PtrMagic, pxs_Runtime, var::{pxs_Var, pxs_VarObject}
+use crate::{js::{SmartJSValue, object::create_object, quickjs, register_add_object, register_del_object, register_get_object}, pxs_debug, shared::{
+    PtrMagic, object::get_object, pxs_Runtime, var::{pxs_Var, pxs_VarObject}
 }};
 
 /// JS PXS Container.
@@ -13,7 +13,6 @@ use crate::{js::{SmartJSValue, quickjs, register_add_object, register_del_object
 struct JSPXSContainer {
     /// The value (idx)
     ptr: i32,
-    context: *mut quickjs::JSContext
 }
 
 impl JSPXSContainer {
@@ -21,9 +20,9 @@ impl JSPXSContainer {
     pub fn from_value(value: SmartJSValue) -> Self {
         let ptr = register_add_object(value.clone());
         if ptr.is_err() {
-            JSPXSContainer { ptr: -1, context: value.context }
+            JSPXSContainer { ptr: -1 }
         } else {
-            JSPXSContainer { ptr: ptr.unwrap(), context: value.context }
+            JSPXSContainer { ptr: ptr.unwrap() }
         }
     }
 
@@ -124,7 +123,23 @@ pub(super) fn pxs_into_js(context: *mut quickjs::JSContext, var: &pxs_Var) -> Re
             // Return a Value. (Do not perform duplication. Duplication is only performed from quick -> pxs not the other way around.)
             container.get_value()
         },
-        crate::shared::var::pxs_VarType::pxs_HostObject => todo!(),
+        crate::shared::var::pxs_VarType::pxs_HostObject => {
+            let idx = var.get_host_idx();
+            let po = get_object(idx).unwrap();
+            let lang_ptr_is_null = po.lang_ptr.lock().unwrap().is_null();
+            if lang_ptr_is_null {
+                // Create new object
+                let obj = create_object(context, idx, Arc::clone(&po));
+                // Box it
+                let boxed = Box::into_raw(Box::new(obj)); 
+                po.update_lang_ptr(boxed as *mut c_void);
+            }
+            // Get smart value and return raw value...
+            let lang_ptr = po.lang_ptr.lock().unwrap();
+            let smart_value = *lang_ptr as *const SmartJSValue;
+            let value = unsafe{ (&*smart_value).copy() };
+            Ok(value)
+        },
         crate::shared::var::pxs_VarType::pxs_List => {
             let arr = SmartJSValue::new_array(context);
             let vars = &var.get_list().unwrap().vars;

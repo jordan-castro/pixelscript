@@ -69,7 +69,7 @@ fn build_ph7_bindings() {
 
 /// Build PocketPy library
 #[cfg(feature = "python")]
-fn build_pocketpy(target_os: &str, target_env: &str) {
+fn build_pocketpy(_target_os: &str, target_env: &str) {
     let mut build = cc::Build::new();
     build.warnings(false);
 
@@ -108,7 +108,7 @@ fn build_pocketpy(target_os: &str, target_env: &str) {
 
 /// Build QuickJS-NG Library
 #[cfg(feature = "js")]
-fn build_quickjsng(target_os: &str, target_env: &str) {
+fn build_quickjsng(_target_os: &str, target_env: &str) {
     let mut build = cc::Build::new();
     build.warnings(false);
     build.file("libs/quickjs-ng/quickjs-amalgam.c");

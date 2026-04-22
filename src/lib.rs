@@ -1429,7 +1429,7 @@ pub extern "C" fn pxs_compile(
 
     // Add the runtime to the object.
     let list = res.get_list().unwrap();
-    list.insert_item(0, unsafe { runtime.into_var() });
+    list.insert_item(0, runtime.into_var());
 
     res.into_raw()
 }

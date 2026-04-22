@@ -3,12 +3,10 @@ use anyhow::{Result, anyhow};
 use crate::{
     borrow_string,
     js::{
-        get_js_state,
         quickjs::{
-            self, JS_IsArray, JS_IsError, JS_IsFunction, JS_TAG_BOOL, JS_TAG_EXCEPTION, JS_TAG_FLOAT64, JS_TAG_INT, JS_TAG_OBJECT, JS_TAG_STRING, JS_TAG_UNDEFINED
+            self, JS_IsArray, JS_IsError, JS_IsFunction
         },
     },
-    own_string,
     shared::utils::CStringSafe,
 };
 
@@ -175,6 +173,11 @@ impl SmartJSValue {
         return value;
     }
 
+    /// Create a new object Prototype. Assuming THIS is a prototype. (OWNED)
+    pub fn new_object_proto(&self) -> Self {
+        SmartJSValue::new_owned(unsafe{quickjs::JS_NewObjectProto(self.context, self.value)}, self.context)
+    }
+
     #[allow(non_snake_case)]
     /// Get globalThis
     pub fn globalThis(context: *mut quickjs::JSContext) -> Self {
@@ -193,6 +196,18 @@ impl SmartJSValue {
         }
     }
 
+    /// Get the value duplicated.
+    pub fn dupped_value(&self) -> quickjs::JSValue {
+        unsafe {
+            quickjs::JS_DupValue(self.context, self.value)
+        }
+    }
+
+    /// Dont drop this Smart value
+    pub fn dont_drop(&mut self) {
+        self.owned = false;
+    }
+    
     write_is_methods! {
         is_string;
         is_undefined;
@@ -335,6 +350,13 @@ impl SmartJSValue {
         }
     }
 
+    /// Set Prototype
+    pub fn set_proto(&self, proto: &SmartJSValue) {
+        unsafe {
+            quickjs::JS_SetPrototype(self.context, self.value, proto.value);
+        }
+    }
+
     /// Get a Error/Exception
     pub fn get_error_exception(&self) -> Option<String> {
         if !self.is_error() && !self.is_exception() {
@@ -395,6 +417,9 @@ impl SmartJSValue {
         let argv = js_args.as_mut_ptr();
         unsafe {
             let function = self.get_prop(name);
+            if !function.is_function() {
+                return SmartJSValue::new_exception(self.context, "Not a function".to_string(), "CallFunctionException".to_string());
+            }
             let result = SmartJSValue::new_owned(
                 quickjs::JS_Call(self.context, function.value, self.value, args.len().try_into().unwrap(), argv),
                 self.context,
@@ -402,7 +427,31 @@ impl SmartJSValue {
             result
         }
     }
-    // let result = quickjs::JS_Call(state.context, new_register_func, pxs_register, 1, argv.0);
+    
+    /// Call this value as a function.
+    /// 
+    /// Returns OWNED value.
+    pub fn call_as_source(&self, args: &Vec<SmartJSValue>) -> SmartJSValue {
+        if !self.is_function() {
+            return SmartJSValue::new_exception(self.context, "Not a function".to_string(), "CallFunctionException".to_string());
+        }
+        
+        // TODO: do we need to use global_this here?
+        let global_this = SmartJSValue::globalThis(self.context);
+
+        let mut js_args = vec![];
+        for i in args.iter() {
+            js_args.push(i.value);
+        }
+        let argv = js_args.as_mut_ptr();
+        unsafe {
+            let result = SmartJSValue::new_owned(
+                quickjs::JS_Call(self.context, self.value, global_this.value, args.len().try_into().unwrap(), argv),
+                self.context,
+            );
+            result
+        }
+    }
 }
 
 impl Clone for SmartJSValue {
