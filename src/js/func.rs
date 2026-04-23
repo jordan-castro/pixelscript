@@ -123,10 +123,9 @@ unsafe extern "C" fn method_trampoline(
 
 /// Create a JS callback that gets attached to a module.
 pub(super) fn create_callback(ctx: *mut quickjs::JSContext, fn_idx: i32) -> SmartJSValue {
-    let mut idx_wrapper = SmartJSValue::new_i32(ctx, fn_idx);
-    idx_wrapper.owned = false;
+    let idx_wrapper = SmartJSValue::new_i32(ctx, fn_idx);
     let func_data = vec![
-        idx_wrapper.value
+        idx_wrapper.dupped_value()
     ];
     let func_data_ptr = func_data.into_raw_parts();
     let function = unsafe {

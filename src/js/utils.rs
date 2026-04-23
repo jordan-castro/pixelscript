@@ -201,11 +201,7 @@ impl SmartJSValue {
 
     /// Copy
     pub fn copy(&self) -> Self {
-        Self {
-            value: self.value,
-            context: self.context,
-            owned: false,
-        }
+        Self::new_borrow(self.value, self.context)
     }
 
     /// Get the value duplicated.
@@ -476,11 +472,7 @@ impl SmartJSValue {
 impl Clone for SmartJSValue {
     fn clone(&self) -> Self {
         // Duplicate the value
-        Self {
-            value: self.dupped_value(),
-            context: self.context,
-            owned: true,
-        }
+        Self::new_owned(self.dupped_value(), self.context)
     }
 }
 

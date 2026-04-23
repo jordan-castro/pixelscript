@@ -18,7 +18,7 @@ struct JSPXSContainer {
 impl JSPXSContainer {
     /// Create a new JSPXSContainer from a Value.
     pub fn from_value(value: SmartJSValue) -> Self {
-        let ptr = register_add_object(value.clone());
+        let ptr = register_add_object(value);
         if ptr.is_err() {
             JSPXSContainer { ptr: -1 }
         } else {
@@ -55,7 +55,7 @@ unsafe extern "C" fn js_deleter(ptr: *mut c_void) {
 
 /// Convert a JS Value into a pxs_Var
 pub(super) fn js_into_pxs(value: &SmartJSValue) -> Result<pxs_Var> {
-    let value = value.clone();
+    // let value = value.clone();
     if value.is_int() {
         Ok(pxs_Var::new_i64(value.as_i32()? as i64))
     } else if value.is_float() {
