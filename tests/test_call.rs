@@ -6,13 +6,13 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_call --no-default-features --features "lua,python,pxs-debug,include-core" -- --nocapture --test-threads=1
+// cargo test --test test_call --no-default-features --features "lua,python,js,pxs-debug,include-core" -- --nocapture --test-threads=1
 
 #[allow(unused)]
 #[cfg(test)]
 mod tests {
     use pixelscript::{
-        create_raw_string, free_raw_string, own_string, own_var, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_exec, pxs_finalize, pxs_freevar, pxs_getint, pxs_initialize, pxs_listadd, pxs_listget, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, shared::{pxs_Runtime, var::pxs_VarT, var::pxs_Var, PtrMagic}
+        create_raw_string, free_raw_string, own_string, own_var, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_exec, pxs_finalize, pxs_freevar, pxs_getint, pxs_initialize, pxs_listadd, pxs_listget, pxs_newexception, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, shared::{PtrMagic, pxs_Runtime, utils::CStringSafe, var::{pxs_Var, pxs_VarT}}
     };
 
     extern "C" fn anything(args: pxs_VarT) -> pxs_VarT {
@@ -22,7 +22,15 @@ mod tests {
         pxs_listadd(iargs, pxs_newint(2));
         let res = pxs_call(pxs_listget(args, 0), mn, iargs);
         println!("{}", own_string!(pxs_debugvar(res)));
-        assert!(pxs_getint(res) == 3, "We could not run the add function");
+        if pxs_getint(res) != 3 {
+            pxs_freevar(res);
+            unsafe{
+                free_raw_string!(mn);
+            }
+            let mut cstrgen = CStringSafe::new();
+            return pxs_newexception(cstrgen.new_string("ANSWER IS NOT 3!"));
+        }
+        // assert!(pxs_getint(res) == 3, "We could not run the add function");
         pxs_freevar(res);
         unsafe {free_raw_string!(mn); }
         return pxs_newnull();
@@ -69,6 +77,28 @@ free_raw_string!(file_name);
 
     }
 
+    fn test_js() {
+        let script = create_raw_string!(r#"
+import * as pxs from 'pxs';
+function add(n1, n2) {
+    return n1 + n2;
+}
+
+pxs.anything(1,2);
+"#);
+        let file_name = create_raw_string!("<test>");
+
+        let err = own_var!(pxs_exec(pxs_Runtime::pxs_JavaScript, script, file_name));
+
+        unsafe{
+    free_raw_string!(script);
+    free_raw_string!(file_name);
+        };
+
+        assert!(err.is_null(), "Error is not empty: {}", err.get_string().unwrap());
+
+    }
+
     #[test]
     fn test_call() {
         pxs_initialize();
@@ -86,6 +116,7 @@ free_raw_string!(file_name);
 
         test_python();
         test_lua();
+        test_js();
 
         pxs_finalize();
     }

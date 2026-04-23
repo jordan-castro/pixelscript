@@ -1,5 +1,3 @@
-use anyhow::{Result, anyhow};
-
 use crate::{
     js::{
         SmartJSValue, quickjs,

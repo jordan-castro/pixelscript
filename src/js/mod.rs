@@ -43,7 +43,7 @@ struct State {
     /// Module defined functions takes a map[module_name] => map[int] => function
     module_functions: RefCell<HashMap<String, Vec<JSModuleMethod>>>,
     /// JSModules
-    modules: RefCell<HashMap<String, *mut quickjs::JSModuleDef>>
+    modules: RefCell<HashMap<String, *mut quickjs::JSModuleDef>>,
 }
 
 impl Drop for State {
@@ -186,7 +186,14 @@ fn run_js(code: &str, file_name: &str, eval_type: i32) -> SmartJSValue {
     let state = get_js_state();
     unsafe {
         let val = quickjs::JS_Eval(state.context, cstrsafe.new_string(code), code.len(), cstrsafe.new_string(file_name), eval_type);
-        SmartJSValue::new_owned(val, state.context)        
+
+        // Check for exception
+        // let exception = SmartJSValue::current_exception(state.context);
+        // if exception.is_undefined() {
+            SmartJSValue::new_owned(val, state.context)        
+        // } else {
+        //     exception
+        // }
     }
 }
 
@@ -273,14 +280,10 @@ impl PixelScript for JSScripting {
         let result = pxs_Var::new_list();
         let list = result.get_list().unwrap();
 
-        let global_object = SmartJSValue::
-        // if !global_scope.is_null() {
-        //     // Add global scope
-        //     add_map_to_global_this(global_scope.get_map().unwrap(), &obj)?;
-        // }
-
         // Code object
         list.add_item(js_into_pxs(&obj)?);
+        // Global object
+        list.add_item(global_scope);
 
         Ok(result)
     }
@@ -289,15 +292,36 @@ impl PixelScript for JSScripting {
         code: crate::shared::var::pxs_Var,
         local_scope: crate::shared::var::pxs_Var,
     ) -> anyhow::Result<crate::shared::var::pxs_Var> {
+        let state = get_js_state();
         let list = code.get_list().unwrap();
-        let obj = list.get_item(1).unwrap();
-        // Add global scope to globalThis
+        let obj = pxs_into_js(state.context, list.get_item(1).unwrap())?;
+        // Add globalThis
+        let global_this = SmartJSValue::globalThis(state.context);
+        let global_scope = list.get_item(2).unwrap();
+
+        if !global_scope.is_null() {
+            add_map_to_global_this(global_scope.get_map().unwrap(), &global_this)?;
+        }
+
         if !local_scope.is_null() {
-            add_map_to_global_this(local_scope.get_map().unwrap(), &obj)?;
+            add_map_to_global_this(local_scope.get_map().unwrap(), &global_this)?;
         }
 
         // Execute this dude
+        let res = SmartJSValue::new_owned(unsafe {
+            quickjs::JS_EvalFunction(state.context, obj.dupped_value())
+        }, state.context);
 
+        // Remove from globalThis
+        remove_map_from_global_this(global_scope.get_map().unwrap(), &global_this)?;
+        if !local_scope.is_null() {
+            remove_map_from_global_this(local_scope.get_map().unwrap(), &global_this)?;
+        }
+        if res.is_exception() {
+            Ok(pxs_Var::new_exception(res.get_error_exception().unwrap()))
+        } else {
+            js_into_pxs(&res)
+        }
     }
 }
 
@@ -331,9 +355,17 @@ impl ObjectMethods for JSScripting {
         for arg in args.vars.iter() {
             argv.push(pxs_into_js(state.context, arg)?);
         }
-        
-        let func = global_this.call(method, &argv);
-        js_into_pxs(&func)
+
+        // Look for method in global_this or eval
+        let cbk = global_this.get_prop(method);
+
+        if !cbk.is_function() {
+            // js_into_pxs(&cbk)
+            Ok(pxs_Var::new_exception(format!("{method} is not a Function")))
+        } else {
+            let res = cbk.call_as_source(&argv);
+            js_into_pxs(&res)
+        }
     }
 
     fn var_call(
@@ -378,7 +410,12 @@ impl ObjectMethods for JSScripting {
     fn get_from_name(name: &str) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
         let state = get_js_state();
         let global_this = SmartJSValue::globalThis(state.context);
-        let res = global_this.get_prop(name);
+        let res = {
+            let pos = global_this.get_prop(name);
+            if !pos.is_undefined() {pos} else {
+                run_js(name, "<get_from_name_eval>", quickjs::JS_EVAL_TYPE_GLOBAL as i32)
+            }
+        };
         js_into_pxs(&res)
     }
 }

@@ -173,10 +173,10 @@ impl SmartJSValue {
         return value;
     }
 
-    /// Create a new object Prototype. Assuming THIS is a prototype. (OWNED)
-    pub fn new_object_proto(&self) -> Self {
-        SmartJSValue::new_owned(unsafe{quickjs::JS_NewObjectProto(self.context, self.value)}, self.context)
-    }
+    // /// Create a new object Prototype. Assuming THIS is a prototype. (OWNED)
+    // pub fn new_object_proto(&self) -> Self {
+    //     SmartJSValue::new_owned(unsafe{quickjs::JS_NewObjectProto(self.context, self.value)}, self.context)
+    // }
 
     #[allow(non_snake_case)]
     /// Get globalThis
@@ -184,6 +184,18 @@ impl SmartJSValue {
         unsafe {
             let global_this = quickjs::JS_GetGlobalObject(context);
             Self::new_owned(global_this, context)
+        }
+    }
+
+    #[allow(unused)]
+    /// Get current exception
+    pub fn current_exception(context: *mut quickjs::JSContext) -> Self {
+        unsafe {
+            if quickjs::JS_HasException(context) {
+                Self::new_owned(quickjs::JS_GetException(context), context)
+            } else {
+                Self::new_undefined(context)
+            }
         }
     }
 
@@ -203,10 +215,10 @@ impl SmartJSValue {
         }
     }
 
-    /// Dont drop this Smart value
-    pub fn dont_drop(&mut self) {
-        self.owned = false;
-    }
+    // /// Dont drop this Smart value
+    // pub fn dont_drop(&mut self) {
+    //     self.owned = false;
+    // }
     
     write_is_methods! {
         is_string;
@@ -366,7 +378,7 @@ impl SmartJSValue {
         unsafe {
             if self.is_exception() {
                 let exce = Self::new_owned(quickjs::JS_GetException(self.context), self.context);
-                Some(exce.to_string())
+                Some(exce.to_string_direct())
             } else if self.is_error() {
                 let message = self.get_prop("message");
                 let name = self.get_prop("name");
@@ -374,13 +386,22 @@ impl SmartJSValue {
                 // Result
                 let res = format!(
                     "Exception: {}, with message: {}",
-                    name.to_string(),
-                    message.to_string()
+                    name.as_string().unwrap_or("Error".to_string()),
+                    message.as_string().unwrap_or("Unkown Error Message".to_string())
                 );
+
                 Some(res)
             } else {
                 None
             }
+        }
+    }
+
+    /// ToStringDirect (no checks)
+    pub fn to_string_direct(&self) -> String {
+        unsafe {
+            let val = SmartJSValue::new_owned(quickjs::JS_ToString(self.context, self.value), self.context);
+            val.as_string().unwrap_or("ERROR".to_string())
         }
     }
 
@@ -402,7 +423,7 @@ impl SmartJSValue {
                 return self.get_error_exception().unwrap();
             }
 
-            val.to_string()
+            val.as_string().unwrap_or("[Invalid String]".to_string())
         }
     }
 
@@ -436,17 +457,15 @@ impl SmartJSValue {
             return SmartJSValue::new_exception(self.context, "Not a function".to_string(), "CallFunctionException".to_string());
         }
         
-        // TODO: do we need to use global_this here?
-        let global_this = SmartJSValue::globalThis(self.context);
-
         let mut js_args = vec![];
         for i in args.iter() {
             js_args.push(i.value);
         }
         let argv = js_args.as_mut_ptr();
         unsafe {
+            let undefined = SmartJSValue::new_undefined(self.context);
             let result = SmartJSValue::new_owned(
-                quickjs::JS_Call(self.context, self.value, global_this.value, args.len().try_into().unwrap(), argv),
+                quickjs::JS_Call(self.context, self.value, undefined.value, args.len().try_into().unwrap(), argv),
                 self.context,
             );
             result
@@ -457,13 +476,10 @@ impl SmartJSValue {
 impl Clone for SmartJSValue {
     fn clone(&self) -> Self {
         // Duplicate the value
-        unsafe {
-            let dupped = quickjs::JS_DupValue(self.context, self.value);
-            Self {
-                value: dupped,
-                context: self.context,
-                owned: true,
-            }
+        Self {
+            value: self.dupped_value(),
+            context: self.context,
+            owned: true,
         }
     }
 }

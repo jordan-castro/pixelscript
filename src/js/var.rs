@@ -55,6 +55,7 @@ unsafe extern "C" fn js_deleter(ptr: *mut c_void) {
 
 /// Convert a JS Value into a pxs_Var
 pub(super) fn js_into_pxs(value: &SmartJSValue) -> Result<pxs_Var> {
+    let value = value.clone();
     if value.is_int() {
         Ok(pxs_Var::new_i64(value.as_i32()? as i64))
     } else if value.is_float() {
@@ -104,12 +105,12 @@ pub(super) fn js_into_pxs(value: &SmartJSValue) -> Result<pxs_Var> {
 /// Convert a `pxs_Var` into a JS Value.
 pub(super) fn pxs_into_js(context: *mut quickjs::JSContext, var: &pxs_Var) -> Result<SmartJSValue> {
     match var.tag {
-        crate::shared::var::pxs_VarType::pxs_Int64 => Ok(SmartJSValue::new_i32(context, var.get_i64().unwrap() as i32)),
+        crate::shared::var::pxs_VarType::pxs_Int64 => Ok(SmartJSValue::new_i32(context, var.get_i64()? as i32)),
         // TODO: support UInt
-        crate::shared::var::pxs_VarType::pxs_UInt64 => Ok(SmartJSValue::new_i32(context, var.get_u64().unwrap() as i32)),
-        crate::shared::var::pxs_VarType::pxs_String => Ok(SmartJSValue::new_string(context, var.get_string().unwrap())),
-        crate::shared::var::pxs_VarType::pxs_Bool => Ok(SmartJSValue::new_bool(context, var.get_bool().unwrap())),
-        crate::shared::var::pxs_VarType::pxs_Float64 => Ok(SmartJSValue::new_f64(context, var.get_f64().unwrap())),
+        crate::shared::var::pxs_VarType::pxs_UInt64 => Ok(SmartJSValue::new_i32(context, var.get_u64()? as i32)),
+        crate::shared::var::pxs_VarType::pxs_String => Ok(SmartJSValue::new_string(context, var.get_string()?)),
+        crate::shared::var::pxs_VarType::pxs_Bool => Ok(SmartJSValue::new_bool(context, var.get_bool()?)),
+        crate::shared::var::pxs_VarType::pxs_Float64 => Ok(SmartJSValue::new_f64(context, var.get_f64()?)),
         crate::shared::var::pxs_VarType::pxs_Null => Ok(SmartJSValue::new_null(context)),
         crate::shared::var::pxs_VarType::pxs_Object => {
             // Pass pointer back
