@@ -53,6 +53,7 @@ mod tests {
 
         let pyscript = r#"
 from pxs import *
+import pxs_json
 obj = {"one": 1, "two": 2}
 encoded = pxs_json.encode(obj)
 print(f'encoded: {encoded}')

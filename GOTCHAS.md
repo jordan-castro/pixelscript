@@ -31,3 +31,5 @@ A list of headaches that I've run into while using this library. Some could be c
 - PixelScript does not support returning `undefined`. The only way to do it would be to define a function for JS that returns `undefined`. And use that via 
 `pxs_call`. But Python or Lua don't have `undefined`. Python does have `nil` but it would crash the program. So no `undefined` support. For most cases just
 use `null`.
+- JSRuntime is never freed. (this will eventually be fixed im just not smart enough to figure it out right now.)
+- You have to use `globalThis` to assign (variables, functions) to global scope.

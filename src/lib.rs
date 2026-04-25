@@ -22,7 +22,7 @@ use crate::python::PythonScripting;
 use crate::js::JSScripting;
 
 use crate::shared::{
-    PixelScript, PtrMagic, func::{clear_function_lookup, lookup_add_function}, get_pixel_state, module::pxs_Module, object::{pxs_FreeMethod, ObjectFlags, clear_object_lookup, lookup_add_object, pxs_PixelObject}, pxs_LoadFileFn, pxs_Opaque, pxs_ReadDirFn, pxs_Runtime, pxs_WriteFileFn, var::{ObjectMethods, pxs_VarList, pxs_VarT, pxs_VarType}
+    PXS_PTR_NAME, PixelScript, PtrMagic, func::{clear_function_lookup, lookup_add_function}, get_pixel_state, module::pxs_Module, object::{ObjectFlags, clear_object_lookup, lookup_add_object, pxs_FreeMethod, pxs_PixelObject}, pxs_LoadFileFn, pxs_Opaque, pxs_ReadDirFn, pxs_Runtime, pxs_WriteFileFn, var::{ObjectMethods, pxs_VarList, pxs_VarT, pxs_VarType}
 };
 
 pub mod shared;
@@ -224,6 +224,13 @@ pub extern "C" fn pxs_addfunc(module_ptr: *mut pxs_Module, name: *const c_char, 
     // Mangle the name
     let full_name = format!("_{}{}", module.name, name_str);
 
+    // Check that module DOES not already contain this name
+    if !module.callbacks.iter().map(|cbk| cbk.full_name == full_name).all(|v| v == false) {
+        panic!("Function with name: {full_name} is already defined.");
+        #[allow(unreachable_code)]
+        return;
+    }
+
     // Save the callback
     let idx = lookup_add_function(&full_name, func);
 
@@ -254,6 +261,13 @@ pub extern "C" fn pxs_addvar(
 
     let module = unsafe { pxs_Module::from_borrow(module_ptr) };
     let name_str = borrow_string!(name);
+
+    // Check if name already exists
+    if !module.variables.iter().all(|v| v.name != name_str) {
+        panic!("Variable name: {name_str} is already defined.");
+        #[allow(unreachable_code)]
+        return;
+    }
 
     // Now add variable
     module.add_variable(name_str, variable);
@@ -1269,7 +1283,7 @@ pub extern "C" fn pxs_gethost(runtime: pxs_VarT, var: pxs_VarT) -> *mut c_void {
 
     if borrow_var.is_object() {
         // Check for ptr
-        let key = create_raw_string!("_pxs_ptr");
+        let key = create_raw_string!(PXS_PTR_NAME);
         let idx_var = pxs_objectget(runtime, var, key);
         unsafe {
             free_raw_string!(key);
@@ -1279,7 +1293,13 @@ pub extern "C" fn pxs_gethost(runtime: pxs_VarT, var: pxs_VarT) -> *mut c_void {
         }
 
         let idx_own = pxs_Var::from_raw(idx_var);
-        idx_own.get_host_ptr()
+        let host_ptr = idx_own.get_host_ptr();
+
+        if host_ptr.is_null() {
+            pxs_debug!("Host pointer is null. The variable is: {:#?}", idx_own);
+        }
+
+        host_ptr
     } else if borrow_var.is_i64() || borrow_var.is_u64() || borrow_var.is_host_object() {
         borrow_var.get_host_ptr()
     } else if borrow_var.is_factory() {

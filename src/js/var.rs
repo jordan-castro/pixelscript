@@ -4,38 +4,21 @@
 use std::{ffi::c_void, sync::Arc};
 use anyhow::{Result, anyhow};
 
-use crate::{js::{SmartJSValue, object::create_object, quickjs, register_add_object, register_del_object, register_get_object}, pxs_debug, shared::{
+use crate::{js::{SmartJSValue, object::create_object, quickjs}, shared::{
     PtrMagic, object::get_object, pxs_Runtime, var::{pxs_Var, pxs_VarObject}
 }};
 
 /// JS PXS Container.
-/// Holds the context that the Value is made from.
+/// Holds `SmartJSValue`
 struct JSPXSContainer {
-    /// The value (idx)
-    ptr: i32,
+    value: SmartJSValue
 }
 
 impl JSPXSContainer {
     /// Create a new JSPXSContainer from a Value.
     pub fn from_value(value: SmartJSValue) -> Self {
-        let ptr = register_add_object(value);
-        if ptr.is_err() {
-            JSPXSContainer { ptr: -1 }
-        } else {
-            JSPXSContainer { ptr: ptr.unwrap() }
-        }
+        JSPXSContainer { value }
     }
-
-    /// Get the SmartJSValue from the registry
-    pub fn get_value(&self) -> Result<SmartJSValue> {
-        if self.ptr < 0 {
-            pxs_debug!("JSPXSContainer is empty.");
-            Err(anyhow!("JSPXSContainer is empty."))
-            // SmartJSValue::new_undefined(self.context)
-        } else {
-            Ok(register_get_object(self.ptr))
-        }
-    } 
 }
 
 impl PtrMagic for JSPXSContainer {}
@@ -47,10 +30,8 @@ unsafe extern "C" fn js_deleter(ptr: *mut c_void) {
     }
 
     // We will be dropping this dude.
-    let container = JSPXSContainer::from_raw(ptr as *mut JSPXSContainer);
-
-    // construct the value to drop it
-    register_del_object(container.ptr);
+    let _ = JSPXSContainer::from_raw(ptr as *mut JSPXSContainer);
+    // Value gets dropped automatiacll.
 }
 
 /// Convert a JS Value into a pxs_Var
@@ -77,10 +58,8 @@ pub(super) fn js_into_pxs(value: &SmartJSValue) -> Result<pxs_Var> {
 
         Ok(pxs_Var::new_list_with(values))
     } else if value.is_function() {
-        Ok(pxs_Var::new_object(
-            pxs_VarObject::new_lang_only(
-                JSPXSContainer::from_value(value.copy()).into_raw() as *mut c_void
-            ),
+        Ok(pxs_Var::new_function(
+            JSPXSContainer::from_value(value.clone()).into_raw() as *mut c_void,
             Some(js_deleter),
         ))
     } 
@@ -92,7 +71,7 @@ pub(super) fn js_into_pxs(value: &SmartJSValue) -> Result<pxs_Var> {
     } else if value.is_object() {
         Ok(pxs_Var::new_object(
             pxs_VarObject::new_lang_only(
-                JSPXSContainer::from_value(value.copy()).into_raw() as *mut c_void
+                JSPXSContainer::from_value(value.clone()).into_raw() as *mut c_void
             ),
             Some(js_deleter),
         ))
@@ -121,8 +100,8 @@ pub(super) fn pxs_into_js(context: *mut quickjs::JSContext, var: &pxs_Var) -> Re
             }
             let container = unsafe{JSPXSContainer::from_borrow_void(container_ptr)};
 
-            // Return a Value. (Do not perform duplication. Duplication is only performed from quick -> pxs not the other way around.)
-            container.get_value()
+            // Return a Value. 
+            Ok(container.value.clone())
         },
         crate::shared::var::pxs_VarType::pxs_HostObject => {
             let idx = var.get_host_idx();
@@ -138,7 +117,7 @@ pub(super) fn pxs_into_js(context: *mut quickjs::JSContext, var: &pxs_Var) -> Re
             // Get smart value and return raw value...
             let lang_ptr = po.lang_ptr.lock().unwrap();
             let smart_value = *lang_ptr as *const SmartJSValue;
-            let value = unsafe{ (&*smart_value).copy() };
+            let value = unsafe{ (&*smart_value).clone() };
             Ok(value)
         },
         crate::shared::var::pxs_VarType::pxs_List => {
@@ -146,8 +125,8 @@ pub(super) fn pxs_into_js(context: *mut quickjs::JSContext, var: &pxs_Var) -> Re
             let vars = &var.get_list().unwrap().vars;
             for i in 0..vars.len() {
                 // convert to JS value
-                let value = pxs_into_js(context, &vars[i])?;
-                arr.set_prop_pos(i as u32, &value);
+                let mut value = pxs_into_js(context, &vars[i])?;
+                arr.set_prop_pos(i as u32, &mut value);
             }
             
             Ok(arr)
@@ -159,7 +138,7 @@ pub(super) fn pxs_into_js(context: *mut quickjs::JSContext, var: &pxs_Var) -> Re
                 return Err(anyhow!("Function pointer not found"));
             }
             let container = unsafe{JSPXSContainer::from_borrow_void(container_ptr)};
-            container.get_value()
+            Ok(container.value.clone())
         },
         crate::shared::var::pxs_VarType::pxs_Factory => {
             // Call and return
@@ -169,7 +148,8 @@ pub(super) fn pxs_into_js(context: *mut quickjs::JSContext, var: &pxs_Var) -> Re
             pxs_into_js(context, &res)
         },
         crate::shared::var::pxs_VarType::pxs_Exception => {
-            Err(anyhow!("{}", var.get_string().unwrap()))
+            let message = var.get_string().unwrap();
+            Ok(SmartJSValue::new_exception(context, message, "PXSJSConversionError".to_string()))
         },
         crate::shared::var::pxs_VarType::pxs_Map => {
             let object = SmartJSValue::new_object(context);
@@ -181,9 +161,9 @@ pub(super) fn pxs_into_js(context: *mut quickjs::JSContext, var: &pxs_Var) -> Re
                 let item = map.get_item(k);
                 if let Some(item) = item {
                     let js_key = pxs_into_js(context, k)?;
-                    let js_val = pxs_into_js(context, item)?;
+                    let mut js_val = pxs_into_js(context, item)?;
 
-                    object.set_prop_value(&js_key, &js_val);
+                    object.set_prop_value(&js_key, &mut js_val);
                 }
             }
             

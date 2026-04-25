@@ -25,7 +25,7 @@ unsafe extern "C" fn object_trampoline(
     // - fn idx
     // - flags
     unsafe {
-        let flags = SmartJSValue::new_borrow(*func_data.offset(2), ctx).as_i32().unwrap() as u8;
+        let flags = SmartJSValue::new_borrow(*func_data.offset(1), ctx).as_i32().unwrap() as u8;
         if flags & (ObjectFlags::UsesId as u8) != 0 {
             // Pass pxs_ptr 
             let pxs_ptr = smart_this.get_prop(PXS_PTR_NAME).as_i32().unwrap();
@@ -73,7 +73,6 @@ unsafe extern "C" fn object_trampoline(
         let res = js_res.unwrap();
         res.dupped_value()
     }
-
 }
 
 /// Callback trampoline
@@ -124,12 +123,12 @@ unsafe extern "C" fn method_trampoline(
 /// Create a JS callback that gets attached to a module.
 pub(super) fn create_callback(ctx: *mut quickjs::JSContext, fn_idx: i32) -> SmartJSValue {
     let idx_wrapper = SmartJSValue::new_i32(ctx, fn_idx);
-    let func_data = vec![
+    let mut func_data = vec![
         idx_wrapper.dupped_value()
     ];
-    let func_data_ptr = func_data.into_raw_parts();
+    let func_data_ptr = func_data.as_mut_ptr();
     let function = unsafe {
-        quickjs::JS_NewCFunctionData(ctx, Some(method_trampoline), 0, 0, 1, func_data_ptr.0)
+        quickjs::JS_NewCFunctionData(ctx, Some(method_trampoline), 0, 0, 1, func_data_ptr)
     };
     SmartJSValue::new_owned(function, ctx)
 }
@@ -138,13 +137,16 @@ pub(super) fn create_callback(ctx: *mut quickjs::JSContext, fn_idx: i32) -> Smar
 pub(super) fn create_object_callback(ctx: *mut quickjs::JSContext, fn_idx: i32, flags: u8) -> SmartJSValue {
     let idx_wrapper = SmartJSValue::new_i32(ctx, fn_idx);
     let flags_wrapper = SmartJSValue::new_i32(ctx, flags as i32);
-    let func_data = vec![
+    let mut func_data = vec![
         idx_wrapper.dupped_value(),
         flags_wrapper.dupped_value()
     ];
-    let func_data_ptr = func_data.into_raw_parts();
+    let func_data_ptr = func_data.as_mut_ptr();
     let function = unsafe {
-        quickjs::JS_NewCFunctionData(ctx, Some(object_trampoline), 0, 0, 2, func_data_ptr.0)
+        quickjs::JS_NewCFunctionData(ctx, Some(object_trampoline), 0, 0, 2, func_data_ptr)
     };
+    // unsafe {
+        // let _ = Vec::from_raw_parts(func_data_ptr.0, func_data_ptr.1, func_data_ptr.2);
+    // }
     SmartJSValue::new_owned(function, ctx)
 }

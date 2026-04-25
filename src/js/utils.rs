@@ -2,11 +2,9 @@ use anyhow::{Result, anyhow};
 
 use crate::{
     borrow_string,
-    js::{
-        quickjs::{
-            self, JS_IsArray, JS_IsError, JS_IsFunction
+    js::quickjs::{
+            self, JS_IsArray, JS_IsError, JS_IsFunction, JS_IsPromise, JS_PromiseResult
         },
-    },
     shared::utils::CStringSafe,
 };
 
@@ -40,7 +38,8 @@ write_is_func! {
     is_float, JS_TAG_FLOAT64;
     is_exception, JS_TAG_EXCEPTION;
     is_bool, JS_TAG_BOOL;
-    is_object, JS_TAG_OBJECT
+    is_object, JS_TAG_OBJECT;
+    is_null, JS_TAG_NULL
 }
 
 /// Smart JSValue
@@ -165,10 +164,11 @@ impl SmartJSValue {
         let value = SmartJSValue::new_owned(unsafe {
             quickjs::JS_NewError(context)
         }, context);
-        let message_val = SmartJSValue::new_string(context, message);
-        let name_val = SmartJSValue::new_string(context, name);
-        value.set_prop("name", &name_val);
-        value.set_prop("message", &message_val);
+        // Dont drop 
+        let mut message_val = SmartJSValue::new_string(context, message);
+        let mut name_val = SmartJSValue::new_string(context, name);
+        value.set_prop("name", &mut name_val);
+        value.set_prop("message", &mut message_val);
 
         return value;
     }
@@ -210,11 +210,6 @@ impl SmartJSValue {
             quickjs::JS_DupValue(self.context, self.value)
         }
     }
-
-    // /// Dont drop this Smart value
-    // pub fn dont_drop(&mut self) {
-    //     self.owned = false;
-    // }
     
     write_is_methods! {
         is_string;
@@ -223,7 +218,8 @@ impl SmartJSValue {
         is_int;
         is_exception;
         is_bool;
-        is_object
+        is_object;
+        is_null
     }
 
     /// Check is number
@@ -244,6 +240,24 @@ impl SmartJSValue {
     /// Check is array
     pub fn is_array(&self) -> bool {
         unsafe { JS_IsArray(self.value) }
+    }
+
+    /// Check if a value is a promise
+    pub fn is_promise(&self) -> bool {
+        unsafe { JS_IsPromise(self.value) }
+    }
+
+    /// Await the promise
+    /// 
+    /// Returns OWNED
+    pub fn await_value(&self) -> Self {
+        if !self.is_promise() {
+            Self::new_undefined(self.context)
+        } else {
+            unsafe {
+                Self::new_owned(JS_PromiseResult(self.context, self.value), self.context)
+            }
+        }
     }
 
     /// Get As String (only works on strings)
@@ -320,8 +334,11 @@ impl SmartJSValue {
         }
     }
 
-    /// Set a property
-    pub fn set_prop<T: ToString>(&self, key: T, value: &SmartJSValue) {
+    /// Set a property.
+    /// 
+    /// Un owns value
+    pub fn set_prop<T: ToString>(&self, key: T, value: &mut SmartJSValue) {
+        value.owned = false;
         unsafe {
             let mut cstrgen = CStringSafe::new();
             quickjs::JS_SetPropertyStr(
@@ -334,14 +351,20 @@ impl SmartJSValue {
     }
 
     /// Set a property
-    pub fn set_prop_pos(&self, key: u32, value: &SmartJSValue) {
+    /// 
+    /// Un owns property
+    pub fn set_prop_pos(&self, key: u32, value: &mut SmartJSValue) {
+        value.owned = false;
         unsafe {
             quickjs::JS_SetPropertyUint32(self.context, self.value, key, value.value);
         }
     }
 
     /// Set a property
-    pub fn set_prop_value(&self, key: &SmartJSValue, value: &SmartJSValue) {
+    /// 
+    /// Un own property
+    pub fn set_prop_value(&self, key: &SmartJSValue, value: &mut SmartJSValue) {
+        value.owned = false;
         unsafe {
             let atom = quickjs::JS_ValueToAtom(self.context, key.value);
             quickjs::JS_SetProperty(self.context, self.value, atom, value.value);
@@ -371,28 +394,27 @@ impl SmartJSValue {
             return None;
         }
 
-        unsafe {
-            if self.is_exception() {
-                let exce = Self::new_owned(quickjs::JS_GetException(self.context), self.context);
-                Some(exce.to_string_direct())
-            } else if self.is_error() {
-                let message = self.get_prop("message");
-                let name = self.get_prop("name");
-
-                // Result
-                let res = format!(
-                    "Exception: {}, with message: {}",
-                    name.as_string().unwrap_or("Error".to_string()),
-                    message.as_string().unwrap_or("Unkown Error Message".to_string())
-                );
-
-                Some(res)
-            } else {
-                None
-            }
+        if self.is_exception() {
+            let message = Self::current_exception(self.context).to_string_direct();
+            let stack = self.get_prop("stack").to_string();
+            return Some(format!("{message} {stack}"));
         }
+
+        let message = self.get_prop("message");
+        let name = self.get_prop("name");
+        let stack = self.get_prop("stack");
+
+        // Result
+        let res = format!(
+            "{}, {}, {}",
+            name.as_string().unwrap_or("Error".to_string()),
+            message.as_string().unwrap_or("Unkown Error Message".to_string()),
+            stack.as_string().unwrap_or("Uknown stack".to_string())
+        );
+        Some(res)
     }
 
+    #[allow(unused)]
     /// ToStringDirect (no checks)
     pub fn to_string_direct(&self) -> String {
         unsafe {
@@ -401,6 +423,7 @@ impl SmartJSValue {
         }
     }
 
+    #[allow(unused)]
     /// ToString
     pub fn to_string(&self) -> String {
         // already string
@@ -444,7 +467,7 @@ impl SmartJSValue {
             result
         }
     }
-    
+
     /// Call this value as a function.
     /// 
     /// Returns OWNED value.

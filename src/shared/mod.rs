@@ -7,9 +7,7 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 use std::{
-    cell::RefCell,
-    ffi::{CString, c_char, c_void},
-    sync::{Arc, OnceLock},
+    cell::RefCell, ffi::{CString, c_char, c_void}, panic::Location, sync::{Arc, OnceLock}
 };
 
 use anyhow::Result;
@@ -158,16 +156,20 @@ pub trait PtrMagic: Sized {
         self.into_raw() as *mut c_void
     }
 
+    #[track_caller]
     /// Safety: Only call this on a pointer created via `into_raw`.
     fn from_raw(ptr: *mut Self) -> Self {
-        assert!(!ptr.is_null(), "Attempted to own a null pointer.");
+        let location = Location::caller();
+        assert!(!ptr.is_null(), "Attempted to own a null pointer. Stack: {}:{}:{}", location.file(), location.line(), location.column());
         unsafe { *Box::from_raw(ptr) }
     }
 
+    #[track_caller]
     /// Build from a Ptr but only get a reference, this means that the caller will still own the memory
     unsafe fn from_borrow<'a>(ptr: *mut Self) -> &'a mut Self {
+        let location = Location::caller();
+        assert!(!ptr.is_null(), "Attempted to borrow a null pointer. Stack: {}:{}:{}", location.file(), location.line(), location.column());
         unsafe {
-            assert!(!ptr.is_null(), "Attempted to borrow a null pointer.");
             &mut *ptr
         }
     }

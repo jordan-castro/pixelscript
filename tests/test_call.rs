@@ -35,6 +35,9 @@ mod tests {
         unsafe {free_raw_string!(mn); }
         return pxs_newnull();
     }
+    fn print_helper(lang: &str) {
+        println!("====================== {lang} ===================");
+    }
 
     fn test_python() {
         let script = create_raw_string!(r#"
@@ -80,9 +83,7 @@ free_raw_string!(file_name);
     fn test_js() {
         let script = create_raw_string!(r#"
 import * as pxs from 'pxs';
-function add(n1, n2) {
-    return n1 + n2;
-}
+globalThis.add = (n1, n2) => n1 + n2;
 
 pxs.anything(1,2);
 "#);
@@ -114,8 +115,11 @@ pxs.anything(1,2);
             free_raw_string!(anything_name);
         }
 
+        print_helper("Python");
         test_python();
+        print_helper("Lua");
         test_lua();
+        print_helper("JS");
         test_js();
 
         pxs_finalize();
