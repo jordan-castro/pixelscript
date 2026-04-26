@@ -212,6 +212,11 @@ fn build_pocketpy_bindings() {
 fn build_quickjsng_bindings() {
     let bindings = bindgen::Builder::default()
         .header("libs/quickjs-ng/quickjs.h")
+        .allowlist_function("js_.*")
+        .allowlist_function("JS_.*")
+        .allowlist_type("js_.*")
+        .allowlist_type("JS_.*")
+        .allowlist_var("JS_.*")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .generate()
         .expect("Could not generate QuickJS-NG bindings");
