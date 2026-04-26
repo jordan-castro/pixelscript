@@ -114,6 +114,7 @@ fn build_quickjsng(_target_os: &str, target_env: &str) {
     build.file("libs/quickjs-ng/quickjs-amalgam.c");
     build.include("libs/quickjs-ng");
     build.std("c11");
+    build.define("_GNU_SOURCE", None);
 
     if target_env == "msvc" {
         build.flag("/experimental:c11atomics");
