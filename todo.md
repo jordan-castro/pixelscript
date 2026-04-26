@@ -4,7 +4,7 @@
 - Fix warnings (remove or ignore)
 
 ## v0.5 Memory and JS support
-- JS support via rquickjs. *JS*
+- ~~JS support via quickjs-ng. *JS*~~
 - Lazy Init language states on first run.
 - ~~Reference counting for PixelScript object.~~ **DONE**
 - Decrease number of functions created in pocketpy. *python*
@@ -21,8 +21,6 @@
 - ~~Add properties to PixelObjects~~ **DONE**
 - Add anonyamous functions.
 - Use pxs_Map instead for Module variables.
-- Remove factories. They are not needed. (Actually not 100%%%%% sure about this though dog.) 
-    - in pxs_gethost make sure to check for a HostObject.
 - Add `pxs_HostWrapper` which wraps host objects with a integer for a type.
     - This would be super useful for literally everything UserData related.
     - We can make use of the current HostObject system to build this. No new var types needde
