@@ -3,7 +3,7 @@ use anyhow::{Result, anyhow};
 use crate::{
     borrow_string,
     js::quickjs::{
-            self, JS_IsArray, JS_IsError, JS_IsFunction, JS_IsPromise, JS_PromiseResult, JS_TAG_FUNCTION_BYTECODE
+            self, JS_IsArray, JS_IsError, JS_IsFunction, JS_IsPromise, JS_PromiseResult
         },
     shared::utils::CStringSafe,
 };
@@ -12,6 +12,7 @@ use crate::{
 macro_rules! write_is_func {
     ($($func:ident, $t:ident);*) => {
         $(
+            #[allow(unused)]
             #[doc = concat!("Check if Value tag is: ", stringify!($t))]
             pub(super) fn $func(value: &quickjs::JSValue) -> bool {
                 (value.tag as i32) == quickjs::$t
@@ -24,6 +25,7 @@ macro_rules! write_is_func {
 macro_rules! write_is_methods {
     ($($func:ident);*) => {
         $(
+            #[allow(unused)]
             pub fn $func(&self) -> bool {
                 $func(&self.value)
             }
@@ -40,7 +42,8 @@ write_is_func! {
     is_bool, JS_TAG_BOOL;
     is_object, JS_TAG_OBJECT;
     is_null, JS_TAG_NULL;
-    is_bytecode, JS_TAG_FUNCTION_BYTECODE
+    is_bytecode, JS_TAG_FUNCTION_BYTECODE;
+    is_module, JS_TAG_MODULE
 }
 
 /// Smart JSValue
@@ -200,6 +203,7 @@ impl SmartJSValue {
         }
     }
 
+    #[allow(unused)]
     /// Copy
     pub fn copy(&self) -> Self {
         Self::new_borrow(self.value, self.context)
@@ -221,7 +225,8 @@ impl SmartJSValue {
         is_bool;
         is_object;
         is_null;
-        is_bytecode
+        is_bytecode;
+        is_module
     }
 
     /// Check is number
@@ -249,6 +254,7 @@ impl SmartJSValue {
         unsafe { JS_IsPromise(self.value) }
     }
 
+    #[allow(unused)]
     /// Get type as string name
     pub fn type_string(&self) -> String {
         match self.value.tag as i32 {
@@ -358,6 +364,35 @@ impl SmartJSValue {
         unsafe {
             let prop = quickjs::JS_GetPropertyUint32(self.context, self.value, key);
             Self::new_owned(prop, self.context)
+        }
+    }
+
+    /// Get module pointer.
+    /// 
+    /// BORROW
+    pub fn get_module_ptr(&self) -> *mut quickjs::JSModuleDef {
+        if !self.is_module() {
+            std::ptr::null_mut()
+        } else {
+            let val_int = unsafe { self.value.u.ptr } as isize;
+            ((val_int & !15) as *mut std::ffi::c_void).cast::<quickjs::JSModuleDef>()
+        }
+    }
+
+    #[allow(unused)]
+    /// Get module namespace
+    /// 
+    /// OWNED
+    pub fn get_module_namespace(&self) -> Self {
+        if !self.is_module() {
+            Self::new_undefined(self.context)
+        } else {
+            let m = self.get_module_ptr();
+            if m == std::ptr::null_mut() {
+                Self::new_undefined(self.context)
+            } else {
+                Self::new_owned(unsafe{quickjs::JS_GetModuleNamespace(self.context, m)}, self.context)
+            }
         }
     }
 

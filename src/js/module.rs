@@ -1,4 +1,4 @@
-use std::{ffi::c_void, sync::Arc};
+use std::sync::Arc;
 
 use crate::{borrow_string, borrow_var, js::{JSModuleMethod, SmartJSValue, create_callback, get_js_state, pxs_into_js, quickjs}, pxs_debug, shared::{PtrMagic, module::pxs_Module, utils::CStringSafe, var::pxs_Var}};
 
@@ -116,9 +116,5 @@ pub(super) fn add_local_module(context: *mut quickjs::JSContext, code: &str, nam
         return std::ptr::null_mut();
     }
 
-    unsafe {
-        let val_int = smart_module.value.u.ptr as isize;
-        let m = ((val_int & !15) as *mut c_void).cast::<quickjs::JSModuleDef>();
-        m
-    }
+    smart_module.get_module_ptr()
 }

@@ -308,8 +308,6 @@ mod tests {
         let diary_name = create_raw_string!("Diary");
         let ddiary_name = create_raw_string!("DDiary");
         pxs_addobject(math_module, diary_name, new_diary);
-        pxs_addfunc(math_module, sub_name, sub_wrapper);
-        pxs_addvar(math_module, zero_name, pxs_newint(0));
 
         let args = pxs_newlist();
         pxs_listadd(args, pxs_Var::new_string("Test".to_string()).into_raw());

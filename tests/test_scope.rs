@@ -212,10 +212,10 @@ pxs.print("Current loop idx: " .. tostring(loop_id))
         let code = r#"
 import * as pxs from 'pxs';
 
-function init() {
+const init = () => {
     self.set_if_null('name', "Jordan");
     self.set_if_null('age', 24);
-}
+};
 
 init();
 
@@ -233,9 +233,7 @@ pxs.print("Current loop idx: " + loop_id.toString());
         }
 
         let co = borrow_var!(code_object);
-        if co.is_exception() {
-            println!("eXCEPTION dude: {:#?}", co);
-        }
+        println!("CO: {:#?}", co);
 
         let loop_name = create_raw_string!("loop_id");  
         for i in 0..5 {
@@ -245,7 +243,7 @@ pxs.print("Current loop idx: " + loop_id.toString());
             pxs_map_addpair(local_scope, pxs_newstring(loop_name), pxs_newint(i));
             // Run lua code
             let res = own_var!(pxs_execobject(co, local_scope));
-            assert!(res.is_null(), "Error found: {:#?}", res);
+            assert!(!res.is_exception(), "Error found: {:#?}", res);
         }
 
         unsafe{free_raw_string!(loop_name);}

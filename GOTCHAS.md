@@ -31,5 +31,6 @@ A list of headaches that I've run into while using this library. Some could be c
 - PixelScript does not support returning `undefined`. The only way to do it would be to define a function for JS that returns `undefined`. And use that via 
 `pxs_call`. But Python or Lua don't have `undefined`. Python does have `nil` but it would crash the program. So no `undefined` support. For most cases just
 use `null`.
-- JSRuntime is never freed. (this will eventually be fixed im just not smart enough to figure it out right now.)
+- Is currently leaking JSRuntime. I need to review the quickjs-ng source to understand how to free it safely. Something to do with how I am creating the values or something.
+  Sucks that it's changes from quickjs where once the runtime is freed it frees all values assigned. But in quickjs-ng this is not the case.
 - You have to use `globalThis` to assign (variables, functions) to global scope.

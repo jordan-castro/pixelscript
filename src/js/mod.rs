@@ -1,6 +1,6 @@
 use std::{cell::RefCell, collections::HashMap};
 
-use anyhow::{Result, anyhow};
+use anyhow::Result;
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
 use crate::{
@@ -245,17 +245,18 @@ impl PixelScript for JSScripting {
         code: &str,
         global_scope: crate::shared::var::pxs_Var,
     ) -> anyhow::Result<crate::shared::var::pxs_Var> {
-        // Compile object
-        let obj = run_js(code, "<code_object>", quickjs::JS_EVAL_FLAG_COMPILE_ONLY as i32);
-        if obj.is_exception() {
-            return Err(anyhow!("{}", obj.get_error_exception().unwrap()));
-        }
+        // // Compile object
+        // let obj = run_js(code, "<code_object>", (quickjs::JS_EVAL_FLAG_COMPILE_ONLY | quickjs::JS_EVAL_FLAG_ASYNC | quickjs::JS_EVAL_TYPE_MODULE) as i32);
+        // if obj.is_exception() || obj.is_error() {
+        //     return Err(anyhow!("{}", obj.get_error_exception().unwrap()));
+        // }
+
         // Now lets return our [CodeObject, Global Scope reference]
         let result = pxs_Var::new_list();
         let list = result.get_list().unwrap();
 
         // Code object
-        list.add_item(js_into_pxs(&obj)?);
+        list.add_item(pxs_Var::new_string(code.to_string()));
         // Global object
         list.add_item(global_scope);
 
@@ -268,14 +269,9 @@ impl PixelScript for JSScripting {
     ) -> anyhow::Result<crate::shared::var::pxs_Var> {
         let state = get_js_state();
         let list = code.get_list().unwrap();
-        let obj = pxs_into_js(state.context, list.get_item(1).unwrap())?;
         // Add globalThis
         let global_this = SmartJSValue::globalThis(state.context);
         let global_scope = list.get_item(2).unwrap();
-
-        if !obj.is_bytecode() {
-            return Ok(pxs_Var::new_exception(format!("Object is not ByteCode, is: {}", obj.type_string())));
-        }
 
         if !global_scope.is_null() {
             add_map_to_global_this(global_scope.get_map().unwrap(), &global_this)?;
@@ -285,10 +281,7 @@ impl PixelScript for JSScripting {
             add_map_to_global_this(local_scope.get_map().unwrap(), &global_this)?;
         }
 
-        // Execute this dude
-        let res = SmartJSValue::new_owned(unsafe {
-            quickjs::JS_EvalFunction(state.context, obj.dupped_value())
-        }, state.context);
+        let res = run_js(&list.get_item(1).unwrap().get_string().unwrap(), "<code_obj>", (quickjs::JS_EVAL_TYPE_MODULE | quickjs::JS_EVAL_FLAG_ASYNC) as i32);
 
         // Remove from globalThis
         remove_map_from_global_this(global_scope.get_map().unwrap(), &global_this)?;

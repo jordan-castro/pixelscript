@@ -62,22 +62,16 @@ pub(super) fn js_into_pxs(value: &SmartJSValue) -> Result<pxs_Var> {
             JSPXSContainer::from_value(value.clone()).into_raw() as *mut c_void,
             Some(js_deleter),
         ))
-    } 
-    else if value.is_exception() {
+    } else if value.is_exception() {
         // let exce = value.as_exception().unwrap();
         Ok(pxs_Var::new_exception(value.get_error_exception().unwrap()))
     } else if value.is_error() {
         Ok(pxs_Var::new_exception(value.get_error_exception().unwrap()))
-    } else if value.is_object() {
-        Ok(pxs_Var::new_object(
-            pxs_VarObject::new_lang_only(
-                JSPXSContainer::from_value(value.clone()).into_raw() as *mut c_void
-            ),
-            Some(js_deleter),
-        ))
-    } else {
-        // null, undefined, etc.
+    } else if value.is_undefined() || value.is_null() {
         Ok(pxs_Var::new_null())
+    } else {
+        // As object.
+        Ok(pxs_Var::new_object(pxs_VarObject::new_lang_only(JSPXSContainer::from_value(value.clone()).into_void()), Some(js_deleter)))
     }
 }
 
