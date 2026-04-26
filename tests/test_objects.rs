@@ -6,7 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_objects --no-default-features --features "lua,python,testing,include-core" -- --nocapture --test-threads=1
+// cargo test --test test_objects --no-default-features --features "lua,python,js,testing,include-core" -- --nocapture --test-threads=1
 
 #[cfg(test)]
 #[allow(unused)]
@@ -76,6 +76,7 @@ mod tests {
         pxs_object_addprop(obj, cstrgen.new_string("age"), person_age_prop);
         pxs_object_addfunc(obj, cstrgen.new_string("__str__"), person_string);
         pxs_object_addfunc(obj, cstrgen.new_string("__tostring"), person_string);
+        pxs_object_addfunc(obj, cstrgen.new_string("toString"), person_string);
 
         pxs_newhost(obj)
     }
@@ -151,6 +152,7 @@ mod tests {
         pxs_object_addprop(obj, cstrgen.new_string("entries"), diary_entries_prop);
         pxs_object_addfunc(obj, cstrgen.new_string("__str__"), diary_string);
         pxs_object_addfunc(obj, cstrgen.new_string("__tostring"), diary_string);
+        pxs_object_addfunc(obj, cstrgen.new_string("toString"), diary_string);
 
         pxs_newhost(obj)
     }
@@ -207,6 +209,27 @@ pxs.print(p.age)
         assert!(res.is_null(), "Error: {:#?}", res);
     }
 
+    fn test_js() {
+        let script = r#"
+import * as pxs from 'pxs';
+import * as test from 'test';
+
+let p = test.Person('Jordan', 24);
+let d = test.Diary(p);
+d.entries = ['test'];
+d.entries = [...d.entries, 'test 2'];
+d.owner = test.Person('Evelyn', 24);
+
+pxs.print(d.toString());
+pxs.print(p.name);
+p.age += 1;
+pxs.print(p.age);
+"#;
+        let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_JavaScript);
+        assert!(res.is_null(), "JS error is not null: {:#?}", res);
+    }
+
+
     #[test]
     fn run_test() {
         pxs_initialize();
@@ -222,6 +245,8 @@ pxs.print(p.age)
         test_python();
         print_helper("LUA");
         test_lua();
+        print_helper("JS");
+        test_js();
 
         pxs_finalize();
     }

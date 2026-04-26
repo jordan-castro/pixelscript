@@ -3,7 +3,7 @@ use anyhow::{Result, anyhow};
 use crate::{
     borrow_string,
     js::quickjs::{
-            self, JS_IsArray, JS_IsError, JS_IsFunction, JS_IsPromise, JS_PromiseResult
+            self, JS_IsArray, JS_IsError, JS_IsFunction, JS_IsPromise, JS_PromiseResult, JS_TAG_FUNCTION_BYTECODE
         },
     shared::utils::CStringSafe,
 };
@@ -39,7 +39,8 @@ write_is_func! {
     is_exception, JS_TAG_EXCEPTION;
     is_bool, JS_TAG_BOOL;
     is_object, JS_TAG_OBJECT;
-    is_null, JS_TAG_NULL
+    is_null, JS_TAG_NULL;
+    is_bytecode, JS_TAG_FUNCTION_BYTECODE
 }
 
 /// Smart JSValue
@@ -210,7 +211,7 @@ impl SmartJSValue {
             quickjs::JS_DupValue(self.context, self.value)
         }
     }
-    
+
     write_is_methods! {
         is_string;
         is_undefined;
@@ -219,7 +220,8 @@ impl SmartJSValue {
         is_exception;
         is_bool;
         is_object;
-        is_null
+        is_null;
+        is_bytecode
     }
 
     /// Check is number
@@ -245,6 +247,31 @@ impl SmartJSValue {
     /// Check if a value is a promise
     pub fn is_promise(&self) -> bool {
         unsafe { JS_IsPromise(self.value) }
+    }
+
+    /// Get type as string name
+    pub fn type_string(&self) -> String {
+        match self.value.tag as i32 {
+            quickjs::JS_TAG_BIG_INT => "BigInt",
+            quickjs::JS_TAG_BOOL => "Bool",
+            quickjs::JS_TAG_CATCH_OFFSET => "CatchOffset",
+            quickjs::JS_TAG_EXCEPTION => "Exception",
+            #[allow(unreachable_patterns)]
+            quickjs::JS_TAG_FIRST => "First",
+            quickjs::JS_TAG_FLOAT64 => "Float64",
+            quickjs::JS_TAG_FUNCTION_BYTECODE => "FunctionBytecode",
+            quickjs::JS_TAG_INT => "Int",
+            quickjs::JS_TAG_MODULE => "Module",
+            quickjs::JS_TAG_NULL => "Null",
+            quickjs::JS_TAG_OBJECT => "Object",
+            quickjs::JS_TAG_SHORT_BIG_INT => "ShortBigInt",
+            quickjs::JS_TAG_STRING => "String",
+            quickjs::JS_TAG_STRING_ROPE => "StringRope",
+            quickjs::JS_TAG_SYMBOL => "Symbol",
+            quickjs::JS_TAG_UNDEFINED => "Undefined",
+            quickjs::JS_TAG_UNINITIALIZED => "Unitialized",
+            _ => "Unkown"
+        }.to_string()
     }
 
     /// Await the promise
@@ -388,6 +415,21 @@ impl SmartJSValue {
         }
     }
 
+    /// Add a Getter & Setter
+    pub fn add_getter_setter(&self, property: &str, cbk: &SmartJSValue) {
+        let mut cstrsafe = CStringSafe::new();
+        unsafe {
+            // Atomize
+            let atom = quickjs::JS_NewAtom(self.context, cstrsafe.new_string(property));
+
+            let getter = cbk.dupped_value();
+            let setter = cbk.dupped_value();
+            quickjs::JS_DefinePropertyGetSet(self.context, self.value, atom, getter, setter, (quickjs::JS_PROP_CONFIGURABLE | quickjs::JS_PROP_ENUMERABLE) as i32);
+
+            quickjs::JS_FreeAtom(self.context, atom);
+        }
+    }
+
     /// Get a Error/Exception
     pub fn get_error_exception(&self) -> Option<String> {
         if !self.is_error() && !self.is_exception() {
@@ -396,8 +438,8 @@ impl SmartJSValue {
 
         if self.is_exception() {
             let message = Self::current_exception(self.context).to_string_direct();
-            let stack = self.get_prop("stack").to_string();
-            return Some(format!("{message} {stack}"));
+            let stack = self.get_prop("stack").to_string_direct();
+            return Some(format!("Exception: {message}, stack: {stack}"));
         }
 
         let message = self.get_prop("message");

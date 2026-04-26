@@ -1,6 +1,6 @@
-use std::sync::Arc;
+use std::{ffi::c_void, sync::Arc};
 
-use crate::{borrow_string, borrow_var, js::{JSModuleMethod, SmartJSValue, create_callback, get_js_state, pxs_into_js, quickjs}, shared::{PtrMagic, module::pxs_Module, utils::CStringSafe, var::pxs_Var}};
+use crate::{borrow_string, borrow_var, js::{JSModuleMethod, SmartJSValue, create_callback, get_js_state, pxs_into_js, quickjs}, pxs_debug, shared::{PtrMagic, module::pxs_Module, utils::CStringSafe, var::pxs_Var}};
 
 /// Module definition function
 unsafe extern "C" fn init_module_function(ctx: *mut quickjs::JSContext, m: *mut quickjs::JSModuleDef) -> i32 {
@@ -98,5 +98,27 @@ pub(super) fn add_module(context: *mut quickjs::JSContext, module: &Arc<pxs_Modu
     // Add child modules
     for child in module.modules.iter() {
         add_module(context, child);
+    }
+}
+
+/// Add a local module to JS engine.
+pub(super) fn add_local_module(context: *mut quickjs::JSContext, code: &str, name: &str) -> *mut quickjs::JSModuleDef {
+    let mut cstrsafe = CStringSafe::new();
+
+    // Compile module
+    let smart_module = SmartJSValue::new_owned(unsafe {
+        quickjs::JS_Eval(context, cstrsafe.new_string(code), code.len(), cstrsafe.new_string(name), (quickjs::JS_EVAL_TYPE_MODULE | quickjs::JS_EVAL_FLAG_COMPILE_ONLY) as i32)
+    }, context);
+
+    // Check exception
+    if smart_module.is_exception() || smart_module.is_error() {
+        pxs_debug!("Error compiling module");
+        return std::ptr::null_mut();
+    }
+
+    unsafe {
+        let val_int = smart_module.value.u.ptr as isize;
+        let m = ((val_int & !15) as *mut c_void).cast::<quickjs::JSModuleDef>();
+        m
     }
 }

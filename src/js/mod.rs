@@ -1,11 +1,11 @@
 use std::{cell::RefCell, collections::HashMap};
 
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
 use crate::{
     borrow_string, js::{
-        func::create_callback, utils::SmartJSValue, var::{js_into_pxs, pxs_into_js}
+        func::create_callback, module::add_local_module, utils::SmartJSValue, var::{js_into_pxs, pxs_into_js}
     }, pxs_debug, shared::{
         PixelScript, pxs_Opaque, read_file, utils::CStringSafe, var::{ObjectMethods, pxs_Var, pxs_VarMap}
     }
@@ -85,7 +85,7 @@ unsafe extern "C" fn js_module_loader(context: *mut quickjs::JSContext, module_n
         let smart_res = SmartJSValue::new_owned(res, context);
 
         // Check exception
-        if smart_res.is_exception() {
+        if smart_res.is_exception() || smart_res.is_error() {
             pxs_debug!("Error compiling module");
             return std::ptr::null_mut();
         }
@@ -103,23 +103,21 @@ unsafe fn init_state() -> State {
         let rt = quickjs::JS_NewRuntime();
         let ctx = quickjs::JS_NewContext(rt);
 
-        // load main.js
-        let mut js_globals = String::new();
-        js_globals.push_str(include_str!("../../core/js/main.js"));
-        // TODO: setup pxs_json
-
-        let mut cstrsafe = CStringSafe::new();
-        quickjs::JS_Eval(ctx, cstrsafe.new_string(&js_globals), js_globals.len(), cstrsafe.new_string("<js_globals>"), quickjs::JS_EVAL_TYPE_GLOBAL as i32);
-
         // Setup module loader!
         quickjs::JS_SetModuleLoaderFunc(rt, None, Some(js_module_loader), std::ptr::null_mut());
+
+        // Add pxs_json.js
+        let pxs_json = add_local_module(ctx, include_str!("../../core/js/pxs_json.js"), "pxs_json");
+
+        let mut modules = HashMap::new();
+        modules.insert("pxs_json".to_string(), pxs_json);
 
         State { 
             rt, 
             context: ctx, 
             defined_objects: RefCell::new(HashMap::new()), 
             module_exports: RefCell::new(HashMap::new()),
-            modules: RefCell::new(HashMap::new()),
+            modules: RefCell::new(modules),
         }
     }
 }
@@ -180,11 +178,17 @@ fn remove_map_from_global_this(map: &pxs_VarMap, global_this: &SmartJSValue) -> 
     Ok(())
 }
 
+/// Add main.js
+fn add_main_js() {
+    run_js(include_str!("../../core/js/main.js"), "main.js", quickjs::JS_EVAL_TYPE_MODULE as i32);
+}
+
 pub struct JSScripting;
 
 impl PixelScript for JSScripting {
     fn start() {
         let _state = get_js_state();
+        add_main_js();
     }
 
     fn stop() {
@@ -243,7 +247,10 @@ impl PixelScript for JSScripting {
     ) -> anyhow::Result<crate::shared::var::pxs_Var> {
         // Compile object
         let obj = run_js(code, "<code_object>", quickjs::JS_EVAL_FLAG_COMPILE_ONLY as i32);
-        // // Now lets return our [CodeObject, Global Scope reference]
+        if obj.is_exception() {
+            return Err(anyhow!("{}", obj.get_error_exception().unwrap()));
+        }
+        // Now lets return our [CodeObject, Global Scope reference]
         let result = pxs_Var::new_list();
         let list = result.get_list().unwrap();
 
@@ -265,6 +272,10 @@ impl PixelScript for JSScripting {
         // Add globalThis
         let global_this = SmartJSValue::globalThis(state.context);
         let global_scope = list.get_item(2).unwrap();
+
+        if !obj.is_bytecode() {
+            return Ok(pxs_Var::new_exception(format!("Object is not ByteCode, is: {}", obj.type_string())));
+        }
 
         if !global_scope.is_null() {
             add_map_to_global_this(global_scope.get_map().unwrap(), &global_this)?;

@@ -149,7 +149,11 @@ pub(super) fn pxs_into_js(context: *mut quickjs::JSContext, var: &pxs_Var) -> Re
         },
         crate::shared::var::pxs_VarType::pxs_Exception => {
             let message = var.get_string().unwrap();
-            Ok(SmartJSValue::new_exception(context, message, "PXSJSConversionError".to_string()))
+            let error = SmartJSValue::new_exception(context, message, "Error".to_string());
+
+            unsafe {
+                Ok(SmartJSValue::new_owned(quickjs::JS_Throw(context, error.dupped_value()), context))
+            }
         },
         crate::shared::var::pxs_VarType::pxs_Map => {
             let object = SmartJSValue::new_object(context);

@@ -6,7 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_raise --no-default-features --features "lua,python,pxs-debug,testing" -- --nocapture --test-threads=1
+// cargo test --test test_raise --no-default-features --features "lua,python,js,pxs-debug,testing" -- --nocapture --test-threads=1
 
 #[cfg(test)]
 #[allow(unused)]
@@ -61,6 +61,20 @@ error('we should not get here')
     println!("Res: {:#?}", res);
 
     }
+    
+    fn test_js() {
+        let script = r#"
+import * as pxs from 'pxs';
+import {call} from 'test_raise';
+
+call()
+
+throw 'We should not get here';
+"#;
+        let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_JavaScript);
+        assert!(res.is_exception(), "JS is not exception: {:#?}", res);
+        println!("res: {:#?}", res);
+    }
 
     #[test]
     fn run_test() {
@@ -70,6 +84,8 @@ error('we should not get here')
         test_python();
         println!("=============== Changing languages =============");
         test_lua();
+        println!("=============== JS ===============");
+        test_js();
 
         pxs_finalize();
     }

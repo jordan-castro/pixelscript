@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{js::{SmartJSValue, func::create_object_callback, get_js_state, quickjs}, shared::{PXS_PTR_NAME, object::pxs_PixelObject}};
+use crate::{js::{SmartJSValue, func::create_object_callback, get_js_state, quickjs}, shared::{PXS_PTR_NAME, object::{ObjectFlags, pxs_PixelObject}}};
 
 pub(super) fn create_object(ctx: *mut quickjs::JSContext, idx: i32, source: Arc<pxs_PixelObject>) -> SmartJSValue {
     let state = get_js_state();
@@ -25,8 +25,12 @@ pub(super) fn create_object(ctx: *mut quickjs::JSContext, idx: i32, source: Arc<
         let flags = object_cbk.flags;
 
         let mut func = create_object_callback(ctx, module_cbk.idx, flags);
-        // Set
-        object.set_prop(&module_cbk.name, &mut func);
+        if flags & (ObjectFlags::IsProp as u8) != 0 {
+            object.add_getter_setter(&module_cbk.name, &mut func);
+        } else {
+            // Set
+            object.set_prop(&module_cbk.name, &mut func);
+        }
     }
 
     // Define obj
