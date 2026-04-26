@@ -2,7 +2,7 @@
 # To be the safest cross platform solution:
 # When running for MSVC set these variables in your env first:
 # set CFLAGS=/MT && set CXXFLAGS=/MT
-# This will force MLUA and RQUICKJS to compile lua5.lib to a static library.
+# This will force MLUA to compile lua5.lib to a static library.
 
 from glob import glob
 import os
@@ -14,7 +14,7 @@ import sys
 
 # Config
 CRATE_NAME = "pixelscript"
-LIB_CRATES = ["mlua", CRATE_NAME, "rquickjs"]
+LIB_CRATES = ["mlua", CRATE_NAME]
 SOURCE = "pxsb"
 # TODO: Figure out how WASM will work since it needs to use other libs for it to work, gotta have to link something.
 VALID_EXTENSIONS = ["lib", "a", "so", "dylib"]
