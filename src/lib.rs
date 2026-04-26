@@ -18,9 +18,11 @@ use std::{
 use crate::lua::LuaScripting;
 #[cfg(feature = "python")]
 use crate::python::PythonScripting;
+#[cfg(feature = "js")]
+use crate::js::JSScripting;
 
 use crate::shared::{
-    PixelScript, PtrMagic, func::{clear_function_lookup, lookup_add_function}, get_pixel_state, module::pxs_Module, object::{FreeMethod, ObjectFlags, clear_object_lookup, lookup_add_object, pxs_PixelObject}, pxs_LoadFileFn, pxs_Opaque, pxs_ReadDirFn, pxs_Runtime, pxs_WriteFileFn, var::{ObjectMethods, pxs_VarT, pxs_VarType}
+    PXS_PTR_NAME, PixelScript, PtrMagic, func::{clear_function_lookup, lookup_add_function}, get_pixel_state, module::pxs_Module, object::{ObjectFlags, clear_object_lookup, lookup_add_object, pxs_FreeMethod, pxs_PixelObject}, pxs_LoadFileFn, pxs_Opaque, pxs_ReadDirFn, pxs_Runtime, pxs_WriteFileFn, var::{ObjectMethods, pxs_VarList, pxs_VarT, pxs_VarType}
 };
 
 pub mod shared;
@@ -31,6 +33,8 @@ pub mod core;
 pub mod lua;
 #[cfg(feature = "python")]
 pub mod python;
+#[cfg(feature = "js")]
+pub mod js;
 
 /// Assert that the module is initiated.
 macro_rules! assert_initiated {
@@ -55,6 +59,11 @@ macro_rules! with_backend {
                 type $backend_alias = LuaScripting;
                 $body
             },
+            #[cfg(feature = "js")]
+            pxs_Runtime::pxs_JavaScript => {
+                type $backend_alias = JSScripting;
+                $body
+            }
             _ => panic!("Runtime not enabled"),
         }
     };
@@ -91,6 +100,10 @@ pub extern "C" fn pxs_initialize() {
             with_feature!("python", {
                 PythonScripting::start();
             });
+
+            with_feature!("js", {
+                JSScripting::start();
+            });
         }
         IS_INIT = true;
     }
@@ -121,11 +134,14 @@ pub extern "C" fn pxs_finalize() {
     with_feature!("python", {
         PythonScripting::stop();
     });
+
+    with_feature!("js", {
+        JSScripting::stop();
+    });
 }
 
 #[unsafe(no_mangle)]
-/// Execute code in a runtime. Will return a pxs_VarT. Null means no error
-/// String means yes error.
+/// Execute code in a runtime. Will return a pxs_VarT. Null means no error, otherwise error.
 /// The result will need to be freed by calling `pxs_freevar`
 pub extern "C" fn pxs_exec(
     runtime: pxs_Runtime,
@@ -208,6 +224,13 @@ pub extern "C" fn pxs_addfunc(module_ptr: *mut pxs_Module, name: *const c_char, 
     // Mangle the name
     let full_name = format!("_{}{}", module.name, name_str);
 
+    // Check that module DOES not already contain this name
+    if !module.callbacks.iter().map(|cbk| cbk.full_name == full_name).all(|v| v == false) {
+        panic!("Function with name: {full_name} is already defined.");
+        #[allow(unreachable_code)]
+        return;
+    }
+
     // Save the callback
     let idx = lookup_add_function(&full_name, func);
 
@@ -238,6 +261,13 @@ pub extern "C" fn pxs_addvar(
 
     let module = unsafe { pxs_Module::from_borrow(module_ptr) };
     let name_str = borrow_string!(name);
+
+    // Check if name already exists
+    if !module.variables.iter().all(|v| v.name != name_str) {
+        panic!("Variable name: {name_str} is already defined.");
+        #[allow(unreachable_code)]
+        return;
+    }
 
     // Now add variable
     module.add_variable(name_str, variable);
@@ -286,6 +316,9 @@ pub extern "C" fn pxs_addmod(module_ptr: *mut pxs_Module) {
     with_feature!("python", {
         PythonScripting::add_module(Arc::clone(&module));
     });
+    with_feature!("js", {
+        JSScripting::add_module(Arc::clone(&module));
+    });
 
     // Module gets dropped here, and that is good!
 }
@@ -313,7 +346,7 @@ pub extern "C" fn pxs_freemod(module_ptr: *mut pxs_Module) {
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_newobject(
     ptr: pxs_Opaque,
-    free_method: FreeMethod,
+    free_method: pxs_FreeMethod,
     type_name: *const c_char,
 ) -> *mut pxs_PixelObject {
     pxs_debug!("pxs_newobject");
@@ -653,6 +686,8 @@ pub extern "C" fn pxs_getfloat(var: *mut pxs_Var) -> f64 {
 }
 
 /// Get a Bool
+/// 
+/// CAN_CRASH
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_getbool(var: *mut pxs_Var) -> bool {
     pxs_debug!("pxs_getbool");
@@ -665,7 +700,7 @@ pub extern "C" fn pxs_getbool(var: *mut pxs_Var) -> bool {
 
 /// Get a String
 ///
-/// DANGEROUS
+/// CAN_CRASH, CALLER
 ///
 /// You have to free this memory by calling `pxs_free_str`
 #[unsafe(no_mangle)]
@@ -756,6 +791,9 @@ pub extern "C" fn pxs_startthread() {
     with_feature!("python", {
         PythonScripting::start_thread();
     });
+    with_feature!("js", {
+        JSScripting::start_thread();
+    });
 }
 
 /// Tells PixelScript that we just stopped the most recent thread.
@@ -768,6 +806,9 @@ pub extern "C" fn pxs_stopthread() {
     });
     with_feature!("python", {
         PythonScripting::stop_thread();
+    });
+    with_feature!("js", {
+        JSScripting::stop_thread();
     });
 }
 
@@ -789,6 +830,9 @@ pub extern "C" fn pxs_clearstate(gc_collect: bool) {
     with_feature!("python", {
         PythonScripting::clear_state(gc_collect);
     });
+    with_feature!("js", {
+        JSScripting::clear_state(gc_collect);
+    })
 }
 
 /// Call a method within a specifed runtime.
@@ -881,19 +925,29 @@ pub extern "C" fn pxs_tostring(runtime_var: *mut pxs_Var, var: *mut pxs_Var) -> 
     if let Some(runtime) = runtime {
         let args = pxs_Var::new_list();
         let list = args.get_list().unwrap();
-        list.add_item(b_var.clone());
+        list.add_item(b_var.shallow_copy());
         let res = match runtime {
             pxs_Runtime::pxs_Lua => {
                 with_feature!("lua", { LuaScripting::call_method("tostring", list) }, {
-                    return std::ptr::null_mut();
+                    return pxs_Var::feature_not_enabled_ep("lua").into_raw();
                 })
             }
             pxs_Runtime::pxs_Python => {
                 with_feature!("python", { PythonScripting::call_method("str", list) }, {
-                    return std::ptr::null_mut();
+                    return pxs_Var::feature_not_enabled_ep("python").into_raw();
                 })
             }
-            pxs_Runtime::pxs_JavaScript => todo!(),
+            pxs_Runtime::pxs_JavaScript => {
+                with_feature!("js", {
+                    let mut empty_list = pxs_VarList::new();
+                    JSScripting::object_call(b_var, "toString", &mut empty_list)    
+                }, {
+                    return pxs_Var::feature_not_enabled_ep("js").into_raw();
+                })
+            },
+            pxs_Runtime::pxs_Wren => {
+                todo!()
+            }
         };
 
         if let Ok(res) = res {
@@ -1229,7 +1283,7 @@ pub extern "C" fn pxs_gethost(runtime: pxs_VarT, var: pxs_VarT) -> *mut c_void {
 
     if borrow_var.is_object() {
         // Check for ptr
-        let key = create_raw_string!("_pxs_ptr");
+        let key = create_raw_string!(PXS_PTR_NAME);
         let idx_var = pxs_objectget(runtime, var, key);
         unsafe {
             free_raw_string!(key);
@@ -1239,7 +1293,13 @@ pub extern "C" fn pxs_gethost(runtime: pxs_VarT, var: pxs_VarT) -> *mut c_void {
         }
 
         let idx_own = pxs_Var::from_raw(idx_var);
-        idx_own.get_host_ptr()
+        let host_ptr = idx_own.get_host_ptr();
+
+        if host_ptr.is_null() {
+            pxs_debug!("Host pointer is null. The variable is: {:#?}", idx_own);
+        }
+
+        host_ptr
     } else if borrow_var.is_i64() || borrow_var.is_u64() || borrow_var.is_host_object() {
         borrow_var.get_host_ptr()
     } else if borrow_var.is_factory() {
@@ -1389,7 +1449,7 @@ pub extern "C" fn pxs_compile(
 
     // Add the runtime to the object.
     let list = res.get_list().unwrap();
-    list.insert_item(0, unsafe { runtime.into_var() });
+    list.insert_item(0, runtime.into_var());
 
     res.into_raw()
 }

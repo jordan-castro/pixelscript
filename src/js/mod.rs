@@ -1,0 +1,384 @@
+use std::{cell::RefCell, collections::HashMap};
+
+use anyhow::Result;
+use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
+
+use crate::{
+    borrow_string, js::{
+        func::create_callback, module::add_local_module, utils::SmartJSValue, var::{js_into_pxs, pxs_into_js}
+    }, pxs_debug, shared::{
+        PixelScript, pxs_Opaque, read_file, utils::CStringSafe, var::{ObjectMethods, pxs_Var, pxs_VarMap}
+    }
+};
+
+// Allow for the binidngs only
+#[allow(unused)]
+#[allow(non_camel_case_types)]
+#[allow(non_upper_case_globals)]
+#[allow(dead_code)]
+pub(self) mod quickjs {
+    include!(concat!(env!("OUT_DIR"), "/quickjsng_bindings.rs"));
+}
+
+mod func;
+mod module;
+mod object;
+mod var;
+mod utils;
+
+/// Holds name and Value for module methods
+pub(self) struct JSModuleMethod {
+    pub name: String,
+    pub value: SmartJSValue
+}
+
+/// JS specific State.
+struct State {
+    /// The JS runtime.
+    rt: *mut quickjs::JSRuntime,
+    /// The `__main__` context. Each state DOES NOT get it's own context.
+    context: *mut quickjs::JSContext,
+    /// Keep a list of defined PixelObject as class
+    defined_objects: RefCell<HashMap<String, SmartJSValue>>,
+    /// Module defined functions or variables takes a map[module_name] => map[int] => export
+    module_exports: RefCell<HashMap<String, Vec<JSModuleMethod>>>,
+    /// JSModules
+    modules: RefCell<HashMap<String, *mut quickjs::JSModuleDef>>,
+}
+
+impl Drop for State {
+    fn drop(&mut self) {
+        unsafe {
+            if self.context != std::ptr::null_mut() {
+                quickjs::JS_FreeContext(self.context);
+            }
+            // if self.rt != std::ptr::null_mut() {
+            //     quickjs::JS_FreeRuntime(self.rt);
+            // }
+        }
+    }
+}
+
+thread_local! {
+    static JSTATE: ReentrantMutex<State> = ReentrantMutex::new(unsafe{init_state()});
+}
+
+/// JS Module loader
+unsafe extern "C" fn js_module_loader(context: *mut quickjs::JSContext, module_name: *const std::ffi::c_char, _opaque: pxs_Opaque) -> *mut quickjs::JSModuleDef {
+    let state = get_js_state();
+    let modules = state.modules.borrow();
+    unsafe {
+        let name = borrow_string!(module_name);
+        if let Some(module) = modules.get(name) {
+            return *module;
+        }
+
+        // Otherwise try to read the file...
+        let contents = read_file(name);
+        if contents.len() == 0 {
+            return std::ptr::null_mut();
+        }
+
+        let mut cstrsafe = CStringSafe::new();
+        // We need to evalute a module
+        let res = quickjs::JS_Eval(context, cstrsafe.new_string(&contents), contents.len(), module_name, (quickjs::JS_EVAL_TYPE_MODULE | quickjs::JS_EVAL_FLAG_COMPILE_ONLY) as i32);
+        let smart_res = SmartJSValue::new_owned(res, context);
+
+        // Check exception
+        if smart_res.is_exception() || smart_res.is_error() {
+            pxs_debug!("Error compiling module");
+            return std::ptr::null_mut();
+        }
+
+        let val_int = smart_res.value.u.ptr as isize;
+        let m = ((val_int & !15) as *mut std::ffi::c_void).cast::<quickjs::JSModuleDef>();
+
+        m
+    }
+}
+
+/// Initialize the JS state.
+unsafe fn init_state() -> State {
+    unsafe {
+        let rt = quickjs::JS_NewRuntime();
+        let ctx = quickjs::JS_NewContext(rt);
+
+        // Setup module loader!
+        quickjs::JS_SetModuleLoaderFunc(rt, None, Some(js_module_loader), std::ptr::null_mut());
+
+        // Add pxs_json.js
+        let pxs_json = add_local_module(ctx, include_str!("../../core/js/pxs_json.js"), "pxs_json");
+
+        let mut modules = HashMap::new();
+        modules.insert("pxs_json".to_string(), pxs_json);
+
+        State { 
+            rt, 
+            context: ctx, 
+            defined_objects: RefCell::new(HashMap::new()), 
+            module_exports: RefCell::new(HashMap::new()),
+            modules: RefCell::new(modules),
+        }
+    }
+}
+
+fn get_js_state() -> ReentrantMutexGuard<'static, State> {
+    JSTATE.with(|mutex| {
+        let guard = mutex.lock();
+        // Transmute the lifetime so the guard can be passed around the thread
+        unsafe { std::mem::transmute(guard) }
+    })
+}
+
+/// Run JS code
+fn run_js(code: &str, file_name: &str, eval_type: i32) -> SmartJSValue {
+    let mut cstrsafe = CStringSafe::new();
+    let state = get_js_state();
+    unsafe {
+        let val = quickjs::JS_Eval(state.context, cstrsafe.new_string(code), code.len(), cstrsafe.new_string(file_name), eval_type);
+
+        // Check for exception
+        let exception = SmartJSValue::current_exception(state.context);
+        if exception.is_undefined() {
+            let smart = SmartJSValue::new_owned(val, state.context);
+            if smart.is_promise() {
+                smart.await_value()
+            } else {
+                smart
+            }
+        } else {
+            exception
+        }
+    }
+}
+
+/// Get JS Name (runs code without global this)
+fn get_js_name(name: &str) -> SmartJSValue {
+    run_js(name, "<get_js_name>", quickjs::JS_EVAL_TYPE_GLOBAL as i32)
+}
+
+/// Add pxs_Map to globalThis
+fn add_map_to_global_this(map: &pxs_VarMap, global_this: &SmartJSValue) -> Result<()> {
+    for key in map.keys() {
+        let js_key = pxs_into_js(global_this.context, key)?;
+        let mut js_val = pxs_into_js(global_this.context, map.get_item(key).unwrap())?;
+        global_this.set_prop_value(&js_key, &mut js_val);
+    }
+
+    Ok(())
+}
+
+/// Remove pxs_Map from globalThis
+fn remove_map_from_global_this(map: &pxs_VarMap, global_this: &SmartJSValue) -> Result<()> {
+    for key in map.keys() {
+        let js_key = pxs_into_js(global_this.context, key)?;
+        global_this.del_prop(&js_key);
+    }
+
+    Ok(())
+}
+
+/// Add main.js
+fn add_main_js() {
+    run_js(include_str!("../../core/js/main.js"), "main.js", quickjs::JS_EVAL_TYPE_MODULE as i32);
+}
+
+pub struct JSScripting;
+
+impl PixelScript for JSScripting {
+    fn start() {
+        let _state = get_js_state();
+        add_main_js();
+    }
+
+    fn stop() {
+        Self::clear_state(false);
+    }
+
+    fn add_module(source: std::sync::Arc<crate::shared::module::pxs_Module>) {
+        let state = get_js_state();
+        module::add_module(state.context, &source);
+    }
+
+    fn execute(code: &str, file_name: &str) -> anyhow::Result<crate::shared::var::pxs_Var> {
+        let res = run_js(code, file_name, (quickjs::JS_EVAL_TYPE_MODULE | quickjs::JS_EVAL_FLAG_ASYNC) as i32);
+        let pxs_res = js_into_pxs(&res);
+        if let Err(err) = pxs_res {
+            Ok(pxs_Var::new_exception(err.to_string()))
+        } else {
+            let val = pxs_res.unwrap();
+            if val.is_exception() {
+                Ok(val)
+            } else {
+                Ok(pxs_Var::new_null())
+            }
+        }
+    }
+
+    fn eval(code: &str) -> anyhow::Result<crate::shared::var::pxs_Var> {
+        let res = run_js(code, "<eval>", (quickjs::JS_EVAL_TYPE_GLOBAL | quickjs::JS_EVAL_FLAG_ASYNC) as i32);
+        js_into_pxs(&res)
+    }
+
+    fn start_thread() {
+        // Not needed for JS.
+    }
+
+    fn stop_thread() {
+        // Not needed for JS.
+    }
+
+    fn clear_state(call_gc: bool) {
+        let state = get_js_state();
+        // Clear state stuff first.
+        state.defined_objects.borrow_mut().clear();
+        state.module_exports.borrow_mut().clear();
+        state.modules.borrow_mut().clear();
+        if call_gc {
+            unsafe {
+                quickjs::JS_RunGC(state.rt);
+            }
+        }
+    }
+
+    fn compile(
+        code: &str,
+        global_scope: crate::shared::var::pxs_Var,
+    ) -> anyhow::Result<crate::shared::var::pxs_Var> {
+        // // Compile object
+        // let obj = run_js(code, "<code_object>", (quickjs::JS_EVAL_FLAG_COMPILE_ONLY | quickjs::JS_EVAL_FLAG_ASYNC | quickjs::JS_EVAL_TYPE_MODULE) as i32);
+        // if obj.is_exception() || obj.is_error() {
+        //     return Err(anyhow!("{}", obj.get_error_exception().unwrap()));
+        // }
+
+        // Now lets return our [CodeObject, Global Scope reference]
+        let result = pxs_Var::new_list();
+        let list = result.get_list().unwrap();
+
+        // Code object
+        list.add_item(pxs_Var::new_string(code.to_string()));
+        // Global object
+        list.add_item(global_scope);
+
+        Ok(result)
+    }
+
+    fn exec_object(
+        code: crate::shared::var::pxs_Var,
+        local_scope: crate::shared::var::pxs_Var,
+    ) -> anyhow::Result<crate::shared::var::pxs_Var> {
+        let state = get_js_state();
+        let list = code.get_list().unwrap();
+        // Add globalThis
+        let global_this = SmartJSValue::globalThis(state.context);
+        let global_scope = list.get_item(2).unwrap();
+
+        if !global_scope.is_null() {
+            add_map_to_global_this(global_scope.get_map().unwrap(), &global_this)?;
+        }
+
+        if !local_scope.is_null() {
+            add_map_to_global_this(local_scope.get_map().unwrap(), &global_this)?;
+        }
+
+        let res = run_js(&list.get_item(1).unwrap().get_string().unwrap(), "<code_obj>", (quickjs::JS_EVAL_TYPE_MODULE | quickjs::JS_EVAL_FLAG_ASYNC) as i32);
+
+        // Remove from globalThis
+        remove_map_from_global_this(global_scope.get_map().unwrap(), &global_this)?;
+        if !local_scope.is_null() {
+            remove_map_from_global_this(local_scope.get_map().unwrap(), &global_this)?;
+        }
+        if res.is_exception() {
+            Ok(pxs_Var::new_exception(res.get_error_exception().unwrap()))
+        } else {
+            js_into_pxs(&res)
+        }
+    }
+}
+
+impl ObjectMethods for JSScripting {
+    fn object_call(
+        var: &crate::shared::var::pxs_Var,
+        method: &str,
+        args: &mut crate::shared::var::pxs_VarList,
+    ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
+        let state = get_js_state();
+        let js_var = pxs_into_js(state.context, var)?;
+        let mut argv = vec![];
+
+        for a in args.vars.iter() {
+            argv.push(pxs_into_js(state.context, a)?);
+        }
+
+        let res = js_var.call(method, &argv);
+
+        js_into_pxs(&res)
+    }
+
+    fn call_method(
+        method: &str,
+        args: &mut crate::shared::var::pxs_VarList,
+    ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
+        // globalThis.`method`(args)
+        let state = get_js_state();
+        let mut argv = vec![];
+        for arg in args.vars.iter() {
+            argv.push(pxs_into_js(state.context, arg)?);
+        }
+
+        // Look for method in global_this or eval
+        let cbk = get_js_name(method);
+
+        if !cbk.is_function() {
+            // js_into_pxs(&cbk)
+            Ok(pxs_Var::new_exception(format!("{method} is not a Function")))
+        } else {
+            let res = cbk.call_as_source(&argv);
+            js_into_pxs(&res)
+        }
+    }
+
+    fn var_call(
+        method: &crate::shared::var::pxs_Var,
+        args: &mut crate::shared::var::pxs_VarList,
+    ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
+        let state = get_js_state();
+        let smart_val = pxs_into_js(state.context, method)?;
+        let mut argv = vec![];
+        for arg in args.vars.iter() {
+            argv.push(pxs_into_js(state.context, arg)?);
+        }
+
+        let res = smart_val.call_as_source(&argv);
+        js_into_pxs(&res)
+    }
+
+    fn get(
+        var: &crate::shared::var::pxs_Var,
+        key: &str,
+    ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
+        let state = get_js_state();
+        let this = pxs_into_js(state.context, var)?;
+        let res = this.get_prop(key);
+
+        js_into_pxs(&res)
+    }
+
+    fn set(
+        var: &crate::shared::var::pxs_Var,
+        key: &str,
+        value: &crate::shared::var::pxs_Var,
+    ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
+        let state = get_js_state();
+        let this = pxs_into_js(state.context, var)?;
+        let mut value = pxs_into_js(state.context, value)?;
+        
+        this.set_prop(key, &mut value);
+
+        Ok(pxs_Var::new_bool(true))
+    }
+
+    fn get_from_name(name: &str) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
+        js_into_pxs(&get_js_name(name))
+    }
+}

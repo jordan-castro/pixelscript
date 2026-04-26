@@ -141,7 +141,6 @@ pub(super) fn create_object(lua: &Lua, idx: i32, source: Arc<pxs_PixelObject>) -
             mt.set(name.clone(), func)?;
         }
 
-
         // Our custom index function
         let index_source_clone = mt.clone();
         let newindex_source_clone = mt.clone();

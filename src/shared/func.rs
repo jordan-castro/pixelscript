@@ -7,13 +7,12 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 use crate::shared::{
-    PtrMagic,
-    var::{default_deleter, pxs_VarList, pxs_VarType, pxs_VarValue},
+    PtrMagic
 };
 
 use super::var::pxs_Var;
 use std::{
-    cell::Cell, collections::HashMap, sync::{Mutex, OnceLock}
+    collections::HashMap, sync::{Mutex, OnceLock}
 };
 
 /// Function reference used in C.
@@ -115,13 +114,14 @@ pub unsafe fn call_function(fn_idx: i32, args: Vec<pxs_Var>) -> pxs_Var {
 
     // Convert the pxs_Var vector into a list.
     // Do this because I don't want to mess with the older code.
-    let args = pxs_Var {
-        tag: pxs_VarType::pxs_List,
-        value: pxs_VarValue {
-            list_val: pxs_VarList { vars: args }.into_raw(),
-        },
-        deleter: Cell::new(default_deleter)
-    };
+    let args = pxs_Var::new_list_with(args);
+    // let args = pxs_Var {
+    //     tag: pxs_VarType::pxs_List,
+    //     value: pxs_VarValue {
+    //         list_val: pxs_VarList { vars: args }.into_raw(),
+    //     },
+    //     deleter: Cell::new(default_deleter)
+    // };
     let args_ptr = args.into_raw();
 
     unsafe {

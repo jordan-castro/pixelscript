@@ -44,7 +44,7 @@ This will build the project and place the necessary *static* libraries in a `/px
 |------------------|-------------------|-----------------------|---------------------------------|
 | `lua`            | Lua               | [mlua](https://github.com/mlua-rs/mlua)                 | Fast, battle tested, v5.4       |
 | `python`         | Python            | [pocketpy](https://github.com/pocketpy/pocketpy)        | Requires MSVC on Windows        |
-| `js`             | JavaScript        | [rquickjs](https://github.com/delskayn/rquickjs)        | QuickJS small library. Supports ES2023          |
+| `js`             | JavaScript        | [quickjs-ng](https://github.com/quickjs-ng/quickjs)        | QuickJS-NG small library. Supports ES2027          |
 <!-- | `kora`           | Kora              | kor                   | A 2js and 2wasm language. Maintained by @epochtechgames.  | -->
 <!-- | `php`            | PHP               | PH7                   | Only and the ensupports v5.3 gine is not maintained anymore | -->
 <!-- | `luajit`         | Lua               | mlua                  | requires `lua` feature. Does not give true JIT on iOS. | -->

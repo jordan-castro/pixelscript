@@ -3,7 +3,7 @@ use std::ffi::c_char;
 use crate::{create_raw_string, free_raw_string};
 #[cfg(feature = "testing")]
 use crate::{
-    own_var, pxs_addfunc, pxs_addmod, pxs_exec, pxs_freevar, pxs_listget, pxs_listlen, pxs_newmod, pxs_newnull, pxs_tostring, shared::{PtrMagic, func::pxs_Func, module::pxs_Module, pxs_Runtime, var::{pxs_Var, pxs_VarT}}
+    own_var, pxs_addfunc, pxs_addmod, pxs_addvar, pxs_exec, pxs_freevar, pxs_listget, pxs_listlen, pxs_newint, pxs_newmod, pxs_newnull, pxs_tostring, shared::{PtrMagic, func::pxs_Func, module::pxs_Module, pxs_Runtime, var::{pxs_Var, pxs_VarT}}
 };
 
 /// A useful macro for debuggin in pixelscript.
@@ -66,6 +66,15 @@ pub fn add_function(module: *mut pxs_Module, name: &str, function: pxs_Func) {
 }
 
 #[cfg(feature = "testing")]
+pub fn add_variable(module: *mut pxs_Module, name: &str, var: pxs_VarT) {
+    let cname = create_raw_string!(name);
+    pxs_addvar(module, cname, var);
+    unsafe {
+        free_raw_string!(cname);
+    }
+}
+
+#[cfg(feature = "testing")]
 pub fn execute_code(code: &str, file_name: &str, runtime: pxs_Runtime) -> pxs_Var {
     let ccode = create_raw_string!(code);
     let cfile_name = create_raw_string!(file_name);
@@ -105,6 +114,7 @@ pub fn setup_pxs() {
     let module = create_module("pxs");
     // Add print function
     add_function(module, "print", print);
+    add_variable(module, "num", pxs_newint(1));
     // Save module
     pxs_addmod(module);
 }

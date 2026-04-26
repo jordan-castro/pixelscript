@@ -6,7 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_all --no-default-features --features "lua,python,pxs-debug,testing" -- --nocapture --test-threads=1
+// cargo test --test test_all --no-default-features --features "lua,python,js,pxs-debug,testing" -- --nocapture --test-threads=1
 
 #[cfg(test)]
 mod tests {
@@ -75,6 +75,7 @@ mod tests {
     extern "C" fn add_item(args: pxs_VarT) -> pxs_VarT {
         // Deref
         unsafe {
+            let vars = pxs_Var::from_borrow(args);
             let pixel_object_var = pxs_listget(args, 1);
             let host_ptr = pxs_gethost(pxs_listget(args, 0), pixel_object_var);
             let d = Diary::from_borrow(host_ptr as *mut Diary);
@@ -394,8 +395,6 @@ mod tests {
         pxs_addfunc(math_module, sub_name, sub_wrapper);
         pxs_addvar(math_module, zero_name, pxs_newint(0));
         let ddiary_name = create_raw_string!("DDiary");
-        pxs_addfunc(math_module, sub_name, sub_wrapper);
-        pxs_addvar(math_module, zero_name, pxs_newint(0));
         let diary_item_name = create_raw_string!("DiaryItem");
         pxs_addobject(math_module, diary_item_name, new_diary_item);
 
@@ -533,6 +532,29 @@ pxs.print("Module result: " .. tostring(result))
         "#;
         let res = execute_code(lua_code, "file_name", shared::pxs_Runtime::pxs_Lua);
         assert!(res.is_null(), "Lua Error is not empty: {:#?}", res);
+
+        println!("==== JS ====");
+        let js_code = r#"
+import * as pxs from 'pxs';
+import * as pxs_math from 'pxs.math';
+import * as ft_object from 'pad/ft_object.js';
+
+pxs.print("DDiary: " + pxs_math.DDiary);
+
+let diary = pxs_math.Diary(pxs_math.DiaryOwner("Jordan"), pxs_math.DiaryItem("Item Uno"));
+diary.add_item("Yo test dog");
+pxs.print(diary);
+
+ft_object.function_from_outside();
+
+let msg = `Welcome ${pxs.name}`;
+pxs.print(msg);
+
+let result = pxs.add(pxs.n1, pxs.n2);
+pxs.print("Module result: " + result.toString());
+"#;
+        let res = execute_code(js_code, "file_name", shared::pxs_Runtime::pxs_JavaScript);
+        assert!(res.is_null(), "JS Error is not empty: {:#?}", res);
 
         pxs_startthread();
         pxs_startthread();

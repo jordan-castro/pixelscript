@@ -12,7 +12,8 @@ use std::{
 
 use crate::{pxs_debug, shared::{PtrMagic, module::ModuleCallback}};
 
-pub type FreeMethod = unsafe extern "C" fn(ptr: *mut c_void);
+#[allow(non_camel_case_types)]
+pub type pxs_FreeMethod = unsafe extern "C" fn(ptr: *mut c_void);
 
 /// Flags for `ObjectCallback`.
 /// 
@@ -132,7 +133,7 @@ pub struct pxs_PixelObject {
     /// Should the lang_ptr be freed by PixelScript?
     pub free_lang_ptr: Mutex<bool>,
     /// The Method for freeing
-    pub free_method: FreeMethod,
+    pub free_method: pxs_FreeMethod,
     /// Callbacks with names.
     ///
     /// Important to note that a PixelObject can not have `static` callbacks.
@@ -146,7 +147,7 @@ pub struct pxs_PixelObject {
 }
 
 impl pxs_PixelObject {
-    pub fn new(ptr: *mut c_void, free_method: FreeMethod, type_name: &str) -> Self {
+    pub fn new(ptr: *mut c_void, free_method: pxs_FreeMethod, type_name: &str) -> Self {
         Self {
             ptr,
             free_method,

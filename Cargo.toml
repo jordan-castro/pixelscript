@@ -23,7 +23,7 @@ bindgen = "0.72.1"
 
 [features]
 # Default includes all languages and cores.
-default = ["lua", "python", "include-core"]
+default = ["lua", "python", "js", "include-core"]
 # Include LUA scripting.
 lua = ["dep:mlua"]
 # Include Python scripting. Via pocketpy
@@ -32,6 +32,7 @@ python = []
 php = []
 # luajit uses the same lua engine but with JIT flags
 luajit = ["lua"]
+js = []
 
 # Core libs
 # Include all core libs

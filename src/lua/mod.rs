@@ -203,7 +203,7 @@ impl PixelScript for LuaScripting {
     fn clear_state(call_gc: bool) {
         let state = get_lua_state();
 
-        state.tables.borrow_mut();
+        state.tables.borrow_mut().drain();
 
         if call_gc {
             state.engine.gc_collect().unwrap();

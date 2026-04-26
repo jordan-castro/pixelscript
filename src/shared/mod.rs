@@ -7,9 +7,7 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 use std::{
-    cell::RefCell,
-    ffi::{CString, c_char, c_void},
-    sync::{Arc, OnceLock},
+    cell::RefCell, ffi::{CString, c_char, c_void}, panic::Location, sync::{Arc, OnceLock}
 };
 
 use anyhow::Result;
@@ -69,7 +67,8 @@ pub(crate) fn get_pixel_state() -> ReentrantMutexGuard<'static, PixelState> {
     mutex.lock()
 }
 
-/// Read a file
+/// Read a file using pxs api.
+/// This must be set by host anguage.
 pub fn read_file(file_path: &str) -> String {
     // Get state
     let state = get_pixel_state();
@@ -90,7 +89,8 @@ pub fn read_file(file_path: &str) -> String {
     res_owned
 }
 
-/// Write a file
+/// Write a file using pxs api.
+/// This must be set by host language.
 pub fn write_file(file_path: &str, contents: &str) {
     // Get state
     let state = get_pixel_state();
@@ -108,7 +108,8 @@ pub fn write_file(file_path: &str, contents: &str) {
     unsafe { cbk(c_file_path.as_ptr(), c_contents.as_ptr()) };
 }
 
-/// Read a Directory.
+/// Read a Directory using pxs api.
+/// This must be set by host language.
 pub fn read_file_dir(dir_path: &str) -> Vec<String> {
     let state = get_pixel_state();
     let cbk = state.read_dir.borrow();
@@ -155,16 +156,20 @@ pub trait PtrMagic: Sized {
         self.into_raw() as *mut c_void
     }
 
+    #[track_caller]
     /// Safety: Only call this on a pointer created via `into_raw`.
     fn from_raw(ptr: *mut Self) -> Self {
-        assert!(!ptr.is_null(), "Attempted to own a null pointer.");
+        let location = Location::caller();
+        assert!(!ptr.is_null(), "Attempted to own a null pointer. Stack: {}:{}:{}", location.file(), location.line(), location.column());
         unsafe { *Box::from_raw(ptr) }
     }
 
+    #[track_caller]
     /// Build from a Ptr but only get a reference, this means that the caller will still own the memory
     unsafe fn from_borrow<'a>(ptr: *mut Self) -> &'a mut Self {
+        let location = Location::caller();
+        assert!(!ptr.is_null(), "Attempted to borrow a null pointer. Stack: {}:{}:{}", location.file(), location.line(), location.column());
         unsafe {
-            assert!(!ptr.is_null(), "Attempted to borrow a null pointer.");
             &mut *ptr
         }
     }
@@ -188,9 +193,11 @@ pub trait PixelScript {
     fn execute(code: &str, file_name: &str) -> Result<pxs_Var>;
     /// Evaluate a script in this runtime. Returns a pxs_Var.
     fn eval(code: &str) -> Result<pxs_Var>;
-    /// Allows the language to start a new thread. In this new thread all callbacks/objects/variables will be empty.
+    /// Some langauges (pocketpy) need to be explicitly told that a new thread is starting.
+    /// For most languages this is NOT needed.
     fn start_thread();
-    /// Tells the language that we just finished the most recent started thread.
+    /// Some languages (pocketpy) need to be expliclity told that a recent thread has stopped.
+    /// For most languages this is NOT needed.
     fn stop_thread();
     /// Clear the current threads state. Optionally calls garbage collector.
     fn clear_state(call_gc: bool);
@@ -215,6 +222,7 @@ pub enum pxs_Runtime {
     pxs_Python = 1,
     /// ES 2020 using rquickjs
     pxs_JavaScript = 2,
+    pxs_Wren = 3
 }
 
 impl pxs_Runtime {
@@ -223,6 +231,7 @@ impl pxs_Runtime {
             pxs_Runtime::pxs_Lua => 0,
             pxs_Runtime::pxs_Python => 1,
             pxs_Runtime::pxs_JavaScript => 2,
+            pxs_Runtime::pxs_Wren => 3
         }
     }
 
@@ -231,6 +240,7 @@ impl pxs_Runtime {
             0 => Some(Self::pxs_Lua),
             1 => Some(Self::pxs_Python),
             2 => Some(Self::pxs_JavaScript),
+            3 => Some(Self::pxs_Wren),
             _ => None,
         }
     }
@@ -260,8 +270,11 @@ impl pxs_Runtime {
     }
 
     /// Turns current runtime into a `pxs_Int64`
-    pub unsafe fn into_var(&self) -> pxs_Var {
+    pub fn into_var(&self) -> pxs_Var {
         let idx = self.into_i64();
         pxs_Var::new_i64(idx)
     }
 }
+
+/// PXS PTR name string
+pub const PXS_PTR_NAME: &str = "_pxs_ptr";

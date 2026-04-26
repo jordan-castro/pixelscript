@@ -6,14 +6,17 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_scope --no-default-features --features "lua,python,testing,pxs-debug" -- --nocapture --test-threads=1
+// cargo test --test test_scope --no-default-features --features "lua,python,js,testing,pxs-debug" -- --nocapture --test-threads=1
 
 #[allow(unused)]
 #[cfg(test)]
 mod tests {
     use std::{collections::HashMap, ffi::c_void};
 
-    use pixelscript::{borrow_var, create_raw_string, free_raw_string, own_string, own_var, pxs_compile, pxs_execobject, pxs_finalize, pxs_freevar, pxs_gethost, pxs_getstring, pxs_initialize, pxs_listget, pxs_map_addpair, pxs_new_shallowcopy, pxs_newcopy, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmap, pxs_newnull, pxs_newobject, pxs_newstring, pxs_object_addfunc, shared::{PtrMagic, utils::setup_pxs, var::{pxs_Var, pxs_VarT}}};
+    use pixelscript::{borrow_var, create_raw_string, free_raw_string, own_string, own_var, pxs_clearstate, pxs_compile, pxs_exec, pxs_execobject, pxs_finalize, pxs_freevar, pxs_gethost, pxs_getstring, pxs_initialize, pxs_listget, pxs_map_addpair, pxs_new_shallowcopy, pxs_newcopy, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmap, pxs_newnull, pxs_newobject, pxs_newstring, pxs_object_addfunc, pxs_startthread, pxs_stopthread, pxs_tostring, shared::{PtrMagic, pxs_Runtime, utils::setup_pxs, var::{pxs_Var, pxs_VarT}}};
+    fn print_helper(lang: &str) {
+        println!("====================== {lang} ===================");
+    }
 
     struct State {
         pub internals: HashMap<String, pxs_VarT>
@@ -109,7 +112,9 @@ mod tests {
         // Setup scope
         let scope = pxs_newmap();
         // New factory
-        let state_factory = pxs_newfactory(new_state, pxs_newlist());
+        let state_args = pxs_newlist();
+        let state_factory = new_state(state_args);
+        // let state_factory = pxs_newfactory(new_state, pxs_newlist());
         let self_name = create_raw_string!("self");
         // Add state
         pxs_map_addpair(scope, pxs_newstring(self_name), state_factory);
@@ -135,13 +140,18 @@ self.set('age', age + 1)
 
 pxs.print(f'Current loop idx: {loop_id}')
 "#;
-
         let raw_code = create_raw_string!(code);
+        pxs_startthread();
+        setup_pxs();
         // Compile python code to object
         let code_object = pxs_compile(pixelscript::shared::pxs_Runtime::pxs_Python, raw_code, scope());
         unsafe{
             free_raw_string!(raw_code);
         }
+
+        // Print code object just to test
+        let code_object_str = own_string!(pxs_getstring(pxs_tostring(pxs_newint(1), pxs_listget(code_object, 1))));
+        println!("code object str: {code_object_str}");
 
         let loop_name = create_raw_string!("loop_id");  
         for i in 0..5 {
@@ -197,16 +207,68 @@ pxs.print("Current loop idx: " .. tostring(loop_id))
 
     }
 
+    
+    fn test_js() {
+        let code = r#"
+import * as pxs from 'pxs';
+
+const init = () => {
+    self.set_if_null('name', "Jordan");
+    self.set_if_null('age', 24);
+};
+
+init();
+
+let name = self.get('name');
+let age = self.get('age');
+pxs.print("Hi my name is " + name + " and I am " + age.toString() + " years old");
+self.set('age', age + 1);
+pxs.print("Current loop idx: " + loop_id.toString());
+"#;
+        let raw_code = create_raw_string!(code);
+        // Compile python code to object
+        let code_object = pxs_compile(pixelscript::shared::pxs_Runtime::pxs_JavaScript, raw_code, scope());
+        unsafe{
+            free_raw_string!(raw_code);
+        }
+
+        let co = borrow_var!(code_object);
+        println!("CO: {:#?}", co);
+
+        let loop_name = create_raw_string!("loop_id");  
+        for i in 0..5 {
+            let co = pxs_new_shallowcopy(code_object);
+            let bco = borrow_var!(co);
+            let local_scope = pxs_newmap();
+            pxs_map_addpair(local_scope, pxs_newstring(loop_name), pxs_newint(i));
+            // Run lua code
+            let res = own_var!(pxs_execobject(co, local_scope));
+            assert!(!res.is_exception(), "Error found: {:#?}", res);
+        }
+
+        unsafe{free_raw_string!(loop_name);}
+        pxs_freevar(code_object);
+
+    }
+
+
     #[test]
     fn run_test() {
         pxs_initialize();
 
+        pxs_startthread();
         // Setup module
         setup_pxs();
+        pxs_clearstate(true);
+        pxs_stopthread();
+        pxs_startthread();
 
+        print_helper("Python");
         test_python();
-        println!("===================== Chaning Languages =====================");
+        print_helper("Lua");
         test_lua();
+        print_helper("JavaScript");
+        test_js();
 
         pxs_finalize();
     }

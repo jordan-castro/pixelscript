@@ -1,0 +1,9 @@
+; Comments are with ';'
+
+VAR nums = ARR(0,1,2,3,4)
+
+FUN(print_hello, ())
+
+FOR 0..COUNT(nums)
+    CALL(0, ARR_AT(nums, 0))
+END

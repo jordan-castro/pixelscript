@@ -6,13 +6,13 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_core --lib --no-default-features --features "lua,python,pxs-debug,include-core" -- --nocapture --test-threads=1
+// cargo test --test test_core --lib --no-default-features --features "lua,python,js,pxs-debug,include-core" -- --nocapture --test-threads=1
 #[allow(unused)]
 
 #[cfg(test)]
 mod tests {
     use pixelscript::{
-        create_raw_string, free_raw_string, own_string, own_var, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_exec, pxs_finalize, pxs_getstring, pxs_initialize, pxs_json_decode, pxs_json_encode, pxs_listadd, pxs_listget, pxs_new_shallowcopy, pxs_newcopy, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_tostring, shared::{PtrMagic, pxs_Runtime, var::{pxs_Var, pxs_VarT}}
+        create_raw_string, free_raw_string, own_string, own_var, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_exec, pxs_finalize, pxs_freevar, pxs_getstring, pxs_initialize, pxs_json_decode, pxs_json_encode, pxs_listadd, pxs_listget, pxs_listlen, pxs_new_shallowcopy, pxs_newcopy, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_tostring, shared::{PtrMagic, pxs_Runtime, var::{pxs_Var, pxs_VarT}}
     };
 
     extern "C" fn call_pxs_json_encode(args: pxs_VarT) -> pxs_VarT {
@@ -35,6 +35,25 @@ mod tests {
         res
     }
 
+    pub extern "C" fn print_wrapper(args: *mut pxs_Var) -> *mut pxs_Var {
+        unsafe {
+            let runtime = pxs_listget(args, 0);
+
+            let mut string = String::new();
+            for i in 1..pxs_listlen(args) {
+                let var = pxs_tostring(runtime, pxs_listget(args, i));
+                if let Ok(s) = (*var).get_string() {
+                    string.push_str(format!("{s} ").as_str());
+                }
+                pxs_freevar(var);
+            }
+
+            println!("From Runtime: {string}");
+        }
+
+        pxs_Var::new_null().into_raw()
+    }
+
     #[test]
     fn test_globals() {
         pxs_initialize();
@@ -42,17 +61,21 @@ mod tests {
         let module = pxs_newmod(mname);
         let fname = create_raw_string!("encode");
         let fname2 = create_raw_string!("decode");
+        let print = create_raw_string!("print");
         pxs_addfunc(module, fname, call_pxs_json_encode);
         pxs_addfunc(module, fname2, call_pxs_json_decode);
+        pxs_addfunc(module, print, print_wrapper);
         pxs_addmod(module);
         unsafe {
             free_raw_string!(mname);
             free_raw_string!(fname);
             free_raw_string!(fname2);
+            free_raw_string!(print);
         }
 
         let pyscript = r#"
 from pxs import *
+import pxs_json
 obj = {"one": 1, "two": 2}
 encoded = pxs_json.encode(obj)
 print(f'encoded: {encoded}')
@@ -83,6 +106,23 @@ print(decoded2.one)
 print(decoded2.two)
 "#;
 
+        let jsscript = r#"
+import {print, encode, decode} from 'pxs';
+import * as pxs_json from 'pxs_json';
+let obj = {one: 1, two: 2};
+let encoded = pxs_json.encode(obj);
+print(`encoded: ${encoded}`);
+let decoded = pxs_json.decode(encoded);
+print(decoded.one);
+print(decoded.two);
+
+let encoded2 = encode(obj);
+let decoded2 = decode(encoded2);
+print("Encoded 2: " + encoded2);
+print(decoded2.one == obj.one);
+print(decoded2.two == obj.two);
+"#;
+
         let raw_pyscript = create_raw_string!(pyscript);
         let raw_file_name = create_raw_string!("<globals_test>");
         let err = own_var!(pxs_exec(pxs_Runtime::pxs_Python, raw_pyscript, raw_file_name));
@@ -105,6 +145,17 @@ print(decoded2.two)
             unsafe { free_raw_string!(raw_file_name) };
         }
         assert!(err.is_null(), "Lua error is not empty {}", err.get_string().unwrap());
+        
+        println!("====================== CHANGING TO JS ========================");
+        let raw_jsscript = create_raw_string!(jsscript);
+        let err = own_var!(pxs_exec(pxs_Runtime::pxs_JavaScript, raw_jsscript, raw_file_name));
+        unsafe {
+            free_raw_string!(raw_jsscript);
+        }
+        if !err.is_null() {
+            unsafe {free_raw_string!(raw_file_name)};
+        }
+        assert!(err.is_null(), "JS error is not empty {}", err.get_string().unwrap());
 
         unsafe {
             free_raw_string!(raw_file_name);

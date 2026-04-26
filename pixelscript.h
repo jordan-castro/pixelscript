@@ -69,6 +69,7 @@ typedef enum pxs_Runtime {
    * ES 2020 using rquickjs
    */
   pxs_JavaScript = 2,
+  pxs_Wren = 3,
 } pxs_Runtime;
 
 /**
@@ -304,7 +305,7 @@ typedef struct pxs_Var *(*pxs_Func)(struct pxs_Var *args);
 
 typedef void *pxs_Opaque;
 
-typedef void (*FreeMethod)(void *ptr);
+typedef void (*pxs_FreeMethod)(void *ptr);
 
 /**
  * Function Type for Loading a file.
@@ -341,8 +342,7 @@ void pxs_initialize(void);
 void pxs_finalize(void);
 
 /**
- * Execute code in a runtime. Will return a pxs_VarT. Null means no error
- * String means yes error.
+ * Execute code in a runtime. Will return a pxs_VarT. Null means no error, otherwise error.
  * The result will need to be freed by calling `pxs_freevar`
  */
 pxs_VarT pxs_exec(enum pxs_Runtime runtime, const char *code, const char *file_name);
@@ -406,7 +406,7 @@ void pxs_freemod(struct pxs_Module *module_ptr);
  * Can return nullptr.
  */
 struct pxs_PixelObject *pxs_newobject(pxs_Opaque ptr,
-                                      FreeMethod free_method,
+                                      pxs_FreeMethod free_method,
                                       const char *type_name);
 
 /**
@@ -547,13 +547,15 @@ double pxs_getfloat(struct pxs_Var *var);
 
 /**
  * Get a Bool
+ *
+ * CAN_CRASH
  */
 bool pxs_getbool(struct pxs_Var *var);
 
 /**
  * Get a String
  *
- * DANGEROUS
+ * CAN_CRASH, CALLER
  *
  * You have to free this memory by calling `pxs_free_str`
  */

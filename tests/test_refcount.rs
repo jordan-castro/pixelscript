@@ -6,7 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_refcount --no-default-features --features "lua,python,pxs-debug,testing" -- --nocapture --test-threads=1
+// cargo test --test test_refcount --no-default-features --features "lua,python,js,pxs-debug,testing" -- --nocapture --test-threads=1
 
 #[cfg(test)]
 #[allow(unused)]
@@ -88,26 +88,18 @@ pxs.print(p:get_name())
         assert!(res.is_null(), "lua error is not null: {:#?}", res);
     }
 
-//     #[cfg(feature = "testing")]
-// pub fn create_module(name: &str) -> *mut pxs_Module {
-//     let cname = create_raw_string!(name);
-//     let module = pxs_newmod(cname);
-//     unsafe {
-//         free_raw_string!(cname);
-//     }
+    fn test_js() {
+        let js_script = r#"
+import {Person} from 'test';
+import {print} from 'pxs';
 
-//     module
-// }
-
-// #[cfg(feature = "testing")]
-// pub fn add_function(module: *mut pxs_Module, name: &str, function: pxs_Func) {
-//     let cname = create_raw_string!(name);
-//     pxs_addfunc(module, cname, function);
-//     unsafe {
-//         free_raw_string!(cname);
-//     }
-// }
-
+let p = Person('Jordan');
+print(p)
+print(p.get_name())
+"#;
+        let res = utils::execute_code(js_script, "<test>", pxs_Runtime::pxs_JavaScript);
+        assert!(res.is_null(), "lua error is not null: {:#?}", res);
+    }
 
     #[test]
     fn run_test() {
@@ -125,7 +117,9 @@ pxs.print(p:get_name())
         test_python();
         print_helper("LUA");
         test_lua();
-
+        print_helper("JavaScript");
+        test_js();
+        
         pxs_finalize();
     }
 }
