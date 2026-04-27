@@ -2,7 +2,7 @@
 # To be the safest cross platform solution:
 # When running for MSVC set these variables in your env first:
 # set CFLAGS=/MT && set CXXFLAGS=/MT
-# This will force MLUA and RQUICKJS to compile lua5.lib to a static library.
+# This will force MLUA to compile lua5.lib to a static library.
 
 from glob import glob
 import os
@@ -14,7 +14,7 @@ import sys
 
 # Config
 CRATE_NAME = "pixelscript"
-LIB_CRATES = ["mlua", CRATE_NAME, "rquickjs"]
+LIB_CRATES = ["mlua", CRATE_NAME]
 SOURCE = "pxsb"
 # TODO: Figure out how WASM will work since it needs to use other libs for it to work, gotta have to link something.
 VALID_EXTENSIONS = ["lib", "a", "so", "dylib"]
@@ -74,6 +74,14 @@ for arg in argv:
     elif arg == "clear":
         run_clear = True
 
+# Check for env flags
+# CFLAGS=/MT && set CXXFLAGS=/MT
+add_lua_flags = False
+if not defaults or 'lua' in features.split(','):
+    # Add lua flags
+    add_lua_flags = True
+    os.environ['CFLAGS'] = '/MT'
+    os.environ['CXXFLAGS'] = '/MT'
 
 build_mode = "release" if not debug else "debug"
 build_flag = "--release" if not debug else ""
@@ -95,6 +103,10 @@ if run_clear:
 print(" ".join(cmd))
 os.system(" ".join(cmd))
 # subprocess.call(cmd)
+
+if add_lua_flags:
+    del os.environ['CFLAGS']
+    del os.environ['CXXFLAGS']
 
 # Find build directory
 path_to_build = f"target/{build_mode}/build"

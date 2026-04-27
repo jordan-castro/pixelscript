@@ -35,6 +35,7 @@ mod tests {
         unsafe {free_raw_string!(mn); }
         return pxs_newnull();
     }
+
     fn print_helper(lang: &str) {
         println!("====================== {lang} ===================");
     }

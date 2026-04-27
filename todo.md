@@ -4,8 +4,7 @@
 - Fix warnings (remove or ignore)
 
 ## v0.5 Memory and JS support
-- ~~JS support via quickjs-ng. *JS*~~
-- Lazy Init language states on first run.
+- ~~JS support via quickjs-ng. *JS*~~ **DONE**
 - ~~Reference counting for PixelScript object.~~ **DONE**
 - Decrease number of functions created in pocketpy. *python*
 - ~~Return pxs_Exception for errors in pixelscript.~~ **DONE**
@@ -20,7 +19,6 @@
     - Mark functions as expected return type.
 - ~~Add properties to PixelObjects~~ **DONE**
 - Add anonyamous functions.
-- Use pxs_Map instead for Module variables.
 - Add `pxs_HostWrapper` which wraps host objects with a integer for a type.
     - This would be super useful for literally everything UserData related.
     - We can make use of the current HostObject system to build this. No new var types needde
@@ -40,13 +38,16 @@
     - test_raise (a new test of raising from one langauge to another.)
     - test_ft (a test that builds pixel ai dashs fast terrain system. If this runs, then it most likely works fine.)
 
-## v0.7 Wren support, WASM
+## v0.7 Wren support, WASM, C support (libtcc)
 - Add Wren support
 - WASM support + Wasm web page similar to pocketpy live playground.
+- Add C support via libtcc
 - Add `unlock` feature which allows for running thread code unlocked. 
 
 ## v0.8
-- Cross language support
+- Cross language support. Calling JS from Python, 
+- New feature for on language support called |lang-on-demand| or something
+    - Requires setting LANGUAGES static variable via `pxs_setlanguages`
 
 <!-- ## v0.7 Size Reduction -->
 <!-- - Remove mlua (use raw lua c files instead) -->
