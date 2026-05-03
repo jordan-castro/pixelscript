@@ -131,6 +131,4 @@ This will ideally be used by all future epochtech games since it allows for modd
 It's not quite ready to be used in production for anyone other than myself and epochtech. But if you make PRs to fix
 something or open issues, I will be responding and merging. Feel free to add a language, just check out /lua or /python for examples on how to use Var, Func, Module, PixelObject, and PixelScripting.
 
-Note: JS is still being implemented.
-
 Made with ❤️ by [@epochtechgames](https://x.com/epochtechgames)
