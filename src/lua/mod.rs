@@ -17,7 +17,7 @@ use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 use std::{cell::RefCell, collections::HashMap};
 
 use crate::{
-    lua::var::{from_lua, into_lua}, shared::{PixelScript, read_file, var::{ObjectMethods, pxs_Var}}, with_feature
+    lua::var::{from_lua, into_lua}, shared::{PixelScript, read_file, var::{ObjectMethods, pxs_Var, pxs_VarMap}}, with_feature
 };
 
 thread_local! {
@@ -153,6 +153,54 @@ fn setup_module_loader(lua: &Lua) -> Result<()> {
     Ok(())
 }
 
+/// Add variables to a Table from a Map
+fn add_variables_to_table(lua: &Lua, table: &LuaTable, map: &pxs_VarMap) -> Result<()> {
+    let keys = map.keys();
+    for k in keys {
+        // Convert to lua
+        let lkey = into_lua(lua, k)?;
+        let value = map.get_item(k);
+        if let Some(v) = value {
+            // convert to lua
+            let lval = into_lua(lua, v)?;
+            // Set in table
+            table.set(lkey, lval)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Remove variables from a Table.
+fn remove_variables_from_table(lua: &Lua, table: &LuaTable, map: &pxs_VarMap) -> Result<()> {
+    let keys = map.keys();
+    for k in keys {
+        // Convert to lua
+        let lkey = into_lua(lua, k)?;
+        table.set(lkey, LuaNil)?;
+    }
+
+    Ok(())
+}
+
+        // // Set local scope if not null
+        // if !local_scope.is_null() {
+        //     let map = local_scope.get_map().unwrap();
+        //     let keys = map.keys();
+        //     for k in keys {
+        //         // Key => LuaValue
+        //         let lua_key = into_lua(lua, k)?;
+        //         // Value => LuaValue
+        //         let value = map.get_item(k);
+        //         if let Some(v) = value { 
+        //             let lua_value = into_lua(lua, v)?;
+        //             // Set in table
+        //             global_table.set(lua_key, lua_value)?;
+        //         }
+        //     }
+        // }
+
+
 pub struct LuaScripting;
 
 impl PixelScript for LuaScripting {
@@ -277,18 +325,7 @@ impl PixelScript for LuaScripting {
         // Set local scope if not null
         if !local_scope.is_null() {
             let map = local_scope.get_map().unwrap();
-            let keys = map.keys();
-            for k in keys {
-                // Key => LuaValue
-                let lua_key = into_lua(lua, k)?;
-                // Value => LuaValue
-                let value = map.get_item(k);
-                if let Some(v) = value { 
-                    let lua_value = into_lua(lua, v)?;
-                    // Set in table
-                    global_table.set(lua_key, lua_value)?;
-                }
-            }
+            add_variables_to_table(lua, &global_table, map)?;
         }
 
         // Get the object as a function and call it
@@ -304,13 +341,7 @@ impl PixelScript for LuaScripting {
         // Now remove the local_state
         if !local_scope.is_null() {
             let map = local_scope.get_map().unwrap();
-            let keys = map.keys();
-            for k in keys {
-                // Key => LuaValue
-                let lua_key = into_lua(lua, k)?;
-                // Remove the pair                
-                global_table.set(lua_key, LuaNil)?;
-            }
+            remove_variables_from_table(lua, &global_table, map)?;
         }
 
         Ok(pxs_res)

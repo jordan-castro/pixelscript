@@ -73,11 +73,22 @@ for arg in argv:
         debug = True
     elif arg == "clear":
         run_clear = True
+    elif arg == "help":
+        print("""PixelScript script/build.py usage
+Arguments:
+- target=<valid rust targets>
+- features=<valid pxs feature comma delimited>
+- defaults=<n/y>
+- debug; a debug build
+- clear; clear the cache
+- help; print this message
+""")
+        exit(0)
 
 # Check for env flags
 # CFLAGS=/MT && set CXXFLAGS=/MT
 add_lua_flags = False
-if not defaults or 'lua' in features.split(','):
+if defaults or 'lua' in features.split(','):
     # Add lua flags
     add_lua_flags = True
     os.environ['CFLAGS'] = '/MT'
