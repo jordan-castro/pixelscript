@@ -23,7 +23,8 @@
     - This would be super useful for literally everything UserData related.
     - We can make use of the current HostObject system to build this. No new var types needde
     - Also need to add new methods: `pxs_new_hostwrapper`, `pxs_wrapper_gethost`
-- Check that function calls that fail dont crash.
+- ~~Check that function calls that fail dont crash.~~
+- Add `_pxs_delete` method to free internal memory at language level.
 
 ## v0.6 STD and Tests
 - Remove lua hacks (io, os, what else?)
