@@ -10,6 +10,7 @@ import shutil
 from pathlib import Path
 import subprocess
 import sys
+import platform
 
 
 # Config
@@ -88,7 +89,7 @@ Arguments:
 # Check for env flags
 # CFLAGS=/MT && set CXXFLAGS=/MT
 add_lua_flags = False
-if defaults or 'lua' in features.split(','):
+if platform.system == 'Windows' and (defaults or 'lua' in features.split(',')):
     # Add lua flags
     add_lua_flags = True
     os.environ['CFLAGS'] = '/MT'
