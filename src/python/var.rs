@@ -194,8 +194,6 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
             crate::shared::var::pxs_VarType::pxs_HostObject => {
                 let idx = var.value.host_object_val;
                 let pixel_object = get_object(idx).unwrap();
-                // DO NOT FREE POCKETPY memory.
-                pixel_object.update_free_lang_ptr(false);
                 let lang_ptr_is_null = pixel_object.lang_ptr.lock().unwrap().is_null();
                 if lang_ptr_is_null {
                     // let module_name = get_module_name_from_obj_idx(id);
@@ -224,6 +222,7 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
                     let pyobj = pocketpy::py_retval();
                     // Set that as the pointer
                     pixel_object.update_lang_ptr(pyobj as *mut c_void);
+                    // POCKETPY MEMORY IS HANDLED BY POCKETPY (which I think is SUPPPER COOL!)
                 }
                 // Get PTR again
                 let lang_ptr = pixel_object.lang_ptr.lock().unwrap();

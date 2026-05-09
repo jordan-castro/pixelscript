@@ -240,6 +240,9 @@ typedef union pxs_VarValue {
   struct pxs_VarMap *map_val;
 } pxs_VarValue;
 
+/**
+ * Deleter Function type. It takes a *void, and returns void.
+ */
 typedef void (*pxs_DeleterFn)(void*);
 
 /**
@@ -305,8 +308,6 @@ typedef struct pxs_Var *(*pxs_Func)(struct pxs_Var *args);
 
 typedef void *pxs_Opaque;
 
-typedef void (*pxs_FreeMethod)(void *ptr);
-
 /**
  * Function Type for Loading a file.
  */
@@ -343,21 +344,22 @@ void pxs_finalize(void);
 
 /**
  * Execute code in a runtime. Will return a pxs_VarT. Null means no error, otherwise error.
- * The result will need to be freed by calling `pxs_freevar`
+ *
+ * return:OWNED
  */
 pxs_VarT pxs_exec(enum pxs_Runtime runtime, const char *code, const char *file_name);
 
 /**
  * Free the string created by the pixelscript library
  *
- * Memory is transfered.
+ * string:TRANSFER
  */
 void pxs_freestr(char *string);
 
 /**
  * Create a new pixelscript Module.
  *
- * Can return nullptr.
+ * return:OWNED
  */
 struct pxs_Module *pxs_newmod(const char *name);
 
@@ -365,6 +367,8 @@ struct pxs_Module *pxs_newmod(const char *name);
  * Add a callback to a module.
  *
  * Pass in the modules pointer and callback paramaters.
+ *
+ * module_ptr:BORROW
  */
 void pxs_addfunc(struct pxs_Module *module_ptr, const char *name, pxs_Func func);
 
@@ -374,6 +378,9 @@ void pxs_addfunc(struct pxs_Module *module_ptr, const char *name, pxs_Func func)
  * Pass in the module pointer and variable params.
  *
  * Variable ownership is transfered.
+ *
+ * module_ptr:BORROW
+ * variable:TRANSFER
  */
 void pxs_addvar(struct pxs_Module *module_ptr, const char *name, struct pxs_Var *variable);
 
@@ -381,6 +388,9 @@ void pxs_addvar(struct pxs_Module *module_ptr, const char *name, struct pxs_Var 
  * Add a Module to a Module
  *
  * This transfers ownership.
+ *
+ * parent_ptr:BORROW
+ * child_ptr:TRANSFER
  */
 void pxs_add_submod(struct pxs_Module *parent_ptr, struct pxs_Module *child_ptr);
 
@@ -388,11 +398,15 @@ void pxs_add_submod(struct pxs_Module *parent_ptr, struct pxs_Module *child_ptr)
  * Add the module finally to the runtime.
  *
  * After this you can forget about the ptr since PM handles it.
+ *
+ * module_ptr:TRANSFER
  */
 void pxs_addmod(struct pxs_Module *module_ptr);
 
 /**
  * Optionally free a module if you changed your mind.
+ *
+ * module_ptr:TRANSFER
  */
 void pxs_freemod(struct pxs_Module *module_ptr);
 
@@ -404,18 +418,25 @@ void pxs_freemod(struct pxs_Module *module_ptr);
  * This must be wrapped in a `pxs_newhost` before use within a callback. If setting to a variable, this is done automatically for you.
  *
  * Can return nullptr.
+ *
+ * ptr:BORROW
+ * return:OWNED
  */
 struct pxs_PixelObject *pxs_newobject(pxs_Opaque ptr,
-                                      pxs_FreeMethod free_method,
+                                      pxs_DeleterFn free_method,
                                       const char *type_name);
 
 /**
  * Add a callback to a object.
+ *
+ * object_ptr:BORROW
  */
 void pxs_object_addfunc(struct pxs_PixelObject *object_ptr, const char *name, pxs_Func callback);
 
 /**
  * Add a callback to a object and make it use the language pointer rather than _pxs_ptr idx.
+ *
+ * object_ptr:BORROW
  */
 void pxs_object_add_reffunc(struct pxs_PixelObject *object_ptr,
                             const char *name,
@@ -424,6 +445,8 @@ void pxs_object_add_reffunc(struct pxs_PixelObject *object_ptr,
 /**
  * Add a property to a object. Expects a name and a callback. The same as `pxs_object_addfunc` but that it saves
  * it differently for the backend to convert it into a property.
+ *
+ * ptr:BORROW
  */
 void pxs_object_addprop(struct pxs_PixelObject *ptr,
                         const char *name,
@@ -461,16 +484,22 @@ void pxs_object_addprop(struct pxs_PixelObject *ptr,
  * // Same as Python
  * // etc
  * ```
+ *
+ * module_ptr:BORROW
  */
 void pxs_addobject(struct pxs_Module *module_ptr, const char *name, pxs_Func object_constructor);
 
 /**
  * Make a new Var string.
+ *
+ * return:OWNED
  */
 pxs_VarT pxs_newstring(const char *str);
 
 /**
  * Make a new Null var.
+ *
+ * return:OWNED
  */
 pxs_VarT pxs_newnull(void);
 
@@ -478,26 +507,37 @@ pxs_VarT pxs_newnull(void);
  * Make a new HostObject var.
  *
  * Transfers ownership
+ *
+ * pixel_object:TRANSFER
+ * return:OWNED
  */
 pxs_VarT pxs_newhost(struct pxs_PixelObject *pixel_object);
 
 /**
  * Create a new variable int. (i64)
+ *
+ * return:OWNED
  */
 pxs_VarT pxs_newint(int64_t val);
 
 /**
  * Create a new variable uint. (u64)
+ *
+ * return:OWNED
  */
 pxs_VarT pxs_newuint(uint64_t val);
 
 /**
  * Create a new variable bool.
+ *
+ * return:OWNED
  */
 pxs_VarT pxs_newbool(bool val);
 
 /**
  * Create a new variable float. (f64)
+ *
+ * return:OWNED
  */
 pxs_VarT pxs_newfloat(double val);
 
@@ -505,6 +545,10 @@ pxs_VarT pxs_newfloat(double val);
  * Call a function on a object, and use a Enum for runtime rather than a var.
  *
  * var is self.
+ *
+ * var:BORROW
+ * args:TRANSFER
+ * return:OWNED
  */
 pxs_VarT pxs_object_callrt(enum pxs_Runtime runtime,
                            struct pxs_Var *var,
@@ -524,6 +568,11 @@ pxs_VarT pxs_object_callrt(enum pxs_Runtime runtime,
  *     Var* obj = pxs_listget(args, 1);
  *     Var name = pxs_object_call()
  * ```
+ *
+ * runtime:BORROW
+ * var:BORROW
+ * args:TRANSFER
+ * return:OWNED
  */
 pxs_VarT pxs_objectcall(struct pxs_Var *runtime,
                         struct pxs_Var *var,
@@ -532,16 +581,22 @@ pxs_VarT pxs_objectcall(struct pxs_Var *runtime,
 
 /**
  * Get a int (i64) from a var.
+ *
+ * var:BORROW
  */
 int64_t pxs_getint(struct pxs_Var *var);
 
 /**
  * Get a uint (u64)
+ *
+ * var:BORROW
  */
 uint64_t pxs_getuint(struct pxs_Var *var);
 
 /**
  * Get a float (f64)
+ *
+ * var:BORROW
  */
 double pxs_getfloat(struct pxs_Var *var);
 
@@ -549,6 +604,7 @@ double pxs_getfloat(struct pxs_Var *var);
  * Get a Bool
  *
  * CAN_CRASH
+ * var:BORROW
  */
 bool pxs_getbool(struct pxs_Var *var);
 
@@ -558,11 +614,16 @@ bool pxs_getbool(struct pxs_Var *var);
  * CAN_CRASH, CALLER
  *
  * You have to free this memory by calling `pxs_free_str`
+ *
+ * var:BORROW
+ * return:OWNED
  */
 char *pxs_getstring(struct pxs_Var *var);
 
 /**
  * Check if a variable is of a type.
+ *
+ * var:BORROW
  */
 bool pxs_varis(struct pxs_Var *var, enum pxs_VarType var_type);
 
@@ -591,6 +652,8 @@ void pxs_set_dirreader(pxs_ReadDirFn func);
  * Free a PixelScript var.
  *
  * You should only free results from `pxs_object_call`
+ *
+ * var:TRANSFER
  */
 void pxs_freevar(struct pxs_Var *var);
 
@@ -617,6 +680,10 @@ void pxs_clearstate(bool gc_collect);
  * Runtime is a `pxs_Var`.
  *
  * Transfers ownership of args.
+ *
+ * runtime:BORROW
+ * args:TRANSFER
+ * return:OWNED
  */
 struct pxs_Var *pxs_call(struct pxs_Var *runtime, const char *method, struct pxs_Var *args);
 
@@ -624,6 +691,10 @@ struct pxs_Var *pxs_call(struct pxs_Var *runtime, const char *method, struct pxs
  * Call a ToString method on this Var. If already a string, it won't call it.
  *
  * Host must free this memory with `pxs_free_var`
+ *
+ * runtime_var:BORROW
+ * var:BORROW
+ * return:OWNED
  */
 struct pxs_Var *pxs_tostring(struct pxs_Var *runtime_var, struct pxs_Var *var);
 
@@ -631,6 +702,8 @@ struct pxs_Var *pxs_tostring(struct pxs_Var *runtime_var, struct pxs_Var *var);
  * Create a new pxs_VarList.
  *
  * This does not take any arguments. To add to a list, you must call `pxs_var_list_add(ptr, item)`
+ *
+ * return:OWNED
  */
 struct pxs_Var *pxs_newlist(void);
 
@@ -642,6 +715,9 @@ struct pxs_Var *pxs_newlist(void);
  * This will take ownership of the added item. If you want to copy it instead first create a new `pxs_Var` with `pxs_var_newcopy(item)`
  *
  * Will return the index added at.
+ *
+ * list:BORROW
+ * item:TRANSFER
  */
 int32_t pxs_listadd(struct pxs_Var *list,
                     struct pxs_Var *item);
@@ -652,6 +728,9 @@ int32_t pxs_listadd(struct pxs_Var *list,
  * Expcts a pointer to pxs_VarList. And a index of i32. Supports negative indexes just like in Python.
  *
  * This will NOT return a cloned variable, you must NOT free it.
+ *
+ * list:BORROW
+ * return:BORROW
  */
 struct pxs_Var *pxs_listget(struct pxs_Var *list,
                             int32_t index);
@@ -664,6 +743,9 @@ struct pxs_Var *pxs_listget(struct pxs_Var *list,
  * Will take ownership of the pxs_Var.
  *
  * This will return a boolean for success = true, or failure = false.
+ *
+ * list:BORROW
+ * item:TRANSFER
  */
 bool pxs_listset(struct pxs_Var *list,
                  int32_t index,
@@ -673,6 +755,8 @@ bool pxs_listset(struct pxs_Var *list,
  * Get length of a pxs_VarList.
  *
  * Expects a pointer to a pxs_VarList
+ *
+ * list:BORROW
  */
 int32_t pxs_listlen(struct pxs_Var *list);
 
@@ -682,6 +766,11 @@ int32_t pxs_listlen(struct pxs_Var *list);
  * Expects runtime var, var function, and args that is a List.
  *
  * Transfers ownership of args.
+ *
+ * runtime:BORROW
+ * var_func:BORROW
+ * args:TRANSFER
+ * return:OWNED
  */
 struct pxs_Var *pxs_varcall(struct pxs_Var *runtime,
                             struct pxs_Var *var_func,
@@ -691,11 +780,18 @@ struct pxs_Var *pxs_varcall(struct pxs_Var *runtime,
  * Copy the pxs_Var.
  *
  * Memory is handled by caller
+ *
+ * item:BORROW
+ * return:OWNED
  */
 struct pxs_Var *pxs_newcopy(struct pxs_Var *item);
 
 /**
  * Call a objects getter.
+ *
+ * runtime:BORROW
+ * obj:BORROW
+ * return:OWNED
  */
 pxs_VarT pxs_objectget(pxs_VarT runtime, pxs_VarT obj, const char *key);
 
@@ -703,11 +799,17 @@ pxs_VarT pxs_objectget(pxs_VarT runtime, pxs_VarT obj, const char *key);
  * Call a objects setter.
  *
  * value ownership is transfered.
+ *
+ * runtime:BORROW
+ * obj:BORROW
+ * value:TRANSFER
  */
 bool pxs_objectset(pxs_VarT runtime, pxs_VarT obj, const char *key, pxs_VarT value);
 
 /**
  * Evaluate code. This will return a pxs_Var.
+ *
+ * return:OWNED
  */
 pxs_VarT pxs_eval(const char *script, enum pxs_Runtime rt);
 
@@ -720,6 +822,9 @@ pxs_VarT pxs_eval(const char *script, enum pxs_Runtime rt);
  * ```python
  * var_name = callback(args)
  * ```
+ *
+ * args:TRANSFER
+ * return:OWNED
  */
 pxs_VarT pxs_newfactory(pxs_Func func, struct pxs_Var *args);
 
@@ -731,6 +836,8 @@ pxs_VarT pxs_newfactory(pxs_Func func, struct pxs_Var *args);
  * - Factories (this will call it on the fly.)
  *
  * All other types will return NULL.
+ *
+ * var:BORROW
  */
 void *pxs_gethost(pxs_VarT runtime, pxs_VarT var);
 
@@ -738,16 +845,24 @@ void *pxs_gethost(pxs_VarT runtime, pxs_VarT var);
  * Return a string rep of the `pxs_Var`.
  *
  * String must be freed via `pxs_freestr`.
+ *
+ * var:BORROW
+ * return:OWNED
  */
 char *pxs_debugvar(pxs_VarT var);
 
 /**
  * Create a `pxs_Exception`.
+ *
+ * return:OWNED
  */
 pxs_VarT pxs_newexception(const char *msg);
 
 /**
  * Get a variable reference from its name
+ *
+ * rt:BORROW
+ * return:OWNED
  */
 pxs_VarT pxs_var_fromname(pxs_VarT rt, const char *name);
 
@@ -755,6 +870,8 @@ pxs_VarT pxs_var_fromname(pxs_VarT rt, const char *name);
  * Remove a item from a list at a specific index.
  *
  * Returns true for success, false for failed
+ *
+ * list:BORROW
  */
 bool pxs_listdel(pxs_VarT list, int32_t index);
 
@@ -762,6 +879,9 @@ bool pxs_listdel(pxs_VarT list, int32_t index);
  * Do a Shallow Copy. Which means it gets the same data without get the deleter for (pxs_Object or pxs_Function).
  *
  * Memory is owned by caller.
+ *
+ * var:BORROW
+ * return:OWNED
  */
 pxs_VarT pxs_new_shallowcopy(pxs_VarT var);
 
@@ -772,6 +892,9 @@ pxs_VarT pxs_new_shallowcopy(pxs_VarT var);
  * Returns a `pxs_Var` whichs memory is handled by the caller.
  *
  * Resulting `pxs_Var` will contain (Associated Runtime, Code Object, Scope|default).
+ *
+ * global_scope:TRANSFER
+ * return:OWNED
  */
 pxs_VarT pxs_compile(enum pxs_Runtime runtime, const char *code, pxs_VarT global_scope);
 
@@ -786,11 +909,17 @@ pxs_VarT pxs_compile(enum pxs_Runtime runtime, const char *code, pxs_VarT global
  * Note: Do not use the same scope as in `pxs_compile`.
  *
  * Scope ownership is transferred.
+ *
+ * object : TRANSFER
+ * local  : TRANSFER
+ * return : OWNED
  */
 pxs_VarT pxs_execobject(pxs_VarT object, pxs_VarT local);
 
 /**
  * Create a new `pxs_Map`
+ *
+ * return:OWNED
  */
 pxs_VarT pxs_newmap(void);
 
@@ -805,11 +934,18 @@ pxs_VarT pxs_newmap(void);
  * - `pxs_Bool`
  *
  * Key and value ownership are transfered.
+ *
+ * map:BORROW
+ * key:TRANSFER
+ * value:TRANSFER
  */
 void pxs_map_addpair(pxs_VarT map, pxs_VarT key, pxs_VarT value);
 
 /**
  * Remove a value (`pxs_Var`) from a map based on it's key (`pxs_Var`).
+ *
+ * map:BORROW
+ * key:BORROW
  */
 void pxs_map_delitem(pxs_VarT map, pxs_VarT key);
 
@@ -817,6 +953,8 @@ void pxs_map_delitem(pxs_VarT map, pxs_VarT key);
  * Get length of a `pxs_Map`.
  *
  * -1 is invalid length.
+ *
+ * map:BORROW
  */
 int32_t pxs_maplen(pxs_VarT map);
 
@@ -824,6 +962,9 @@ int32_t pxs_maplen(pxs_VarT map);
  * Get the keys of a `pxs_Map`.
  *
  * Returns a `pxs_List` or `pxs_Null` Which is owned by caller.
+ *
+ * map:BORROW
+ * return:OWNED
  */
 pxs_VarT pxs_mapkeys(pxs_VarT map);
 
@@ -831,6 +972,10 @@ pxs_VarT pxs_mapkeys(pxs_VarT map);
  * Get a value in a map from a key.
  *
  * Result is not owned by caller. Use `pxs_newcopy` to transfer ownership.
+ *
+ * map:BORROW
+ * key:BORROW
+ * return:BORROW
  */
 pxs_VarT pxs_mapget(pxs_VarT map, pxs_VarT key);
 
@@ -838,6 +983,9 @@ pxs_VarT pxs_mapget(pxs_VarT map, pxs_VarT key);
  * Insert a item into a list at a certain index, shifting all other items to the right.
  *
  * Item ownership is transferred.
+ *
+ * list:BORROW
+ * item:TRANSFER
  */
 void pxs_listinsert(pxs_VarT list, uintptr_t index, pxs_VarT item);
 
@@ -847,6 +995,10 @@ void pxs_listinsert(pxs_VarT list, uintptr_t index, pxs_VarT item);
  * Basically calls the runtime.pxs_json.encode() function.
  *
  * Note: This function is already enabled in each scripting language. This is a host language wrapper for calling it easily.
+ *
+ * rt:BORROW
+ * args:TRANSFER
+ * return:OWNED
  */
 pxs_VarT pxs_json_encode(pxs_VarT rt,
                          pxs_VarT args);
@@ -857,6 +1009,10 @@ pxs_VarT pxs_json_encode(pxs_VarT rt,
  * Transfers ownership of args.
  *
  * Note: This function is already enabled in each scripting language. This is a host language wrapper for calling it easily.
+ *
+ * rt:BORROW
+ * args:TRANSFER
+ * return:OWNED
  */
 pxs_VarT pxs_json_decode(pxs_VarT rt,
                          pxs_VarT args);

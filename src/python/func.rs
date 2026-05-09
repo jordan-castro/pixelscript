@@ -105,6 +105,7 @@ pub(super) unsafe fn raise(msg: &str) -> bool {
 
 /// The pocketpy bridge
 pub(super) unsafe extern "C" fn pocketpy_bridge(argc: i32, argv: pocketpy::py_StackRef) -> bool {
+    // TODO: Why do I do argc < 1 ? Weird...
     if argc < 1 {
         unsafe {
             return raise("Python: argc < 1");

@@ -40,7 +40,6 @@ pxs.print('Working Lua')
     fn test_js() {
         let script = r#"
 import * as pxs from 'pxs';
-
 pxs.print('Working JS');
 "#;
         let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_JavaScript);

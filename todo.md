@@ -14,9 +14,9 @@
 - ~~Add Map~~ **DONE**
 - Review memory management:
     - ~~All functions return pxs_Var~~
-    - All functions need to be explicit in their docs on ownership
-    - Check Factories... why are we not owning the args?
-    - Mark functions as expected return type.
+    - ~~All functions need to be explicit in their docs on ownership~~
+    - ~~Check Factories... why are we not owning the args?~~ (We are)
+    - ~~Mark functions as expected return type.~~
 - ~~Add properties to PixelObjects~~ **DONE**
 - Add anonyamous functions.
 - Add `pxs_HostWrapper` which wraps host objects with a integer for a type.

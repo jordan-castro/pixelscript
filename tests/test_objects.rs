@@ -13,7 +13,7 @@
 mod tests {
     use std::ffi::c_void; 
 
-    use pixelscript::{borrow_var, create_raw_string, free_raw_string, own_string, pxs_addfunc, pxs_addmod, pxs_addobject, pxs_finalize, pxs_gethost, pxs_getint, pxs_getstring, pxs_getuint, pxs_initialize, pxs_listadd, pxs_listget, pxs_listlen, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_newobject, pxs_newstring, pxs_newuint, pxs_object_addfunc, pxs_object_addprop, shared::{PtrMagic, module::pxs_Module, pxs_Runtime, utils::{self, CStringSafe}, var::{pxs_Var, pxs_VarT}}};
+    use pixelscript::{borrow_var, create_raw_string, free_raw_string, own_string, pxs_addfunc, pxs_addmod, pxs_addobject, pxs_finalize, pxs_gethost, pxs_getint, pxs_getstring, pxs_getuint, pxs_initialize, pxs_listadd, pxs_listget, pxs_listlen, pxs_newcopy, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_newobject, pxs_newstring, pxs_newuint, pxs_object_addfunc, pxs_object_addprop, shared::{PtrMagic, module::pxs_Module, pxs_Runtime, utils::{self, CStringSafe}, var::{pxs_Var, pxs_VarT}}};
     
     fn print_helper(lang: &str) {
         println!("====================== {lang} ===================");
@@ -97,7 +97,7 @@ mod tests {
             let owner = &diary.owner;
             let nargs = pxs_newlist();
             let mut cstrgen = CStringSafe::new();
-            pxs_listadd(nargs, pxs_listget(args, 0));
+            pxs_listadd(nargs, pxs_newcopy(pxs_listget(args, 0)));
             pxs_listadd(nargs, pxs_newstring(cstrgen.new_string(&owner.name)));
             pxs_listadd(nargs, pxs_newint(owner.age as i64));
             new_person(nargs)

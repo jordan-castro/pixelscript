@@ -412,6 +412,7 @@ pub union pxs_VarValue {
 }
 
 #[allow(non_camel_case_types)]
+/// Deleter Function type. It takes a *void, and returns void.
 pub type pxs_DeleterFn = unsafe extern "C" fn(*mut c_void);
 
 /// Default Var deleter fn.
@@ -896,7 +897,6 @@ unsafe impl Sync for pxs_Var {}
 
 impl Drop for pxs_Var {
     fn drop(&mut self) {
-        // pxs_debug!("|psx_Var DROP| {}", unsafe {self.dbg() });
         if self.tag == pxs_VarType::pxs_String || self.tag == pxs_VarType::pxs_Exception {
             unsafe {
                 // Free the mem

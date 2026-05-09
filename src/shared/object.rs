@@ -10,10 +10,7 @@ use std::{
     collections::HashMap, ops::{BitAnd, BitOr}, os::raw::c_void, ptr, sync::{Arc, Mutex, OnceLock}
 };
 
-use crate::{pxs_debug, shared::{PtrMagic, module::ModuleCallback}};
-
-#[allow(non_camel_case_types)]
-pub type pxs_FreeMethod = unsafe extern "C" fn(ptr: *mut c_void);
+use crate::{pxs_debug, shared::{PtrMagic, module::ModuleCallback, var::{default_deleter, pxs_DeleterFn}}};
 
 /// Flags for `ObjectCallback`.
 /// 
@@ -130,10 +127,10 @@ pub struct pxs_PixelObject {
     pub ptr: *mut c_void,
     /// The language object pointer.
     pub lang_ptr: Mutex<*mut c_void>,
-    /// Should the lang_ptr be freed by PixelScript?
-    pub free_lang_ptr: Mutex<bool>,
+    /// The PXS FREE METHOD. This SHOULD NEVER EVER EVER BE TOUCHED in Host code.
+    pxs_free_method: Mutex<pxs_DeleterFn>,
     /// The Method for freeing
-    pub free_method: pxs_FreeMethod,
+    pub free_method: pxs_DeleterFn,
     /// Callbacks with names.
     ///
     /// Important to note that a PixelObject can not have `static` callbacks.
@@ -147,14 +144,14 @@ pub struct pxs_PixelObject {
 }
 
 impl pxs_PixelObject {
-    pub fn new(ptr: *mut c_void, free_method: pxs_FreeMethod, type_name: &str) -> Self {
+    pub fn new(ptr: *mut c_void, free_method: pxs_DeleterFn, type_name: &str) -> Self {
         Self {
             ptr,
             free_method,
             callbacks: vec![],
             lang_ptr: Mutex::new(ptr::null_mut()),
             type_name: type_name.to_string(),
-            free_lang_ptr: Mutex::new(true),
+            pxs_free_method: Mutex::new(default_deleter),
             ref_count: Mutex::new(1)
         }
     }
@@ -180,10 +177,11 @@ impl pxs_PixelObject {
         *guard = n_ptr;
     }
 
-    pub fn update_free_lang_ptr(&self, val: bool) {
-        let mut guard = self.free_lang_ptr.lock().unwrap();
+    /// Update pxs_free method
+    pub fn update_pxs_free_method(&self, free_method: pxs_DeleterFn) {
+        let mut guard = self.pxs_free_method.lock().unwrap();
 
-        *guard = val;
+        *guard = free_method;
     }
 
     /// Add to reference counting
@@ -211,11 +209,10 @@ unsafe impl Sync for pxs_PixelObject {}
 impl Drop for pxs_PixelObject {
     fn drop(&mut self) {
         let mut lang_ptr = self.lang_ptr.lock().unwrap();
-        if *self.free_lang_ptr.lock().unwrap() {
-            if !lang_ptr.is_null() {
-                //  Free Language memory
-                let _ = unsafe { Box::from_raw(*lang_ptr) };
-            }
+        if !lang_ptr.is_null() {
+            // Free Language memory
+            let pxs_free_method = self.pxs_free_method.get_mut().unwrap();
+            unsafe { (pxs_free_method)(*lang_ptr); }
         }
         *lang_ptr = ptr::null_mut();
         if self.ptr.is_null() {

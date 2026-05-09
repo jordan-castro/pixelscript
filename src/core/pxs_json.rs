@@ -1,4 +1,4 @@
-use crate::{create_raw_string, free_raw_string, pxs_objectget, pxs_var_fromname, pxs_varcall, shared::var::pxs_VarT};
+use crate::{create_raw_string, free_raw_string, pxs_freevar, pxs_objectget, pxs_var_fromname, pxs_varcall, shared::var::pxs_VarT};
 
 /// Encode a `pxs_Object` into JSON.
 pub extern "C" fn encode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
@@ -17,6 +17,10 @@ pub extern "C" fn encode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
     unsafe{
         free_raw_string!(cmethod);
     }
+    // Free json
+    pxs_freevar(json);
+    // Free decode method
+    pxs_freevar(encode_method);
 
     res
 } 
@@ -37,5 +41,10 @@ pub extern "C" fn decode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
     unsafe {
         free_raw_string!(cmethod);
     }
+
+    // Free json
+    pxs_freevar(json);
+    // Free decode_method
+    pxs_freevar(decode_method);
     res
 }

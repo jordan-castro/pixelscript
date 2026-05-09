@@ -38,6 +38,9 @@ mod tests {
     extern "C" fn get_attr(args: pxs_VarT) -> pxs_VarT {
         let obj = pxs_listget(args, 1);
         let state_ptr = pxs_gethost(pxs_listget(args, 0), obj);
+        if state_ptr.is_null() {
+            panic!("YO YO YO Why is state null?");
+        }
         let state = unsafe{State::from_borrow_void(state_ptr)};
 
         let key = own_string!(pxs_getstring(pxs_listget(args, 2)));
@@ -141,8 +144,6 @@ self.set('age', age + 1)
 pxs.print(f'Current loop idx: {loop_id}')
 "#;
         let raw_code = create_raw_string!(code);
-        pxs_startthread();
-        setup_pxs();
         // Compile python code to object
         let code_object = pxs_compile(pixelscript::shared::pxs_Runtime::pxs_Python, raw_code, scope());
         unsafe{
@@ -212,18 +213,22 @@ pxs.print("Current loop idx: " .. tostring(loop_id))
         let code = r#"
 import * as pxs from 'pxs';
 
-const init = () => {
-    self.set_if_null('name', "Jordan");
-    self.set_if_null('age', 24);
-};
+// JS requires wrapping in a function.
+export function __pxs__(globals, locals) {
+    let self = globals.self;
+    const init = () => {
+        self.set_if_null('name', "Jordan");
+        self.set_if_null('age', 24);
+    };
 
-init();
+    init();
 
-let name = self.get('name');
-let age = self.get('age');
-pxs.print("Hi my name is " + name + " and I am " + age.toString() + " years old");
-self.set('age', age + 1);
-pxs.print("Current loop idx: " + loop_id.toString());
+    let name = self.get('name');
+    let age = self.get('age');
+    pxs.print("Hi my name is " + name + " and I am " + age.toString() + " years old");
+    self.set('age', age + 1);
+    pxs.print("Current loop idx: " + locals.loop_id.toString());
+}
 "#;
         let raw_code = create_raw_string!(code);
         // Compile python code to object
@@ -256,12 +261,8 @@ pxs.print("Current loop idx: " + loop_id.toString());
     fn run_test() {
         pxs_initialize();
 
-        pxs_startthread();
         // Setup module
         setup_pxs();
-        pxs_clearstate(true);
-        pxs_stopthread();
-        pxs_startthread();
 
         print_helper("Python");
         test_python();

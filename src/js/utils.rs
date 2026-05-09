@@ -182,6 +182,7 @@ impl SmartJSValue {
     //     SmartJSValue::new_owned(unsafe{quickjs::JS_NewObjectProto(self.context, self.value)}, self.context)
     // }
 
+    #[allow(unused)]
     #[allow(non_snake_case)]
     /// Get globalThis
     pub fn globalThis(context: *mut quickjs::JSContext) -> Self {
@@ -434,6 +435,7 @@ impl SmartJSValue {
         }
     }
 
+    #[allow(unused)]
     /// Remove a property
     pub fn del_prop(&self, prop: &SmartJSValue) {
         unsafe {
@@ -535,7 +537,7 @@ impl SmartJSValue {
         unsafe {
             let function = self.get_prop(name);
             if !function.is_function() {
-                return SmartJSValue::new_exception(self.context, "Not a function".to_string(), "CallFunctionException".to_string());
+                return SmartJSValue::new_exception(self.context, format!("Expected function, found: {}", self.type_string()), "CallFunctionException".to_string());
             }
             let result = SmartJSValue::new_owned(
                 quickjs::JS_Call(self.context, function.value, self.value, args.len().try_into().unwrap(), argv),
@@ -550,7 +552,7 @@ impl SmartJSValue {
     /// Returns OWNED value.
     pub fn call_as_source(&self, args: &Vec<SmartJSValue>) -> SmartJSValue {
         if !self.is_function() {
-            return SmartJSValue::new_exception(self.context, "Not a function".to_string(), "CallFunctionException".to_string());
+            return SmartJSValue::new_exception(self.context, format!("Expected function, found: {}", self.type_string()), "CallFunctionException".to_string());
         }
         
         let mut js_args = vec![];
@@ -582,6 +584,12 @@ impl Drop for SmartJSValue {
         if !self.owned || self.context.is_null() {
             return;
         }
+
+        // Also don't free if module
+        if self.is_module() {
+            return;
+        }
+
         // Free
         unsafe {
             quickjs::JS_FreeValue(self.context, self.value);

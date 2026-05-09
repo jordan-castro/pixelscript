@@ -103,10 +103,11 @@ pub(super) fn pxs_into_js(context: *mut quickjs::JSContext, var: &pxs_Var) -> Re
             let lang_ptr_is_null = po.lang_ptr.lock().unwrap().is_null();
             if lang_ptr_is_null {
                 // Create new object
-                let obj = create_object(context, idx, Arc::clone(&po));
+                let obj: SmartJSValue = create_object(context, idx, Arc::clone(&po));
                 // Box it
                 let boxed = Box::into_raw(Box::new(obj)); 
                 po.update_lang_ptr(boxed as *mut c_void);
+                po.update_pxs_free_method(js_deleter);
             }
             // Get smart value and return raw value...
             let lang_ptr = po.lang_ptr.lock().unwrap();

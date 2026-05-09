@@ -44,7 +44,8 @@ pub(super) fn add_module(context: *mut quickjs::JSContext, module: &Arc<pxs_Modu
     // Create trampolines
     for method in module.callbacks.iter() {
         // Create method
-        let cbk = create_callback(context, method.idx);
+        let mut cbk = create_callback(context, method.idx);
+        cbk.owned = false;
         exports.push(JSModuleMethod{
             name: method.name.clone(),
             value: cbk

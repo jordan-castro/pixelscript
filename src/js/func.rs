@@ -145,8 +145,5 @@ pub(super) fn create_object_callback(ctx: *mut quickjs::JSContext, fn_idx: i32, 
     let function = unsafe {
         quickjs::JS_NewCFunctionData(ctx, Some(object_trampoline), 0, 0, 2, func_data_ptr)
     };
-    // unsafe {
-        // let _ = Vec::from_raw_parts(func_data_ptr.0, func_data_ptr.1, func_data_ptr.2);
-    // }
     SmartJSValue::new_owned(function, ctx)
 }

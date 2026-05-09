@@ -278,3 +278,6 @@ impl pxs_Runtime {
 
 /// PXS PTR name string
 pub const PXS_PTR_NAME: &str = "_pxs_ptr";
+
+/// PXS __pxs__ internal method
+pub const PXS_METHOD_NAME: &str = "__pxs__";

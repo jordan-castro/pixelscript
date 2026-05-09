@@ -26,7 +26,7 @@ pub(super) fn create_object(ctx: *mut quickjs::JSContext, idx: i32, source: Arc<
 
         let mut func = create_object_callback(ctx, module_cbk.idx, flags);
         if flags & (ObjectFlags::IsProp as u8) != 0 {
-            object.add_getter_setter(&module_cbk.name, &mut func);
+            object.add_getter_setter(&module_cbk.name, &func);
         } else {
             // Set
             object.set_prop(&module_cbk.name, &mut func);

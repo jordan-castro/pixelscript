@@ -21,28 +21,28 @@ use crate::{
     },
 };
 
-unsafe extern "C" fn free_lua_mem(ptr: *mut c_void) {
+unsafe extern "C" fn free_lua_function(ptr: *mut c_void) {
     if ptr.is_null() {
         return;
     }
-    let _ = Box::from(ptr);
+    unsafe { 
+        // Back into Function
+        let func = ptr as *mut LuaFunction;
+        let _ = Box::from_raw(func); 
+    }
 }
 
-// /// Lua Function for freeing memory
-// unsafe extern "C" fn free_lua_object(ptr: *mut c_void) {
-//     if ptr.is_null() {
-//         return;
-//     }
-//     unsafe {
-//         let table: LuaTable = *Box::from_raw(ptr as *mut LuaTable);
-//         let pxs_ptr: LuaInteger = table.get("_pxs_ptr").unwrap_or(-1);
-//         if pxs_ptr >= 0 {
-//             // Free it
-//             clear_object_from_lookup(pxs_ptr as i32);
-//         }
-//         // Table gets dropped here
-//     }
-// }
+unsafe extern "C" fn free_lua_table(ptr: *mut c_void) {
+    if ptr.is_null() {
+        return;
+    }
+
+    unsafe {
+        // Back into Table
+        let table = ptr as *mut LuaTable;
+        let _ = Box::from_raw(table);
+    }
+}
 
 /// Convert a Lua value to a Var.
 pub(super) fn from_lua(value: LuaValue) -> Result<pxs_Var, anyhow::Error> {
@@ -56,7 +56,7 @@ pub(super) fn from_lua(value: LuaValue) -> Result<pxs_Var, anyhow::Error> {
             let func = Box::into_raw(Box::new(f));
             Ok(pxs_Var::new_function(
                 func as *mut c_void,
-                Some(free_lua_mem),
+                Some(free_lua_function),
             ))
         }
         LuaValue::Table(t) => {
@@ -66,7 +66,7 @@ pub(super) fn from_lua(value: LuaValue) -> Result<pxs_Var, anyhow::Error> {
             if t_length == 0 {
                 // Regular table
                 let obj = Box::into_raw(Box::new(t));
-                Ok(pxs_Var::new_object(pxs_VarObject::new_lang_only(obj as *mut c_void), Some(free_lua_mem)))
+                Ok(pxs_Var::new_object(pxs_VarObject::new_lang_only(obj as *mut c_void), Some(free_lua_table)))
             } else {
                 // It's a list.
                 let mut values = vec![];
@@ -131,6 +131,7 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
                     // Add table ptr
                     let table_ptr = Box::into_raw(Box::new(table));
                     pixel_object.update_lang_ptr(table_ptr as *mut c_void);
+                    // pixel_object.update_pxs_free_method(free_lua_table);
                 }
 
                 // Get PTR again.

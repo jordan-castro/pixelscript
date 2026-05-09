@@ -34,3 +34,4 @@ use `null`.
 - Is currently leaking JSRuntime. I need to review the quickjs-ng source to understand how to free it safely. Something to do with how I am creating the values or something.
   Sucks that it's changes from quickjs where once the runtime is freed it frees all values assigned. But in quickjs-ng this is not the case.
 - You have to use `globalThis` to assign (variables, functions) to global scope.
+- `__pxs__` is a predefined name.
