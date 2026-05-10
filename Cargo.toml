@@ -35,7 +35,7 @@ luajit = ["lua"]
 js = []
 
 # Core libs
-# Include all core libs
+# Include all core libs (toggled by default)
 include-core = [
     "pxs_json"
 ]

@@ -196,6 +196,16 @@ impl PixelScript for JSScripting {
 
     fn stop() {
         Self::clear_state(false);
+
+        let state = get_js_state();
+        let modules = state.modules.borrow();
+
+        // Import all modules just in case the user never did
+        let mut import_modules_code = String::new();
+        for m in modules.iter() {
+            import_modules_code.push_str(format!("import '{}';", m.0).as_str());
+        }
+        run_js(&import_modules_code, "<cleanup>", quickjs::JS_EVAL_TYPE_MODULE as i32);
     }
 
     fn add_module(source: std::sync::Arc<crate::shared::module::pxs_Module>) {

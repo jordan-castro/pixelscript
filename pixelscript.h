@@ -286,6 +286,15 @@ typedef struct pxs_Var {
    * Optional delete method. This is used for Pointers in Objects, and Functions.
    */
   pxs_DeleterFn deleter;
+  /**
+   * IDX assigned within arena
+   */
+  int32_t idx;
+  /**
+   * Arena that this variable is attached to.
+   * This should not be manipulated via the Host.
+   */
+  int32_t arena;
 } pxs_Var;
 
 /**
@@ -988,6 +997,18 @@ pxs_VarT pxs_mapget(pxs_VarT map, pxs_VarT key);
  * item:TRANSFER
  */
 void pxs_listinsert(pxs_VarT list, uintptr_t index, pxs_VarT item);
+
+/**
+ * Create a new arena in memory.
+ * This does not return anything, it simply creates a scope that will allocate pxs_Var memory.
+ * when finished call, `pxs_freearena`
+ */
+void pxs_newarena(void);
+
+/**
+ * Free arena. Upon freeing all variables allocated since `pxs_newarena` will be freed.
+ */
+void pxs_freearena(void);
 
 /**
  * Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.

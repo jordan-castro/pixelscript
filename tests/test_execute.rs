@@ -11,7 +11,7 @@
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
-    use pixelscript::{create_raw_string, free_raw_string, pxs_finalize, pxs_initialize, pxs_newmod, shared::{module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT}};
+    use pixelscript::{create_raw_string, free_raw_string, pxs_finalize, pxs_freearena, pxs_initialize, pxs_newarena, pxs_newmod, shared::{module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT}};
     
     fn print_helper(lang: &str) {
         println!("====================== {lang} ===================");

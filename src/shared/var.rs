@@ -17,8 +17,7 @@ use std::{
 use anyhow::{Error, anyhow};
 
 use crate::{
-    borrow_string, create_raw_string,
-    shared::{PtrMagic, object::{apply_ref_count_alloc, apply_ref_count_delete, get_object}, pxs_Runtime},
+    borrow_string, borrow_var, create_raw_string, shared::{PtrMagic, get_current_arena_id, object::{apply_ref_count_alloc, apply_ref_count_delete, get_object}, pxs_Runtime, remove_var_from_arena, save_var_in_arena}
 };
 
 /// Macro for writing out the Var:: get methods.
@@ -44,11 +43,11 @@ macro_rules! write_new_methods {
     ($($t:ty, $func:ident, $vt:expr, $vn:ident);*) => {
         $(
             pub fn $func(val:$t) -> Self {
-                Self {
-                    tag: $vt,
-                    value: pxs_VarValue { $vn: val },
-                    deleter: Cell::new(default_deleter)
-                }
+                Self::new(
+                    $vt,
+                    pxs_VarValue { $vn: val },
+                    default_deleter
+                )
             }
         )*
     };
@@ -191,6 +190,8 @@ impl pxs_VarMap {
     ///
     /// Old value (if any) gets dropped.
     pub fn add_item(&mut self, key: pxs_Var, value: pxs_Var) {
+        key.remove_from_arena();
+        value.remove_from_arena();
         // Drop old value.
         let _ = self.map.insert(key, value);
     }
@@ -332,6 +333,7 @@ impl pxs_VarList {
 
     /// Add a Var to the list. List will take ownership.
     pub fn add_item(&mut self, item: pxs_Var) {
+        item.remove_from_arena();
         self.vars.push(item);
     }
 
@@ -457,10 +459,29 @@ pub struct pxs_Var {
 
     /// Optional delete method. This is used for Pointers in Objects, and Functions.
     pub deleter: Cell<pxs_DeleterFn>,
+
+    /// IDX assigned within arena
+    pub idx: i32,
+
+    /// Arena that this variable is attached to.
+    /// This should not be manipulated via the Host.
+    pub arena: i32
 }
 
 // Rust specific functions
 impl pxs_Var {
+    pub fn new(tag: pxs_VarType, value: pxs_VarValue, deleter: pxs_DeleterFn) -> Self {
+        // Any new var gets assigned to the current arena.
+        let current_arena = get_current_arena_id();
+        Self {
+            tag,
+            value,
+            deleter: Cell::new(deleter),
+            idx: -1,
+            arena: current_arena
+        }
+    }
+
     pub unsafe fn slice_raw(argv: *mut *mut Self, argc: usize) -> &'static [*mut pxs_Var] {
         unsafe { std::slice::from_raw_parts(argv, argc) }
     }
@@ -505,37 +526,19 @@ impl pxs_Var {
     pub fn new_string(val: String) -> Self {
         let cstr = CString::new(val).expect("Could not create CString.");
 
-        pxs_Var {
-            tag: pxs_VarType::pxs_String,
-            value: pxs_VarValue {
-                string_val: cstr.into_raw(),
-            },
-            deleter: Cell::new(default_deleter),
-        }
+        Self::new(pxs_VarType::pxs_String, pxs_VarValue{string_val: cstr.into_raw()}, default_deleter)
     }
 
     /// Creates a new Null var.
     ///
     /// No need to free, or any of that. It cretes a *const c_void
     pub fn new_null() -> Self {
-        pxs_Var {
-            tag: pxs_VarType::pxs_Null,
-            value: pxs_VarValue {
-                null_val: ptr::null(),
-            },
-            deleter: Cell::new(default_deleter),
-        }
+        Self::new(pxs_VarType::pxs_Null, pxs_VarValue{null_val: ptr::null()}, default_deleter)
     }
 
     /// Create a new HostObject var.
     pub fn new_host_object(ptr: i32) -> Self {
-        pxs_Var {
-            tag: pxs_VarType::pxs_HostObject,
-            value: pxs_VarValue {
-                host_object_val: ptr,
-            },
-            deleter: Cell::new(default_deleter),
-        }
+        Self::new(pxs_VarType::pxs_HostObject, pxs_VarValue{host_object_val: ptr}, default_deleter)
     }
 
     /// Create a new Object var.
@@ -545,35 +548,20 @@ impl pxs_Var {
         } else {
             default_deleter
         };
-        pxs_Var {
-            tag: pxs_VarType::pxs_Object,
-            value: pxs_VarValue { object_val: ptr.into_raw() },
-            deleter: Cell::new(deleter),
-        }
+
+        Self::new(pxs_VarType::pxs_Object, pxs_VarValue { object_val: ptr.into_raw() }, deleter)
     }
 
     /// Create a new pxs_VarList var.
     pub fn new_list() -> Self {
-        pxs_Var {
-            tag: pxs_VarType::pxs_List,
-            value: pxs_VarValue {
-                list_val: pxs_VarList::new().into_raw(),
-            },
-            deleter: Cell::new(default_deleter),
-        }
+        Self::new(pxs_VarType::pxs_List, pxs_VarValue{list_val: pxs_VarList::new().into_raw()}, default_deleter)
     }
 
     /// Create a new pxs_VarList var with values.
     pub fn new_list_with(vars: Vec<pxs_Var>) -> Self {
         let mut list = pxs_VarList::new();
         list.vars = vars;
-        pxs_Var {
-            tag: pxs_VarType::pxs_List,
-            value: pxs_VarValue {
-                list_val: list.into_raw(),
-            },
-            deleter: Cell::new(default_deleter),
-        }
+        Self::new(pxs_VarType::pxs_List, pxs_VarValue{list_val: list.into_raw()}, default_deleter)
     }
 
     /// Create a new Function var.
@@ -584,48 +572,28 @@ impl pxs_Var {
             default_deleter
         };
 
-        pxs_Var {
-            tag: pxs_VarType::pxs_Function,
-            value: pxs_VarValue { function_val: ptr },
-            deleter: Cell::new(deleter),
-        }
+        Self::new(pxs_VarType::pxs_Function, pxs_VarValue { function_val: ptr }, deleter)
     }
 
     /// Create a new Factory var.
     pub fn new_factory(func: super::func::pxs_Func, args: pxs_VarT) -> Self {
+        let bvar = borrow_var!(args);
+        bvar.remove_from_arena();
         let factory = pxs_FactoryHolder {
             callback: func,
             args,
         };
-        pxs_Var {
-            tag: pxs_VarType::pxs_Factory,
-            value: pxs_VarValue {
-                factory_val: factory.into_raw(),
-            },
-            deleter: Cell::new(default_deleter),
-        }
+        Self::new(pxs_VarType::pxs_Factory, pxs_VarValue{factory_val: factory.into_raw()}, default_deleter)
     }
 
     /// Create a new Exception var.
     pub fn new_exception<T: ToString>(msg: T) -> Self {
-        pxs_Var {
-            tag: pxs_VarType::pxs_Exception,
-            value: pxs_VarValue {
-                string_val: create_raw_string!(msg.to_string()),
-            },
-            deleter: Cell::new(default_deleter),
-        }
+        Self::new(pxs_VarType::pxs_Exception, pxs_VarValue{string_val: create_raw_string!(msg.to_string())}, default_deleter)
     }
 
     /// Create a new Map var.
     pub fn new_map() -> Self {
-        pxs_Var {
-            tag: pxs_VarType::pxs_Map,
-            value: pxs_VarValue {
-                map_val: pxs_VarMap::new().into_raw(),
-            },
-            deleter: Cell::new(default_deleter),
-        }
+        Self::new(pxs_VarType::pxs_Map, pxs_VarValue{map_val: pxs_VarMap::new().into_raw()}, default_deleter)
     }
 
     /// Get the IDX of the object if Host, i64, u64
@@ -800,13 +768,7 @@ impl pxs_Var {
                 pxs_VarType::pxs_Object => {
                     let object = pxs_VarObject::from_borrow(self.value.object_val);
                     // Copy without deleter
-                    pxs_Var {
-                        tag: pxs_VarType::pxs_Object,
-                        value: pxs_VarValue {
-                            object_val: object.clone().into_raw()
-                        },
-                        deleter: Cell::new(default_deleter)
-                    }
+                    Self::new(pxs_VarType::pxs_Object, pxs_VarValue{object_val: object.clone().into_raw()}, default_deleter)
                 },
                 pxs_VarType::pxs_List => {
                     let mut list = pxs_VarList::new();
@@ -817,22 +779,10 @@ impl pxs_Var {
                         list.add_item(item.shallow_copy());
                     }
 
-                    pxs_Var {
-                        tag: pxs_VarType::pxs_List,
-                        value: pxs_VarValue {
-                            list_val: list.into_raw()
-                        },
-                        deleter: Cell::new(default_deleter)
-                    }
+                    Self::new(pxs_VarType::pxs_List, pxs_VarValue{list_val: list.into_raw()}, default_deleter)
                 },
                 pxs_VarType::pxs_Function => {
-                    pxs_Var {
-                        tag: pxs_VarType::pxs_Function,
-                        value: pxs_VarValue {
-                            function_val: self.value.function_val
-                        },
-                        deleter: Cell::new(default_deleter)
-                    }
+                    Self::new(pxs_VarType::pxs_Function, pxs_VarValue{function_val: self.value.function_val}, default_deleter)
                 },
                 pxs_VarType::pxs_Factory => {
                     let og = pxs_FactoryHolder::from_borrow(self.value.factory_val);
@@ -850,21 +800,16 @@ impl pxs_Var {
                     let new_list = new_args.get_list().unwrap();
                     for var in old_list.vars.iter() {
                         new_list.add_item(var.shallow_copy());
-                    }
+                    } 
+                    new_args.remove_from_arena();
                     let f = pxs_FactoryHolder {
                         args: new_args.into_raw(),
                         callback: og.callback,
                     };
-                    pxs_Var {
-                        tag: pxs_VarType::pxs_Factory,
-                        value: pxs_VarValue {
-                            factory_val: f.into_raw(),
-                        },
-                        deleter: Cell::new(default_deleter),
-                    }
+                    Self::new(pxs_VarType::pxs_Factory, pxs_VarValue{factory_val: f.into_raw()}, default_deleter)
                 },
                 pxs_VarType::pxs_Map => {
-                                        // Our new map
+                    // Our new map
                     let mut map = pxs_VarMap::new();
                     // OG map yo!
                     let og_map = self.get_map().unwrap();
@@ -879,16 +824,18 @@ impl pxs_Var {
                     }
 
                     // Follows a similar structure to pxs_List shallow copy
-                    pxs_Var {
-                        tag: pxs_VarType::pxs_Map,
-                        value: pxs_VarValue {
-                            map_val: map.into_raw()
-                        },
-                        deleter: Cell::new(default_deleter)
-                    }
+                    Self::new(pxs_VarType::pxs_Map, pxs_VarValue{map_val: map.into_raw()}, default_deleter)
                 },
             }
         }
+    }
+
+    /// Remove this variable from it's arena.
+    pub fn remove_from_arena(&self) {
+        if self.idx < 0 {
+            return;
+        }
+        remove_var_from_arena(self.arena, self.idx);
     }
 }
 
@@ -897,6 +844,10 @@ unsafe impl Sync for pxs_Var {}
 
 impl Drop for pxs_Var {
     fn drop(&mut self) {
+        if self.idx > -1 {
+            self.remove_from_arena();
+        }
+
         if self.tag == pxs_VarType::pxs_String || self.tag == pxs_VarType::pxs_Exception {
             unsafe {
                 // Free the mem
@@ -947,7 +898,18 @@ impl Drop for pxs_Var {
     }
 }
 
-impl PtrMagic for pxs_Var {}
+impl PtrMagic for pxs_Var {
+    // Override the `into_raw` for pxs_Var so we save in the arena.
+    fn into_raw(self) -> *mut Self {
+        let arena = self.arena;
+        let ptr = Box::into_raw(Box::new(self));
+
+        // Save in arena
+        save_var_in_arena(arena, ptr);
+
+        ptr
+    }
+}
 
 impl Clone for pxs_Var {
     fn clone(&self) -> Self {
@@ -959,13 +921,8 @@ impl Clone for pxs_Var {
                     let string = borrow_string!(self.value.string_val);
                     let cloned_string = string.to_string().clone();
                     let new_string = create_raw_string!(cloned_string);
-                    pxs_Var {
-                        tag: pxs_VarType::pxs_String,
-                        value: pxs_VarValue {
-                            string_val: new_string,
-                        },
-                        deleter: Cell::new(default_deleter),
-                    }
+
+                    Self::new(pxs_VarType::pxs_String, pxs_VarValue{string_val: new_string}, default_deleter)
                 }
                 pxs_VarType::pxs_Bool => pxs_Var::new_bool(self.value.bool_val),
                 pxs_VarType::pxs_Float64 => pxs_Var::new_f64(self.value.f64_val),
@@ -973,13 +930,8 @@ impl Clone for pxs_Var {
                 pxs_VarType::pxs_Object => {
                     let object = pxs_VarObject::from_borrow(self.value.object_val);
 
-                    let r = pxs_Var {
-                        tag: pxs_VarType::pxs_Object,
-                        value: pxs_VarValue {
-                            object_val: object.clone().into_raw(),
-                        },
-                        deleter: Cell::new(self.deleter.get()),
-                    };
+                    // Move deleter to this object.
+                    let r = Self::new(pxs_VarType::pxs_Object, pxs_VarValue{object_val: object.clone().into_raw()}, self.deleter.get());
 
                     self.deleter.set(default_deleter);
 
@@ -997,22 +949,10 @@ impl Clone for pxs_Var {
                         list.add_item(item.clone());
                     }
 
-                    pxs_Var {
-                        tag: pxs_VarType::pxs_List,
-                        value: pxs_VarValue {
-                            list_val: list.into_raw(),
-                        },
-                        deleter: Cell::new(default_deleter),
-                    }
+                    Self::new(pxs_VarType::pxs_List, pxs_VarValue{ list_val: list.into_raw()}, default_deleter)
                 }
                 pxs_VarType::pxs_Function => {
-                    let r = pxs_Var {
-                        tag: pxs_VarType::pxs_Function,
-                        value: pxs_VarValue {
-                            function_val: self.value.function_val,
-                        },
-                        deleter: Cell::new(self.deleter.get()),
-                    };
+                    let r = Self::new(pxs_VarType::pxs_Function, pxs_VarValue{function_val: self.value.function_val}, self.deleter.get());
 
                     self.deleter.set(default_deleter);
                     r
@@ -1033,29 +973,18 @@ impl Clone for pxs_Var {
                     for var in old_list.vars.iter() {
                         new_list.add_item(var.clone());
                     }
+                    new_args.remove_from_arena();
                     let f = pxs_FactoryHolder {
                         args: new_args.into_raw(),
                         callback: og.callback,
                     };
-                    pxs_Var {
-                        tag: pxs_VarType::pxs_Factory,
-                        value: pxs_VarValue {
-                            factory_val: f.into_raw(),
-                        },
-                        deleter: Cell::new(default_deleter),
-                    }
+                    Self::new(pxs_VarType::pxs_Factory, pxs_VarValue{factory_val: f.into_raw()}, default_deleter)
                 }
                 pxs_VarType::pxs_Exception => {
                     let string = borrow_string!(self.value.string_val);
                     let cloned_string = string.to_string().clone();
                     let new_string = create_raw_string!(cloned_string);
-                    pxs_Var {
-                        tag: pxs_VarType::pxs_Exception,
-                        value: pxs_VarValue {
-                            string_val: new_string,
-                        },
-                        deleter: Cell::new(default_deleter),
-                    }
+                    Self::new(pxs_VarType::pxs_Exception, pxs_VarValue{string_val: new_string}, default_deleter)
                 }
                 pxs_VarType::pxs_Map => {
                     // Our new map
@@ -1072,13 +1001,7 @@ impl Clone for pxs_Var {
                     }
 
                     // Follows a similar structure to pxs_List cloning
-                    pxs_Var {
-                        tag: pxs_VarType::pxs_Map,
-                        value: pxs_VarValue {
-                            map_val: map.into_raw()
-                        },
-                        deleter: Cell::new(default_deleter)
-                    }
+                    Self::new(pxs_VarType::pxs_Map, pxs_VarValue{map_val: map.into_raw()}, default_deleter)
                 }
             }
         }

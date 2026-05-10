@@ -14,7 +14,7 @@ use anyhow::Result;
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
 use crate::{
-    own_string, own_var, shared::var::{pxs_Var, pxs_VarT}
+    borrow_var, own_string, own_var, shared::{arena::PixelArena, var::{pxs_Var, pxs_VarT}}
 };
 
 /// Helper methods/macros for using PixelScript
@@ -28,6 +28,7 @@ pub mod object;
 pub mod utils;
 /// The internal PixelScript Var logic.
 pub mod var;
+pub mod arena;
 
 #[allow(non_camel_case_types)]
 /// Function Type for Loading a file.
@@ -49,6 +50,8 @@ pub(crate) struct PixelState {
     pub load_file: RefCell<Option<pxs_LoadFileFn>>,
     pub write_file: RefCell<Option<pxs_WriteFileFn>>,
     pub read_dir: RefCell<Option<pxs_ReadDirFn>>,
+    pub arenas: RefCell<Vec<PixelArena>>,
+    pub cur_arena: RefCell<i32>,
 }
 
 /// The State static variable for PixelScript.
@@ -61,6 +64,8 @@ pub(crate) fn get_pixel_state() -> ReentrantMutexGuard<'static, PixelState> {
             load_file: RefCell::new(None),
             write_file: RefCell::new(None),
             read_dir: RefCell::new(None),
+            arenas: RefCell::new(vec![]),
+            cur_arena: RefCell::new(-1)
         })
     });
     // This will
@@ -134,6 +139,9 @@ pub fn read_file_dir(dir_path: &str) -> Vec<String> {
         return vec![];
     }
 
+    // remove arena reference
+    // var.remove_arena_re();
+
     // Get all strings!
     var.get_list()
         .unwrap()
@@ -141,6 +149,54 @@ pub fn read_file_dir(dir_path: &str) -> Vec<String> {
         .iter()
         .map(|v| v.get_string().unwrap_or(String::new()).clone())
         .collect()
+}
+
+/// Create a new arena and change cure_arena idx
+pub fn new_arena() {
+    let state = get_pixel_state();
+    *state.cur_arena.borrow_mut() += 1;
+    state.arenas.borrow_mut().push(PixelArena::new());
+}
+
+/// Free current arena
+pub fn free_arena() {
+    let state = get_pixel_state();
+    let mut arenas = state.arenas.borrow_mut();
+    let cur_arena = *state.cur_arena.borrow() as usize;
+    arenas.remove(cur_arena);
+    *state.cur_arena.borrow_mut() -= 1;
+}
+
+/// Access current arena id
+pub fn get_current_arena_id() -> i32 {
+    *get_pixel_state().cur_arena.borrow()
+}
+
+/// Save pxs_Var in a arena
+pub fn save_var_in_arena(arena_idx: i32, var: *mut pxs_Var) {
+    if var.is_null() {
+        return;
+    }
+    let state = get_pixel_state();
+    let mut binding = state.arenas.borrow_mut();
+    let arena = binding.get_mut(arena_idx as usize);
+    if let Some(v) = arena {
+        v.alloc(var);
+    }
+}
+
+/// Remove a pxs_Var from a arena.
+/// DOES NOT FREE VAR.
+pub fn remove_var_from_arena(arena_idx: i32, var_idx: i32) {
+    if var_idx < 0 {
+        return;
+    }
+    let state = get_pixel_state();
+    let mut binding = state.arenas.borrow_mut();
+    let arena = binding.get_mut(arena_idx as usize);
+    if let Some(v) = arena {
+        v.remove_var(var_idx as u32);
+    }
 }
 
 /// A shared trait for converting from/to a pointer. Specifically a (* mut Self)

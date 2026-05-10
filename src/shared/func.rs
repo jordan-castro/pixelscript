@@ -129,10 +129,14 @@ pub unsafe fn call_function(fn_idx: i32, args: Vec<pxs_Var>) -> pxs_Var {
         // Free args
         let _ = pxs_Var::from_raw(args_ptr);
 
-        if res.is_null() {
+        let result = if res.is_null() {
             pxs_Var::new_null()
         } else {
             pxs_Var::from_raw(res)
-        }
+        };
+
+        result.remove_from_arena();
+
+        result
     }
 }

@@ -73,6 +73,8 @@ macro_rules! borrow_var {
 #[macro_export]
 macro_rules! own_var {
     ($var:expr) => {{
-        pxs_Var::from_raw($var)    
+        let v = pxs_Var::from_raw($var);
+        v.remove_from_arena();
+        v
     }};
 }

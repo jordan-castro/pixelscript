@@ -27,7 +27,7 @@ use crate::python::PythonScripting;
 use crate::js::JSScripting;
 
 use crate::shared::{
-    PXS_PTR_NAME, PixelScript, PtrMagic, func::{clear_function_lookup, lookup_add_function}, get_pixel_state, module::pxs_Module, object::{ObjectFlags, clear_object_lookup, lookup_add_object, pxs_PixelObject}, pxs_LoadFileFn, pxs_Opaque, pxs_ReadDirFn, pxs_Runtime, pxs_WriteFileFn, var::{ObjectMethods, pxs_DeleterFn, pxs_VarList, pxs_VarT, pxs_VarType}
+    PXS_PTR_NAME, PixelScript, PtrMagic, free_arena, func::{clear_function_lookup, lookup_add_function}, get_pixel_state, module::pxs_Module, new_arena, object::{ObjectFlags, clear_object_lookup, lookup_add_object, pxs_PixelObject}, pxs_LoadFileFn, pxs_Opaque, pxs_ReadDirFn, pxs_Runtime, pxs_WriteFileFn, var::{ObjectMethods, pxs_DeleterFn, pxs_VarList, pxs_VarT, pxs_VarType}
 };
 
 pub mod shared;
@@ -1820,6 +1820,26 @@ pub extern "C" fn pxs_listinsert(list: pxs_VarT, index: usize, item: pxs_VarT) {
     let item = own_var!(item);
     let internal = list.get_list().unwrap();
     internal.insert_item(index, item);
+}
+
+/// Create a new arena in memory.
+/// This does not return anything, it simply creates a scope that will allocate pxs_Var memory.
+/// when finished call, `pxs_freearena`
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_newarena() {
+    pxs_debug!("pxs_newarena");
+    assert_initiated!();
+
+    new_arena();
+}
+
+/// Free arena. Upon freeing all variables allocated since `pxs_newarena` will be freed.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_freearena() {
+    pxs_debug!("pxs_freearena");
+    assert_initiated!();
+
+    free_arena();
 }
 
 // ====================================== Core functions Start =======================================
