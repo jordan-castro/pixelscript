@@ -6,7 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-use crate::shared::{PtrMagic, var::{pxs_Var, pxs_VarT}};
+use crate::{borrow_var, shared::{PtrMagic, var::{pxs_Var, pxs_VarT}}};
 use std::sync::Arc;
 
 /// A Module is a C representation of data that needs to be (imported,required, etc)
@@ -92,6 +92,8 @@ impl pxs_Module {
 
     /// Add a variable to current module.
     pub fn add_variable(&mut self, name: &str, var: *mut pxs_Var) {
+        let bvar = borrow_var!(var);
+        bvar.remove_from_arena();
         self.variables.push(ModuleVariable {
             name: name.to_string(),
             var: var,

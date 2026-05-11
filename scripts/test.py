@@ -7,11 +7,15 @@ import json
 
 # Get skipped tests
 included_tests = sys.argv[1:]
-skip_tests = ["test_repl.rs", "test_example.rs"]
+skip_tests = ["test_repl.rs", "test_example.rs", "--miri"]
 
 
 if len(included_tests) == 0:
     included_tests = os.listdir("tests")
+
+use_miri = False
+if '--miri' in included_tests:
+    use_miri = True
 
 results = {}
 
@@ -29,6 +33,8 @@ for t in included_tests:
 
     # Get cmd
     command = line.split("// ")[-1]
+    if use_miri:
+        command = "cargo miri " + command[6:]
     result = os.system(command)
     results[t] = True if result == 0 else False
 

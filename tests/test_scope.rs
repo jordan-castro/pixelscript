@@ -23,13 +23,6 @@ mod tests {
     }
 
     impl PtrMagic for State {}
-    impl Drop for State {
-        fn drop(&mut self) {
-            for (k, v) in self.internals.iter() {
-                pxs_freevar(*v);
-            }
-        }
-    }
 
     extern "C" fn free_state(ptr: *mut c_void) {
         let _ = unsafe{State::from_raw(ptr as *mut State)};
@@ -265,10 +258,10 @@ export function __pxs__(globals, locals) {
         // Setup module
         setup_pxs();
 
-        // print_helper("Python");
-        // test_python();
-        // print_helper("Lua");
-        // test_lua();
+        print_helper("Python");
+        test_python();
+        print_helper("Lua");
+        test_lua();
         print_helper("JavaScript");
         test_js();
         pxs_freearena();
