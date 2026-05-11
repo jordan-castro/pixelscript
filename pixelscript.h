@@ -1011,6 +1011,13 @@ void pxs_newarena(void);
 void pxs_freearena(void);
 
 /**
+ * Remove `pxs_Var` from arena to be handled by Host.
+ *
+ * var:BORROW
+ */
+void pxs_arenarmv(pxs_VarT var);
+
+/**
  * Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.
  * Transfers ownership of args.
  * Basically calls the runtime.pxs_json.encode() function.

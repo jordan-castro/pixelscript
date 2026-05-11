@@ -1842,6 +1842,18 @@ pub extern "C" fn pxs_freearena() {
     free_arena();
 }
 
+/// Remove `pxs_Var` from arena to be handled by Host.
+/// 
+/// var:BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_arenarmv(var: pxs_VarT) {
+    pxs_debug!("pxs_arenarmv");
+    assert_initiated!();
+
+    let bvar = borrow_var!(var);
+    bvar.remove_from_arena();
+}
+
 // ====================================== Core functions Start =======================================
 
 /// Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.
