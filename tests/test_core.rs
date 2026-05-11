@@ -12,7 +12,7 @@
 #[cfg(test)]
 mod tests {
     use pixelscript::{
-        create_raw_string, free_raw_string, own_string, own_var, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_exec, pxs_finalize, pxs_freevar, pxs_getstring, pxs_initialize, pxs_json_decode, pxs_json_encode, pxs_listadd, pxs_listget, pxs_listlen, pxs_new_shallowcopy, pxs_newcopy, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_tostring, shared::{PtrMagic, pxs_Runtime, var::{pxs_Var, pxs_VarT}}
+        create_raw_string, free_raw_string, own_string, own_var, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_exec, pxs_finalize, pxs_freearena, pxs_freevar, pxs_getstring, pxs_initialize, pxs_json_decode, pxs_json_encode, pxs_listadd, pxs_listget, pxs_listlen, pxs_new_shallowcopy, pxs_newarena, pxs_newcopy, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_tostring, shared::{PtrMagic, pxs_Runtime, var::{pxs_Var, pxs_VarT}}
     };
 
     extern "C" fn call_pxs_json_encode(args: pxs_VarT) -> pxs_VarT {
@@ -123,6 +123,7 @@ print(decoded2?.one == obj.one);
 print(decoded2?.two == obj.two);
 "#;
 
+pxs_newarena();
         let raw_pyscript = create_raw_string!(pyscript);
         let raw_file_name = create_raw_string!("<globals_test>");
         let err = own_var!(pxs_exec(pxs_Runtime::pxs_Python, raw_pyscript, raw_file_name));
@@ -160,6 +161,7 @@ print(decoded2?.two == obj.two);
         unsafe {
             free_raw_string!(raw_file_name);
         }
+        pxs_freearena();
         pxs_finalize();
     }
 }

@@ -115,13 +115,6 @@ pub unsafe fn call_function(fn_idx: i32, args: Vec<pxs_Var>) -> pxs_Var {
     // Convert the pxs_Var vector into a list.
     // Do this because I don't want to mess with the older code.
     let args = pxs_Var::new_list_with(args);
-    // let args = pxs_Var {
-    //     tag: pxs_VarType::pxs_List,
-    //     value: pxs_VarValue {
-    //         list_val: pxs_VarList { vars: args }.into_raw(),
-    //     },
-    //     deleter: Cell::new(default_deleter)
-    // };
     let args_ptr = args.into_raw();
 
     unsafe {
@@ -129,7 +122,7 @@ pub unsafe fn call_function(fn_idx: i32, args: Vec<pxs_Var>) -> pxs_Var {
         // Free args
         let _ = pxs_Var::from_raw(args_ptr);
 
-        let result = if res.is_null() {
+        let mut result = if res.is_null() {
             pxs_Var::new_null()
         } else {
             pxs_Var::from_raw(res)

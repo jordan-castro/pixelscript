@@ -11,7 +11,7 @@
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
-    use pixelscript::{create_raw_string, free_raw_string, pxs_addmod, pxs_exec, pxs_finalize, pxs_initialize, pxs_newexception, pxs_newmod, shared::{module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT} 
+    use pixelscript::{create_raw_string, free_raw_string, pxs_addmod, pxs_exec, pxs_finalize, pxs_freearena, pxs_initialize, pxs_newarena, pxs_newexception, pxs_newmod, shared::{module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT} 
     };
     // pub fn add_function(module: *mut pxs_Module, name: &str, function: pxs_Func) {
 
@@ -79,6 +79,7 @@ throw 'We should not get here';
     #[test]
     fn run_test() {
         pxs_initialize();
+        pxs_newarena();
         utils::setup_pxs();
         setup();
         test_python();
@@ -86,6 +87,7 @@ throw 'We should not get here';
         test_lua();
         println!("=============== JS ===============");
         test_js();
+        pxs_freearena();
 
         pxs_finalize();
     }

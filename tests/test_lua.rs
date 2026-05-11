@@ -334,6 +334,7 @@ mod tests {
     #[test]
     fn test_execute() {
         pxs_initialize();
+        pxs_newarena();
 
         test_add_module();
 
@@ -413,6 +414,7 @@ return main()"#;
         println!("{owned}");
         free_raw_string!(script_raw);
 
+        pxs_freearena();
         pxs_finalize();
     }
 }

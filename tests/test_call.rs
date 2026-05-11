@@ -12,7 +12,7 @@
 #[cfg(test)]
 mod tests {
     use pixelscript::{
-        create_raw_string, free_raw_string, own_string, own_var, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_exec, pxs_finalize, pxs_freevar, pxs_getint, pxs_initialize, pxs_listadd, pxs_listget, pxs_newexception, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, shared::{PtrMagic, pxs_Runtime, utils::CStringSafe, var::{pxs_Var, pxs_VarT}}
+        create_raw_string, free_raw_string, own_string, own_var, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_exec, pxs_finalize, pxs_freearena, pxs_freevar, pxs_getint, pxs_initialize, pxs_listadd, pxs_listget, pxs_newarena, pxs_newexception, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, shared::{PtrMagic, pxs_Runtime, utils::CStringSafe, var::{pxs_Var, pxs_VarT}}
     };
 
     extern "C" fn anything(args: pxs_VarT) -> pxs_VarT {
@@ -116,12 +116,14 @@ pxs.anything(1,2);
             free_raw_string!(anything_name);
         }
 
+        pxs_newarena();
         print_helper("Python");
         test_python();
         print_helper("Lua");
         test_lua();
         print_helper("JS");
         test_js();
+        pxs_freearena();
 
         pxs_finalize();
     }

@@ -189,7 +189,7 @@ impl pxs_VarMap {
     /// Add a new item.
     ///
     /// Old value (if any) gets dropped.
-    pub fn add_item(&mut self, key: pxs_Var, value: pxs_Var) {
+    pub fn add_item(&mut self, mut key: pxs_Var, mut value: pxs_Var) {
         key.remove_from_arena();
         value.remove_from_arena();
         // Drop old value.
@@ -269,7 +269,18 @@ impl pxs_FactoryHolder {
     }
 }
 
-impl PtrMagic for pxs_FactoryHolder {}
+impl PtrMagic for pxs_FactoryHolder {
+    fn into_raw(self) -> *mut Self {
+        // Remove args and all args internal from arena
+        let args = unsafe{pxs_Var::from_borrow(self.args)};
+        let list = args.get_list().unwrap();
+        for v in list.vars.iter_mut() {
+            v.remove_from_arena();
+        }
+        args.remove_from_arena();
+        Box::into_raw(Box::new(self))
+    }
+}
 
 impl Drop for pxs_FactoryHolder {
     fn drop(&mut self) {
@@ -315,7 +326,15 @@ pub struct pxs_VarList {
     pub vars: Vec<pxs_Var>,
 }
 
-impl PtrMagic for pxs_VarList {}
+impl PtrMagic for pxs_VarList {
+    fn into_raw(mut self) -> *mut Self {
+        // Remove all internal vars from arena
+        for v in self.vars.iter_mut() {
+            v.remove_from_arena();
+        }
+        Box::into_raw(Box::new(self))
+    }
+}
 
 impl pxs_VarList {
     /// Create a new VarList
@@ -332,7 +351,7 @@ impl pxs_VarList {
     }
 
     /// Add a Var to the list. List will take ownership.
-    pub fn add_item(&mut self, item: pxs_Var) {
+    pub fn add_item(&mut self, mut item: pxs_Var) {
         item.remove_from_arena();
         self.vars.push(item);
     }
@@ -352,7 +371,8 @@ impl pxs_VarList {
     /// Set at a specific index a item.
     ///
     /// Index must already be filled.
-    pub fn set_item(&mut self, item: pxs_Var, index: i32) -> bool {
+    pub fn set_item(&mut self, mut item: pxs_Var, index: i32) -> bool {
+        item.remove_from_arena();
         // Get correct negative index.
         let r_index = self.get_rindex(index);
 
@@ -471,14 +491,12 @@ pub struct pxs_Var {
 // Rust specific functions
 impl pxs_Var {
     pub fn new(tag: pxs_VarType, value: pxs_VarValue, deleter: pxs_DeleterFn) -> Self {
-        // Any new var gets assigned to the current arena.
-        let current_arena = get_current_arena_id();
         Self {
             tag,
             value,
             deleter: Cell::new(deleter),
             idx: -1,
-            arena: current_arena
+            arena: -1
         }
     }
 
@@ -577,8 +595,7 @@ impl pxs_Var {
 
     /// Create a new Factory var.
     pub fn new_factory(func: super::func::pxs_Func, args: pxs_VarT) -> Self {
-        let bvar = borrow_var!(args);
-        bvar.remove_from_arena();
+        // let bvar = borrow_var!(args);
         let factory = pxs_FactoryHolder {
             callback: func,
             args,
@@ -702,7 +719,7 @@ impl pxs_Var {
                 }
             };
 
-            format!("{details} :: {:p}", self)
+            format!("{details} :: {},{} :: {:p}", self.arena, self.idx, self)
         }
     }
 
@@ -801,7 +818,6 @@ impl pxs_Var {
                     for var in old_list.vars.iter() {
                         new_list.add_item(var.shallow_copy());
                     } 
-                    new_args.remove_from_arena();
                     let f = pxs_FactoryHolder {
                         args: new_args.into_raw(),
                         callback: og.callback,
@@ -831,11 +847,13 @@ impl pxs_Var {
     }
 
     /// Remove this variable from it's arena.
-    pub fn remove_from_arena(&self) {
-        if self.idx < 0 {
+    pub fn remove_from_arena(&mut self) {
+        if self.idx < 0 && self.arena < 0 {
             return;
         }
         remove_var_from_arena(self.arena, self.idx);
+        self.idx = -1;
+        self.arena = -1;
     }
 }
 
@@ -844,7 +862,7 @@ unsafe impl Sync for pxs_Var {}
 
 impl Drop for pxs_Var {
     fn drop(&mut self) {
-        if self.idx > -1 {
+        if self.idx > -1 && self.arena > -1 {
             self.remove_from_arena();
         }
 
@@ -901,7 +919,7 @@ impl Drop for pxs_Var {
 impl PtrMagic for pxs_Var {
     // Override the `into_raw` for pxs_Var so we save in the arena.
     fn into_raw(self) -> *mut Self {
-        let arena = self.arena;
+        let arena = get_current_arena_id();
         let ptr = Box::into_raw(Box::new(self));
 
         // Save in arena
@@ -973,7 +991,6 @@ impl Clone for pxs_Var {
                     for var in old_list.vars.iter() {
                         new_list.add_item(var.clone());
                     }
-                    new_args.remove_from_arena();
                     let f = pxs_FactoryHolder {
                         args: new_args.into_raw(),
                         callback: og.callback,

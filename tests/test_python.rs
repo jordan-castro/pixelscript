@@ -302,6 +302,7 @@ mod tests {
     fn test_add_module() {
         println!("Inside Test add module");
         pxs_initialize();
+        pxs_newarena();
         let module_name = create_raw_string!("pxs");
         let module = pxs_newmod(module_name);
         // Save methods
@@ -442,6 +443,7 @@ print(pxs.call_function(get_pi))
         pxs_stopthread();
         pxs_stopthread();
 
+        pxs_freearena();
         pxs_finalize();
         assert!(err.is_null(), "Python Error is not empty: {}", err.get_string().unwrap());
     }

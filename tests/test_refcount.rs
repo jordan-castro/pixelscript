@@ -13,7 +13,7 @@
 mod tests {
     use std::ffi::c_void;
 
-    use pixelscript::{create_raw_string, free_raw_string, own_string, own_var, pxs_addmod, pxs_addobject, pxs_finalize, pxs_gethost, pxs_getstring, pxs_initialize, pxs_listget, pxs_newhost, pxs_newmod, pxs_newobject, pxs_newstring, pxs_object_addfunc, shared::{PtrMagic, module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT}};
+    use pixelscript::{create_raw_string, free_raw_string, own_string, own_var, pxs_addmod, pxs_addobject, pxs_finalize, pxs_freearena, pxs_gethost, pxs_getstring, pxs_initialize, pxs_listget, pxs_newarena, pxs_newhost, pxs_newmod, pxs_newobject, pxs_newstring, pxs_object_addfunc, shared::{PtrMagic, module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT}};
     
     fn print_helper(lang: &str) {
         print!("====================== {lang} ===================");
@@ -113,12 +113,14 @@ print(p.get_name())
         }
         pxs_addmod(test_module);
 
+        pxs_newarena();
         print_helper("PYTHON");
         test_python();
         print_helper("LUA");
         test_lua();
         print_helper("JavaScript");
         test_js();
+        pxs_freearena();
         
         pxs_finalize();
     }

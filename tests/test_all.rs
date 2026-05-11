@@ -556,10 +556,12 @@ pxs.print("Module result: " + result.toString());
         let res = execute_code(js_code, "file_name", shared::pxs_Runtime::pxs_JavaScript);
         assert!(res.is_null(), "JS Error is not empty: {:#?}", res);
 
+        pxs_newarena();
         pxs_startthread();
         pxs_startthread();
         pxs_stopthread();
         pxs_stopthread();
+        pxs_freearena();
 
         pxs_finalize();
     }

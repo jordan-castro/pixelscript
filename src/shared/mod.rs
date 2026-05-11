@@ -14,7 +14,7 @@ use anyhow::Result;
 use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
 use crate::{
-    borrow_var, own_string, own_var, shared::{arena::PixelArena, var::{pxs_Var, pxs_VarT}}
+    own_string, own_var, shared::{arena::PixelArena, var::{pxs_Var, pxs_VarT}}
 };
 
 /// Helper methods/macros for using PixelScript
@@ -155,7 +155,7 @@ pub fn read_file_dir(dir_path: &str) -> Vec<String> {
 pub fn new_arena() {
     let state = get_pixel_state();
     *state.cur_arena.borrow_mut() += 1;
-    state.arenas.borrow_mut().push(PixelArena::new());
+    state.arenas.borrow_mut().push(PixelArena::new(*state.cur_arena.borrow() as u32));
 }
 
 /// Free current arena
@@ -188,7 +188,7 @@ pub fn save_var_in_arena(arena_idx: i32, var: *mut pxs_Var) {
 /// Remove a pxs_Var from a arena.
 /// DOES NOT FREE VAR.
 pub fn remove_var_from_arena(arena_idx: i32, var_idx: i32) {
-    if var_idx < 0 {
+    if var_idx < 0 || arena_idx < 0 {
         return;
     }
     let state = get_pixel_state();

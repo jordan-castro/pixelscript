@@ -12,7 +12,7 @@
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
-    use pixelscript::{create_raw_string, free_raw_string, pxs_finalize, pxs_initialize, pxs_newmod, shared::{module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT}};
+    use pixelscript::{create_raw_string, free_raw_string, pxs_finalize, pxs_freearena, pxs_initialize, pxs_newarena, pxs_newmod, shared::{module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT}};
     
     fn print_helper(lang: &str) {
         println!("====================== {lang} ===================");
@@ -54,12 +54,14 @@ pxs.print('Working JS');
         pxs_initialize();
         utils::setup_pxs();
 
+        pxs_newarena();
         print_helper("PYTHON");
         test_python();
         print_helper("LUA");
         test_lua();
         print_helper("JS");
         test_js();
+        pxs_freearena();
 
         pxs_finalize();
     }
