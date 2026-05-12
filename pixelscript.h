@@ -1045,6 +1045,12 @@ pxs_VarT pxs_json_encode(pxs_VarT rt,
 pxs_VarT pxs_json_decode(pxs_VarT rt,
                          pxs_VarT args);
 
+/**
+ * Add `pxs_mem` core module to scripting languages.
+ * It can only be added once, if added gain it will throw an error.
+ */
+void pxs_meminit(void);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus

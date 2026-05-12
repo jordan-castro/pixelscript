@@ -10,7 +10,7 @@ import shutil
 from pathlib import Path
 import subprocess
 import sys
-import platform
+# import platform
 
 
 # Config
@@ -88,12 +88,10 @@ Arguments:
 
 # Check for env flags
 # CFLAGS=/MT && set CXXFLAGS=/MT
-add_lua_flags = False
-if platform.system == 'Windows' and (defaults or 'lua' in features.split(',')):
-    # Add lua flags
-    add_lua_flags = True
-    os.environ['CFLAGS'] = '/MT'
-    os.environ['CXXFLAGS'] = '/MT'
+# if platform.system() == 'Windows' and (defaults or 'lua' in features.split(',')):
+#     if not os.environ['CFLAGS'] == '/MT' or not os.environ['CXXFLAGS'] == '/MT/':
+#         print("Flags not set")
+#         exit(1)
 
 build_mode = "release" if not debug else "debug"
 build_flag = "--release" if not debug else ""
@@ -115,10 +113,6 @@ if run_clear:
 print(" ".join(cmd))
 os.system(" ".join(cmd))
 # subprocess.call(cmd)
-
-if add_lua_flags:
-    del os.environ['CFLAGS']
-    del os.environ['CXXFLAGS']
 
 # Find build directory
 path_to_build = f"target/{build_mode}/build"

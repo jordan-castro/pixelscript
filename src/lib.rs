@@ -1914,4 +1914,17 @@ pub extern "C" fn pxs_json_decode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
     )
 }
 
+/// Add `pxs_mem` core module to scripting languages.
+/// It can only be added once, if added gain it will throw an error.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_meminit() {
+    // pxs_debug!("pxs_meminit");
+    // assert_initiated!();
+    // with_feature!("pxs_mem", {
+
+    // }, {
+    //     panic!("pxs_mem feature is not enabled");
+    // })
+}
+
 // ====================================== Core functions End =========================================

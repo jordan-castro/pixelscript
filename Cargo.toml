@@ -37,9 +37,11 @@ js = []
 # Core libs
 # Include all core libs (toggled by default)
 include-core = [
-    "pxs_json"
+    "pxs_json",
+    "pxs_mem"
 ]
 pxs_json = []
+pxs_mem = []
 
 # Compile pixel script to debug in a "release" enviroment
 pxs-debug = []

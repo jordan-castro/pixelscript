@@ -184,7 +184,7 @@ mod tests {
 
     pub extern "C" fn free_person(ptr: *mut c_void) {
         println!("PERSON FREED");
-        let _ = unsafe { Person::from_borrow(ptr as *mut Person) };
+        let _ = unsafe { Person::from_raw(ptr as *mut Person) };
     }
 
     pub extern "C" fn set_name(args: *mut pxs_Var) -> *mut pxs_Var {
@@ -454,6 +454,7 @@ mod tests {
         pxs_set_filereader(file_loader);
         pxs_set_dirreader(dir_reader);
 
+        pxs_newarena();
         // 5
         let py_code = r#"
 import pxs
@@ -556,7 +557,6 @@ pxs.print("Module result: " + result.toString());
         let res = execute_code(js_code, "file_name", shared::pxs_Runtime::pxs_JavaScript);
         assert!(res.is_null(), "JS Error is not empty: {:#?}", res);
 
-        pxs_newarena();
         pxs_startthread();
         pxs_startthread();
         pxs_stopthread();

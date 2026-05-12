@@ -17,7 +17,7 @@ use std::{
 use anyhow::{Error, anyhow};
 
 use crate::{
-    borrow_string, borrow_var, create_raw_string, shared::{PtrMagic, get_current_arena_id, object::{apply_ref_count_alloc, apply_ref_count_delete, get_object}, pxs_Runtime, remove_var_from_arena, save_var_in_arena}
+    borrow_string, create_raw_string, shared::{PtrMagic, get_current_arena_id, object::{apply_ref_count_alloc, apply_ref_count_delete, get_object}, pxs_Runtime, remove_var_from_arena, save_var_in_arena}
 };
 
 /// Macro for writing out the Var:: get methods.
