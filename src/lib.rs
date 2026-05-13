@@ -1850,8 +1850,28 @@ pub extern "C" fn pxs_arenarmv(var: pxs_VarT) {
     pxs_debug!("pxs_arenarmv");
     assert_initiated!();
 
+    if var.is_null() {
+        return;
+    }
+
     let bvar = borrow_var!(var);
     bvar.remove_from_arena();
+}
+
+/// Check if a `pxs_Var` is currently owned by a arena.
+/// 
+/// var:BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_var_isowned(var: pxs_VarT) -> bool {
+    pxs_debug!("pxs_var_isowned");
+    assert_initiated!();
+
+    if var.is_null() {
+        return false;
+    }
+
+    let bvar = borrow_var!(var);
+    bvar.is_owned()
 }
 
 // ====================================== Core functions Start =======================================

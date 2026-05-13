@@ -846,6 +846,11 @@ impl pxs_Var {
         }
     }
 
+    /// Check if variable is owned by a arena.
+    pub fn is_owned(&self) -> bool {
+        self.idx >= 0 && self.arena >= 0
+    }
+
     /// Remove this variable from it's arena.
     pub fn remove_from_arena(&mut self) {
         if self.idx < 0 && self.arena < 0 {

@@ -1018,6 +1018,13 @@ void pxs_freearena(void);
 void pxs_arenarmv(pxs_VarT var);
 
 /**
+ * Check if a `pxs_Var` is currently owned by a arena.
+ *
+ * var:BORROW
+ */
+bool pxs_var_isowned(pxs_VarT var);
+
+/**
  * Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.
  * Transfers ownership of args.
  * Basically calls the runtime.pxs_json.encode() function.

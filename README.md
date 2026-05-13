@@ -51,9 +51,9 @@ This will build the project and place the necessary *static* libraries in a `/px
 
 ## CoreLib
 To include the PixelScript core API, add the `include-core` feature. Or include the specific modules as feature tags.
-| Module name | Module purpose | Notes |
-|-------------|----------------|-------|
-| `pxs_json`  | Adds encode/decode functions for all languages. | |
+| Module name | Module purpose |
+|-------------|----------------|
+| `pxs_json`  | Adds encode/decode functions for all languages. |
 <!-- | `pxs_time`  | Adds time functions for all languages. Similar to Python `time` module. | | -->
 <!-- | `pxs_io`    | Adds `open`, `File`, `Directory`, `close`, `glob`.      | Requires `pxs_set_filereader`, `pxs_set_filewriter`, and `pxs_set_dirreader` | -->
 <!-- | `pxs_os` | -->

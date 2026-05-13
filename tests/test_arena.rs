@@ -11,12 +11,33 @@
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
-    use pixelscript::{create_raw_string, free_raw_string, pxs_addfunc, pxs_addmod, pxs_finalize, pxs_freearena, pxs_freevar, pxs_getint, pxs_initialize, pxs_listadd, pxs_listget, pxs_map_addpair, pxs_newarena, pxs_newbool, pxs_newint, pxs_newlist, pxs_newmap, pxs_newmod, pxs_newnull, pxs_newstring, shared::{module::pxs_Module, pxs_Runtime, utils::{self, CStringSafe}, var::pxs_VarT}};
+    use pixelscript::{create_raw_string, free_raw_string, own_string, pxs_addfunc, pxs_addmod, pxs_addvar, pxs_clearstate, pxs_finalize, pxs_freearena, pxs_freevar, pxs_getint, pxs_getstring, pxs_initialize, pxs_listadd, pxs_listget, pxs_map_addpair, pxs_newarena, pxs_newbool, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmap, pxs_newmod, pxs_newnull, pxs_newobject, pxs_newstring, shared::{PtrMagic, module::pxs_Module, pxs_Opaque, pxs_Runtime, utils::{self, CStringSafe}, var::pxs_VarT}};
+
+    struct Person {
+        name: String
+    }
+
+    impl PtrMagic for Person {}
+
+    extern "C" fn drop_person(ptr: pxs_Opaque) {
+        unsafe {
+            let _ = Person::from_raw(ptr as *mut Person);
+        }
+    }
+
+    extern "C" fn new_person(args: pxs_VarT) -> pxs_VarT {
+        let name = own_string!(pxs_getstring(pxs_listget(args, 1)));
+        let person = Person{name};
+        let mut cstrgen = CStringSafe::new();
+        let obj = pxs_newobject(person.into_void(), drop_person, cstrgen.new_string("Person"));
+        pxs_newhost(obj)
+    }
 
     extern "C" fn allocate_memory(args: pxs_VarT) -> pxs_VarT {
         // Just allocate memory based on num
         let num = pxs_getint(pxs_listget(args, 1));
 
+        let mut cstrgen = CStringSafe::new();
         // What what what?? We are not freeing anything!
         for i in 0..num {
             pxs_newnull();
@@ -85,11 +106,18 @@ alloc(20);
         pxs_initialize();
         utils::setup_pxs();
 
+        pxs_newarena();
         let mut cstrgen = CStringSafe::new();
         let test_mod = pxs_newmod(cstrgen.new_string("test"));
         pxs_addfunc(test_mod, cstrgen.new_string("alloc"), allocate_memory);
-        pxs_addmod(test_mod);
         
+        // Testing factory
+        let factory_args = pxs_newlist();
+        pxs_listadd(factory_args, pxs_newstring(cstrgen.new_string("contents")));
+        let person_factory = pxs_newfactory(new_person, factory_args);
+        pxs_addvar(test_mod, cstrgen.new_string("person"), person_factory);
+        pxs_addmod(test_mod);
+
         print_helper("PYTHON");
         test_python();
         print_helper("LUA");
@@ -97,6 +125,8 @@ alloc(20);
         print_helper("JS");
         test_js();
 
+        pxs_clearstate(true);
+        pxs_freearena();
         pxs_finalize();
     }
 }
