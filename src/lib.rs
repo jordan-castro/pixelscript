@@ -1364,13 +1364,13 @@ pub extern "C" fn pxs_newfactory(func: pxs_Func, args: *mut pxs_Var) -> pxs_VarT
     if args.is_null() {
         return pxs_Var::null_param_ep("args").into_raw();
     }
-    // Check args is string
-    let borrow_args = unsafe { pxs_Var::from_borrow(args) };
-    if !borrow_args.is_list() {
+    // Check args is list
+    let var = pxs_Var::from_raw(args);
+    if !var.is_list() {
         return ptr::null_mut();
     }
 
-    pxs_Var::new_factory(func, args).into_raw()
+    pxs_Var::new_factory(func, var).into_raw()
 }
 
 /// Get the HostPointer universally supported for:

@@ -17,7 +17,7 @@ use std::{
 use anyhow::{Error, anyhow};
 
 use crate::{
-    borrow_string, create_raw_string, shared::{PtrMagic, get_current_arena_id, object::{apply_ref_count_alloc, apply_ref_count_delete, get_object}, pxs_Runtime, remove_var_from_arena, save_var_in_arena}
+    borrow_string, create_raw_string, shared::{PtrMagic, func::pxs_Func, get_current_arena_id, new_arena, object::{apply_ref_count_alloc, apply_ref_count_delete, get_object}, pxs_Runtime, remove_var_from_arena, save_var_in_arena}
 };
 
 /// Macro for writing out the Var:: get methods.
@@ -225,28 +225,41 @@ impl pxs_VarMap {
 /// Runtime will be supplied automatically.
 #[allow(non_camel_case_types)]
 pub struct pxs_FactoryHolder {
-    pub callback: super::func::pxs_Func,
-    pub args: *mut pxs_Var,
+    callback: super::func::pxs_Func,
+    /// The args themselves as a `pxs_List`.
+    args: pxs_Var,
 }
 
 impl pxs_FactoryHolder {
+    /// Create a new factory
+    pub fn new(callback: pxs_Func, mut args: pxs_Var) -> Self {
+        // Ensure args are a list
+        if !args.is_list() {
+            panic!("Factory args must be pxs_List");
+        }
+
+        // Remove this junk from the arena.
+        // The factory owns it now.
+        args.remove_from_arena();
+
+        Self {
+            callback,
+            args: args
+        }
+    }
+
     /// Get a cloned list of args. This list will include the runtime passed as the
     /// first item. Returns a owned pxs_Var not a pointer.
     pub fn get_args(&self, rt: pxs_Runtime) -> pxs_Var {
-        let args = self.args;
-        // Check null
-        assert!(!args.is_null(), "Factory args must not be null");
-        unsafe {
-            // Clone
-            let args_clone = pxs_Var::from_borrow(self.args).clone();
-            // Check list
-            assert!(args_clone.is_list(), "Factory args must be a list");
-            // Get list and add runtime
-            let args_list = args_clone.get_list().unwrap();
-            args_list.vars.insert(0, pxs_Var::new_i64(rt.into_i64()));
+        // Clone
+        let args_clone = self.args.clone();
+        // Check list
+        assert!(args_clone.is_list(), "Factory args must be a list");
+        // Get list and add runtime
+        let args_list = args_clone.get_list().unwrap();
+        args_list.vars.insert(0, pxs_Var::new_i64(rt.into_i64()));
 
-            args_clone
-        }
+        args_clone
     }
 
     /// Call the FactoryHolder function with the args!
@@ -269,29 +282,7 @@ impl pxs_FactoryHolder {
     }
 }
 
-impl PtrMagic for pxs_FactoryHolder {
-    fn into_raw(self) -> *mut Self {
-        // Remove args and all args internal from arena
-        let args = unsafe{pxs_Var::from_borrow(self.args)};
-        let list = args.get_list().unwrap();
-        for v in list.vars.iter_mut() {
-            v.remove_from_arena();
-        }
-        args.remove_from_arena();
-        Box::into_raw(Box::new(self))
-    }
-}
-
-impl Drop for pxs_FactoryHolder {
-    fn drop(&mut self) {
-        if self.args.is_null() {
-            return;
-        }
-
-        // Drop args
-        let _ = pxs_Var::from_raw(self.args);
-    }
-}
+impl PtrMagic for pxs_FactoryHolder {}
 
 /// Holds data for a pxs_Var of list.
 ///
@@ -594,12 +585,9 @@ impl pxs_Var {
     }
 
     /// Create a new Factory var.
-    pub fn new_factory(func: super::func::pxs_Func, args: pxs_VarT) -> Self {
+    pub fn new_factory(func: super::func::pxs_Func, args: pxs_Var) -> Self {
         // let bvar = borrow_var!(args);
-        let factory = pxs_FactoryHolder {
-            callback: func,
-            args,
-        };
+        let factory = pxs_FactoryHolder::new(func, args);
         Self::new(pxs_VarType::pxs_Factory, pxs_VarValue{factory_val: factory.into_raw()}, default_deleter)
     }
 
@@ -809,7 +797,7 @@ impl pxs_Var {
 
                     // Shallow Copy args
                     let new_args = pxs_Var::new_list();
-                    let old_args = pxs_Var::from_borrow(og.args);
+                    let old_args = &og.args;
                     if !old_args.is_list() {
                         return pxs_Var::new_null();
                     }
@@ -818,10 +806,7 @@ impl pxs_Var {
                     for var in old_list.vars.iter() {
                         new_list.add_item(var.shallow_copy());
                     } 
-                    let f = pxs_FactoryHolder {
-                        args: new_args.into_raw(),
-                        callback: og.callback,
-                    };
+                    let f = pxs_FactoryHolder::new(og.callback, new_args);
                     Self::new(pxs_VarType::pxs_Factory, pxs_VarValue{factory_val: f.into_raw()}, default_deleter)
                 },
                 pxs_VarType::pxs_Map => {
@@ -987,7 +972,7 @@ impl Clone for pxs_Var {
                     }
                     // Clone args
                     let new_args = pxs_Var::new_list();
-                    let old_args = pxs_Var::from_borrow(og.args);
+                    let old_args = &og.args;
                     if !old_args.is_list() {
                         return pxs_Var::new_null();
                     }
@@ -996,10 +981,7 @@ impl Clone for pxs_Var {
                     for var in old_list.vars.iter() {
                         new_list.add_item(var.clone());
                     }
-                    let f = pxs_FactoryHolder {
-                        args: new_args.into_raw(),
-                        callback: og.callback,
-                    };
+                    let f = pxs_FactoryHolder::new(og.callback, new_args);
                     Self::new(pxs_VarType::pxs_Factory, pxs_VarValue{factory_val: f.into_raw()}, default_deleter)
                 }
                 pxs_VarType::pxs_Exception => {
