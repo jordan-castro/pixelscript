@@ -184,7 +184,7 @@ mod tests {
 
     pub extern "C" fn free_person(ptr: *mut c_void) {
         println!("PERSON FREED");
-        let _ = unsafe { Person::from_raw(ptr as *mut Person) };
+        let _ = Person::from_raw(ptr as *mut Person);
     }
 
     pub extern "C" fn set_name(args: *mut pxs_Var) -> *mut pxs_Var {
@@ -255,7 +255,7 @@ mod tests {
                 if let Ok(s) = (*var).get_string() {
                     string.push_str(format!("{s} ").as_str());
                 }
-                pxs_freevar(var);
+                // pxs_freevar(var);
             }
 
             println!("From Runtime: {string}");
