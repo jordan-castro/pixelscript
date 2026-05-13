@@ -105,15 +105,15 @@ pub(super) fn pxs_into_js(context: *mut quickjs::JSContext, var: &pxs_Var) -> Re
                 // Create new object
                 let obj: SmartJSValue = create_object(context, idx, Arc::clone(&po));
                 // Box it
-                let boxed = Box::into_raw(Box::new(obj)); 
-                po.update_lang_ptr(boxed as *mut c_void);
+                let container = JSPXSContainer::from_value(obj);
+                // let boxed = Box::into_raw(Box::new(obj)); 
+                po.update_lang_ptr(container.into_void());
                 po.update_pxs_free_method(js_deleter);
             }
             // Get smart value and return raw value...
             let lang_ptr = po.lang_ptr.lock().unwrap();
-            let smart_value = *lang_ptr as *const SmartJSValue;
-            let value = unsafe{ (&*smart_value).clone() };
-            Ok(value)
+            let container = unsafe { JSPXSContainer::from_borrow_void(*lang_ptr) };
+            Ok(container.value.clone())
         },
         crate::shared::var::pxs_VarType::pxs_List => {
             let arr = SmartJSValue::new_array(context);

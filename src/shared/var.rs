@@ -17,7 +17,7 @@ use std::{
 use anyhow::{Error, anyhow};
 
 use crate::{
-    borrow_string, create_raw_string, shared::{PtrMagic, func::pxs_Func, get_current_arena_id, new_arena, object::{apply_ref_count_alloc, apply_ref_count_delete, get_object}, pxs_Runtime, remove_var_from_arena, save_var_in_arena}
+    borrow_string, create_raw_string, shared::{PtrMagic, func::pxs_Func, get_current_arena_id, object::{apply_ref_count_alloc, apply_ref_count_delete, get_object}, pxs_Runtime, remove_var_from_arena, save_var_in_arena}
 };
 
 /// Macro for writing out the Var:: get methods.
@@ -570,6 +570,9 @@ impl pxs_Var {
     pub fn new_list_with(vars: Vec<pxs_Var>) -> Self {
         let mut list = pxs_VarList::new();
         list.vars = vars;
+        for v in list.vars.iter_mut() {
+            v.remove_from_arena();
+        }
         Self::new(pxs_VarType::pxs_List, pxs_VarValue{list_val: list.into_raw()}, default_deleter)
     }
 
@@ -838,7 +841,7 @@ impl pxs_Var {
 
     /// Remove this variable from it's arena.
     pub fn remove_from_arena(&mut self) {
-        if self.idx < 0 && self.arena < 0 {
+        if !self.is_owned() {
             return;
         }
         remove_var_from_arena(self.arena, self.idx);
@@ -852,7 +855,7 @@ unsafe impl Sync for pxs_Var {}
 
 impl Drop for pxs_Var {
     fn drop(&mut self) {
-        if self.idx > -1 && self.arena > -1 {
+        if self.is_owned() {
             self.remove_from_arena();
         }
 

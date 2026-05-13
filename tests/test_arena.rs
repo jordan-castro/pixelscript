@@ -11,7 +11,28 @@
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
-    use pixelscript::{create_raw_string, free_raw_string, own_string, pxs_addfunc, pxs_addmod, pxs_addvar, pxs_clearstate, pxs_finalize, pxs_freearena, pxs_freevar, pxs_getint, pxs_getstring, pxs_initialize, pxs_listadd, pxs_listget, pxs_map_addpair, pxs_newarena, pxs_newbool, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmap, pxs_newmod, pxs_newnull, pxs_newobject, pxs_newstring, shared::{PtrMagic, module::pxs_Module, pxs_Opaque, pxs_Runtime, utils::{self, CStringSafe}, var::pxs_VarT}};
+    use pixelscript::{create_raw_string, free_raw_string, own_string, pxs_addfunc, pxs_addmod, pxs_addvar, pxs_clearstate, pxs_finalize, pxs_freearena, pxs_freevar, pxs_gethost, pxs_getint, pxs_getstring, pxs_initialize, pxs_listadd, pxs_listget, pxs_map_addpair, pxs_newarena, pxs_newbool, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmap, pxs_newmod, pxs_newnull, pxs_newobject, pxs_newstring, shared::{PtrMagic, module::pxs_Module, pxs_Opaque, pxs_Runtime, utils::{self, CStringSafe}, var::pxs_VarT}};
+
+    struct Person2 {
+        person: Person
+    }
+
+    impl PtrMagic for Person2 {}
+    extern "C" fn drop_person2(ptr: pxs_Opaque) {
+        let _ = Person2::from_raw(ptr as *mut Person2);
+    }
+    extern "C" fn new_person2(args: pxs_VarT) -> pxs_VarT {
+        let p = unsafe{Person::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))};
+        let p2 = Person2{
+            person: Person{
+                name: p.name.clone()
+            }
+        };
+
+        let mut cstrgen = CStringSafe::new();
+        let obj = pxs_newobject(p2.into_void(), drop_person2, cstrgen.new_string("Person2"));
+        pxs_newhost(obj)
+    }
 
     struct Person {
         name: String
@@ -20,9 +41,7 @@ mod tests {
     impl PtrMagic for Person {}
 
     extern "C" fn drop_person(ptr: pxs_Opaque) {
-        unsafe {
-            let _ = Person::from_raw(ptr as *mut Person);
-        }
+        let _ = Person::from_raw(ptr as *mut Person);
     }
 
     extern "C" fn new_person(args: pxs_VarT) -> pxs_VarT {
@@ -52,6 +71,11 @@ mod tests {
             let list3 = pxs_newlist();
             pxs_listadd(list3, pxs_newint(10));
             pxs_listadd(list2, list3);
+
+            let f1 = pxs_newfactory(new_person, args);
+            let f2_args = pxs_newlist();
+            pxs_listadd(f2_args, f1);
+            let f2 = pxs_newfactory(new_person2, f2_args);
 
             pxs_freevar(list2);
         }
