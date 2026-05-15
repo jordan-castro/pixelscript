@@ -71,7 +71,7 @@ mod tests {
 
             // This gets freed
             let list2 = pxs_arenaput(arena, pxs_newlist());
-            let list3 = pxs_arenaput(arena, pxs_newlist());
+            let list3 = pxs_newlist();
             pxs_listadd(list3, pxs_newint(10));
             pxs_listadd(list2, list3);
 
