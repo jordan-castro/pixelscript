@@ -234,11 +234,15 @@ impl PixelScript for JSScripting {
     }
 
     fn start_thread() {
-        // Not needed for JS.
+        // This is dangerous and could potentially break your program.
+        // You must only call this in a real thread
+        Self::start();
     }
 
     fn stop_thread() {
-        // Not needed for JS.
+        // This is dangerous and could potentially break your program.
+        // You must only call this in a real thread
+        Self::stop();
     }
 
     fn clear_state(call_gc: bool) {

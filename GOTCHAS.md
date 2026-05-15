@@ -35,3 +35,4 @@ use `null`.
   Sucks that it's changes from quickjs where once the runtime is freed it frees all values assigned. But in quickjs-ng this is not the case.
 - You have to use `globalThis` to assign (variables, functions) to global scope.
 - `__pxs__` is a predefined name.
+- You should call `clearstate` before calling `stopthread`.
