@@ -1,4 +1,4 @@
-use crate::{pxs_debug, shared::{PtrMagic, var::{pxs_Var, pxs_VarT}}};
+use crate::{shared::{PtrMagic, var::{pxs_Var, pxs_VarT}}};
 
 #[allow(non_camel_case_types)]
 /// A memory arena for `pxs_Var`s.
@@ -36,7 +36,7 @@ impl Drop for pxs_PixelArena {
     fn drop(&mut self) {
         #[cfg(feature = "pxs-debug")] {
             let count = self.vars.len();
-            pxs_debug!("Dropping {count} number of vars");
+            crate::pxs_debug!("Dropping {count} number of vars");
         }
         for v in self.vars.drain(0..self.vars.len()) {
             let _ = pxs_Var::from_raw(v);

@@ -1010,6 +1010,11 @@ pub extern "C" fn pxs_tostring(runtime_var: *mut pxs_Var, var: *mut pxs_Var) -> 
             }
             pxs_Runtime::pxs_JavaScript => {
                 with_feature!("js", {
+                    // Check variable is null. 
+                    if pxs_varis(var, pxs_VarType::pxs_Null) {
+                        return pxs_Var::new_string("null".to_owned()).into_raw();
+                    }
+
                     let mut empty_list = pxs_VarList::new();
                     JSScripting::object_call(b_var, "toString", &mut empty_list)    
                 }, {
