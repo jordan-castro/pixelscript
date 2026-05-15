@@ -454,7 +454,6 @@ mod tests {
         pxs_set_filereader(file_loader);
         pxs_set_dirreader(dir_reader);
 
-        pxs_newarena();
         // 5
         let py_code = r#"
 import pxs
@@ -561,7 +560,6 @@ pxs.print("Module result: " + result.toString());
         pxs_startthread();
         pxs_stopthread();
         pxs_stopthread();
-        pxs_freearena();
 
         pxs_finalize();
     }

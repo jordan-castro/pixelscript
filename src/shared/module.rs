@@ -6,7 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-use crate::{borrow_var, shared::{PtrMagic, var::{pxs_Var, pxs_VarT}}};
+use crate::shared::{PtrMagic, var::pxs_Var};
 use std::sync::Arc;
 
 /// A Module is a C representation of data that needs to be (imported,required, etc)
@@ -58,11 +58,11 @@ pub struct ModuleCallback {
 #[derive(Clone)]
 pub struct ModuleVariable {
     pub name: String,
-    pub var: *mut pxs_Var,
+    pub var: pxs_Var,
 }
 
 impl ModuleVariable {
-    pub fn new(name:String, var: pxs_VarT) -> Self {
+    pub fn new(name:String, var: pxs_Var) -> Self {
         Self {
             name,
             var
@@ -91,9 +91,7 @@ impl pxs_Module {
     }
 
     /// Add a variable to current module.
-    pub fn add_variable(&mut self, name: &str, var: *mut pxs_Var) {
-        let bvar = borrow_var!(var);
-        bvar.remove_from_arena();
+    pub fn add_variable(&mut self, name: &str, var: pxs_Var) {
         self.variables.push(ModuleVariable {
             name: name.to_string(),
             var: var,
@@ -135,18 +133,3 @@ unsafe impl Sync for ModuleCallback {}
 
 unsafe impl Send for ModuleVariable {}
 unsafe impl Sync for ModuleVariable {}
-
-impl Drop for pxs_Module {
-    fn drop(&mut self) {
-        // pxs_debug!("Drop triggered for Module: {}", self.name);
-        // pxs_debug!("Stack trace: {}", Backtrace::force_capture());
-
-        for var in self.variables.drain(0..self.variables.len()) {
-            if var.var.is_null() {
-                continue;
-            }
-            // Drop the variable.
-            let _ = pxs_Var::from_raw(var.var);
-        }
-    }
-}

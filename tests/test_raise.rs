@@ -79,7 +79,6 @@ throw 'We should not get here';
     #[test]
     fn run_test() {
         pxs_initialize();
-        pxs_newarena();
         utils::setup_pxs();
         setup();
         test_python();
@@ -87,7 +86,6 @@ throw 'We should not get here';
         test_lua();
         println!("=============== JS ===============");
         test_js();
-        pxs_freearena();
 
         pxs_finalize();
     }

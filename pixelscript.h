@@ -109,6 +109,11 @@ typedef struct pxs_FactoryHolder pxs_FactoryHolder;
 typedef struct pxs_Module pxs_Module;
 
 /**
+ * A memory arena for `pxs_Var`s.
+ */
+typedef struct pxs_PixelArena pxs_PixelArena;
+
+/**
  * A PixelScript Object.
  *
  * The way this works is via the host, a Pseudo type can be created. So when the scripting
@@ -286,15 +291,6 @@ typedef struct pxs_Var {
    * Optional delete method. This is used for Pointers in Objects, and Functions.
    */
   pxs_DeleterFn deleter;
-  /**
-   * IDX assigned within arena
-   */
-  int32_t idx;
-  /**
-   * Arena that this variable is attached to.
-   * This should not be manipulated via the Host.
-   */
-  int32_t arena;
 } pxs_Var;
 
 /**
@@ -1002,27 +998,26 @@ void pxs_listinsert(pxs_VarT list, uintptr_t index, pxs_VarT item);
  * Create a new arena in memory.
  * This does not return anything, it simply creates a scope that will allocate pxs_Var memory.
  * when finished call, `pxs_freearena`
+ *
+ * result:OWNED
  */
-void pxs_newarena(void);
+struct pxs_PixelArena *pxs_newarena(void);
 
 /**
  * Free arena. Upon freeing all variables allocated since `pxs_newarena` will be freed.
+ *
+ * arena:TRANSFER
  */
-void pxs_freearena(void);
+void pxs_freearena(struct pxs_PixelArena *arena);
 
 /**
- * Remove `pxs_Var` from arena to be handled by Host.
+ * Add a `pxs_VarT` to a `pxs_PixelArena`. Upon freeing the Arena, the variable is freed aswell.
  *
- * var:BORROW
+ * arena:BORROW
+ * variable:SHARED
+ * result:SHARED
  */
-void pxs_arenarmv(pxs_VarT var);
-
-/**
- * Check if a `pxs_Var` is currently owned by a arena.
- *
- * var:BORROW
- */
-bool pxs_var_isowned(pxs_VarT var);
+pxs_VarT pxs_arenaput(struct pxs_PixelArena *arena, pxs_VarT var);
 
 /**
  * Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.

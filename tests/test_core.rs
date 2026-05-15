@@ -123,7 +123,6 @@ print(decoded2?.one == obj.one);
 print(decoded2?.two == obj.two);
 "#;
 
-pxs_newarena();
         let raw_pyscript = create_raw_string!(pyscript);
         let raw_file_name = create_raw_string!("<globals_test>");
         let err = own_var!(pxs_exec(pxs_Runtime::pxs_Python, raw_pyscript, raw_file_name));
@@ -161,7 +160,6 @@ pxs_newarena();
         unsafe {
             free_raw_string!(raw_file_name);
         }
-        pxs_freearena();
         pxs_finalize();
     }
 }

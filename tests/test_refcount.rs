@@ -113,14 +113,12 @@ print(p.get_name())
         }
         pxs_addmod(test_module);
 
-        pxs_newarena();
         print_helper("PYTHON");
         test_python();
         print_helper("LUA");
         test_lua();
         print_helper("JavaScript");
         test_js();
-        pxs_freearena();
         
         pxs_finalize();
     }

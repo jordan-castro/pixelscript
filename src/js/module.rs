@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{borrow_string, borrow_var, js::{JSModuleMethod, SmartJSValue, create_callback, get_js_state, pxs_into_js, quickjs}, pxs_debug, shared::{PtrMagic, module::pxs_Module, utils::CStringSafe, var::pxs_Var}};
+use crate::{borrow_string, js::{JSModuleMethod, SmartJSValue, create_callback, get_js_state, pxs_into_js, quickjs}, pxs_debug, shared::{module::pxs_Module, utils::CStringSafe}};
 
 /// Module definition function
 unsafe extern "C" fn init_module_function(ctx: *mut quickjs::JSContext, m: *mut quickjs::JSModuleDef) -> i32 {
@@ -59,7 +59,7 @@ pub(super) fn add_module(context: *mut quickjs::JSContext, module: &Arc<pxs_Modu
     // Uh Uh Uh set variables
     for module_var in module.variables.iter() {
         // Create variables
-        let var = pxs_into_js(context, borrow_var!(module_var.var));
+        let var = pxs_into_js(context, &module_var.var);
         if let Err(err) = var {
             let err_msg = err.to_string();
             let mut exception = SmartJSValue::new_exception(context, err_msg, "PXSJSConversionError".to_string());

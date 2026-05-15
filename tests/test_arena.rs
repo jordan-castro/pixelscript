@@ -11,7 +11,7 @@
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
-    use pixelscript::{create_raw_string, free_raw_string, own_string, pxs_addfunc, pxs_addmod, pxs_addvar, pxs_clearstate, pxs_finalize, pxs_freearena, pxs_freevar, pxs_gethost, pxs_getint, pxs_getstring, pxs_initialize, pxs_listadd, pxs_listget, pxs_map_addpair, pxs_newarena, pxs_newbool, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmap, pxs_newmod, pxs_newnull, pxs_newobject, pxs_newstring, shared::{PtrMagic, module::pxs_Module, pxs_Opaque, pxs_Runtime, utils::{self, CStringSafe}, var::pxs_VarT}};
+    use pixelscript::{create_raw_string, free_raw_string, own_string, pxs_addfunc, pxs_addmod, pxs_addvar, pxs_arenaput, pxs_clearstate, pxs_finalize, pxs_freearena, pxs_freevar, pxs_gethost, pxs_getint, pxs_getstring, pxs_initialize, pxs_listadd, pxs_listget, pxs_map_addpair, pxs_newarena, pxs_newbool, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmap, pxs_newmod, pxs_newnull, pxs_newobject, pxs_newstring, shared::{PtrMagic, module::pxs_Module, pxs_Opaque, pxs_Runtime, utils::{self, CStringSafe}, var::pxs_VarT}};
 
     struct Person2 {
         person: Person
@@ -56,30 +56,32 @@ mod tests {
         // Just allocate memory based on num
         let num = pxs_getint(pxs_listget(args, 1));
 
+        let arena = pxs_newarena();
+
         let mut cstrgen = CStringSafe::new();
         // What what what?? We are not freeing anything!
         for i in 0..num {
-            pxs_newnull();
+            pxs_arenaput(arena, pxs_newnull());
             // pxs_newint(3);
             let list = pxs_newlist();
+            pxs_arenaput(arena, list);
             pxs_listadd(list, pxs_newint(0));
-            let map = pxs_newmap();
+            let map = pxs_arenaput(arena, pxs_newmap());
             pxs_map_addpair(map, pxs_newint(12), pxs_newbool(false));
 
             // This gets freed
-            let list2 = pxs_newlist();
-            let list3 = pxs_newlist();
+            let list2 = pxs_arenaput(arena, pxs_newlist());
+            let list3 = pxs_arenaput(arena, pxs_newlist());
             pxs_listadd(list3, pxs_newint(10));
             pxs_listadd(list2, list3);
 
-            let f1 = pxs_newfactory(new_person, args);
+            let f1 = pxs_arenaput(arena, pxs_newfactory(new_person, args));
             let f2_args = pxs_newlist();
             pxs_listadd(f2_args, f1);
-            let f2 = pxs_newfactory(new_person2, f2_args);
-
-            pxs_freevar(list2);
+            let f2 = pxs_arenaput(arena, pxs_newfactory(new_person2, f2_args));
         }
 
+        pxs_freearena(arena);
         pxs_newbool(true)
     }
 
@@ -92,10 +94,8 @@ mod tests {
 from test import alloc
 alloc(5)
 "#;
-        pxs_newarena();
         let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_Python);
         assert!(res.is_null(), "Python error is not null: {:#?}", res);
-        pxs_freearena();
     }
 
     fn test_lua() {
@@ -104,10 +104,8 @@ local alloc = require('test').alloc
 
 alloc(15)
 "#;
-        pxs_newarena();
         let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_Lua);
         assert!(res.is_null(), "Lua error is not null: {:#?}", res);
-        pxs_freearena();
     }
 
     fn test_js() {
@@ -118,10 +116,8 @@ import {alloc} from 'test';
 
 alloc(20);
 "#;
-        pxs_newarena();
         let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_JavaScript);
         assert!(res.is_null(), "JS error is not null: {:#?}", res);
-        pxs_freearena();
     }
 
     #[test]
@@ -130,7 +126,6 @@ alloc(20);
         pxs_initialize();
         utils::setup_pxs();
 
-        pxs_newarena();
         let mut cstrgen = CStringSafe::new();
         let test_mod = pxs_newmod(cstrgen.new_string("test"));
         pxs_addfunc(test_mod, cstrgen.new_string("alloc"), allocate_memory);
@@ -150,7 +145,6 @@ alloc(20);
         test_js();
 
         pxs_clearstate(true);
-        pxs_freearena();
         pxs_finalize();
     }
 }

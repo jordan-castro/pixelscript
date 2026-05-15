@@ -10,7 +10,7 @@ import shutil
 from pathlib import Path
 import subprocess
 import sys
-# import platform
+import platform
 
 
 # Config
@@ -88,10 +88,15 @@ Arguments:
 
 # Check for env flags
 # CFLAGS=/MT && set CXXFLAGS=/MT
-# if platform.system() == 'Windows' and (defaults or 'lua' in features.split(',')):
-#     if not os.environ['CFLAGS'] == '/MT' or not os.environ['CXXFLAGS'] == '/MT/':
-#         print("Flags not set")
-#         exit(1)
+if platform.system() == 'Windows' and (defaults or 'lua' in features.split(',')):
+    cflags = os.environ.get('CFLAGS', None)
+    cxxflags = os.environ.get('CXXFLAGS', None)
+    if not cflags or cflags.strip() != '/MT':
+        print(f'CFLAGS must be set to /MT, currently: {cflags}')
+        exit(1)
+    if not cxxflags or cxxflags.strip() != '/MT':
+        print('CXXFLAGS must be set to /MT')
+        exit(1)
 
 build_mode = "release" if not debug else "debug"
 build_flag = "--release" if not debug else ""

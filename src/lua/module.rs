@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use crate::{
     lua::{func::internal_add_callback, get_lua_state, into_lua},
-    shared::{PtrMagic, module::pxs_Module, var::pxs_Var},
+    shared::module::pxs_Module,
 };
 use anyhow::Result;
 use mlua::prelude::*;
@@ -21,11 +21,10 @@ fn create_module(context: &Lua, module: &pxs_Module) -> Result<LuaTable> {
 
     // Add variables
     for variable in module.variables.iter() {
-        let var = unsafe {pxs_Var::from_borrow(variable.var) };
         module_table
             .set(
             variable.name.to_owned(),
-            into_lua(context, var)?
+            into_lua(context, &variable.var)?
             )?;
     }
 

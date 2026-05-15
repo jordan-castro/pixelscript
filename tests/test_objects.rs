@@ -241,14 +241,12 @@ pxs.print(p.age);
         pxs_addobject(module, cgen.new_string("Diary"), new_diary);
         pxs_addmod(module);
 
-        pxs_newarena();
         print_helper("PYTHON");
         test_python();
         print_helper("LUA");
         test_lua();
         print_helper("JS");
         test_js();
-        pxs_freearena();
 
         pxs_finalize();
     }

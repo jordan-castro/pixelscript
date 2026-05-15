@@ -254,7 +254,6 @@ export function __pxs__(globals, locals) {
     fn run_test() {
         pxs_initialize();
 
-        pxs_newarena();
         // Setup module
         setup_pxs();
 
@@ -264,7 +263,6 @@ export function __pxs__(globals, locals) {
         test_lua();
         print_helper("JavaScript");
         test_js();
-        pxs_freearena();
 
         pxs_finalize();
     }

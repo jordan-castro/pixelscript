@@ -11,11 +11,7 @@ use crate::{
     python::{
         add_new_name_idx_fn, exec_py, make_private, pocketpy, pocketpy_bridge, var_to_pocketpyref,
     },
-    shared::{
-        PtrMagic,
-        module::pxs_Module,
-        var::pxs_Var,
-    },
+    shared::module::pxs_Module,
 };
 
 pub(super) fn create_module(module: &pxs_Module) {
@@ -60,7 +56,7 @@ pub(super) fn create_module(module: &pxs_Module) {
         // pxs_debug!("|MODULEVARIABLE| {}", var.name);
         var_to_pocketpyref(
             tmp,
-            unsafe { pxs_Var::from_borrow(var.var) },
+            &var.var,
             Some(&module_name),
         );
 

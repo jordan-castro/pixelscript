@@ -27,7 +27,7 @@ use crate::python::PythonScripting;
 use crate::js::JSScripting;
 
 use crate::shared::{
-    PXS_PTR_NAME, PixelScript, PtrMagic, free_arena, func::{clear_function_lookup, lookup_add_function}, get_pixel_state, module::pxs_Module, new_arena, object::{ObjectFlags, clear_object_lookup, lookup_add_object, pxs_PixelObject}, pxs_LoadFileFn, pxs_Opaque, pxs_ReadDirFn, pxs_Runtime, pxs_WriteFileFn, var::{ObjectMethods, pxs_DeleterFn, pxs_VarList, pxs_VarT, pxs_VarType}
+    PXS_PTR_NAME, PixelScript, PtrMagic, arena::pxs_PixelArena, func::{clear_function_lookup, lookup_add_function}, get_pixel_state, module::pxs_Module, object::{ObjectFlags, clear_object_lookup, lookup_add_object, pxs_PixelObject}, pxs_LoadFileFn, pxs_Opaque, pxs_ReadDirFn, pxs_Runtime, pxs_WriteFileFn, var::{ObjectMethods, pxs_DeleterFn, pxs_VarList, pxs_VarT, pxs_VarType}
 };
 
 pub mod shared;
@@ -262,11 +262,7 @@ pub extern "C" fn pxs_addvar(
 ) {
     pxs_debug!("pxs_addvar");
     assert_initiated!();
-    if module_ptr.is_null() {
-        return;
-    }
-
-    if name.is_null() {
+    if module_ptr.is_null() || name.is_null() || variable.is_null() {
         return;
     }
 
@@ -281,7 +277,7 @@ pub extern "C" fn pxs_addvar(
     }
 
     // Now add variable
-    module.add_variable(name_str, variable);
+    module.add_variable(name_str, own_var!(variable));
 }
 
 /// Add a Module to a Module
@@ -1825,53 +1821,50 @@ pub extern "C" fn pxs_listinsert(list: pxs_VarT, index: usize, item: pxs_VarT) {
 /// Create a new arena in memory.
 /// This does not return anything, it simply creates a scope that will allocate pxs_Var memory.
 /// when finished call, `pxs_freearena`
+/// 
+/// result:OWNED
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_newarena() {
+pub extern "C" fn pxs_newarena() -> *mut pxs_PixelArena {
     pxs_debug!("pxs_newarena");
     assert_initiated!();
 
-    new_arena();
+    let arena = pxs_PixelArena::new();
+    arena.into_raw()
 }
 
 /// Free arena. Upon freeing all variables allocated since `pxs_newarena` will be freed.
+/// 
+/// arena:TRANSFER
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_freearena() {
+pub extern "C" fn pxs_freearena(arena: *mut pxs_PixelArena) {
     pxs_debug!("pxs_freearena");
     assert_initiated!();
 
-    free_arena();
-}
-
-/// Remove `pxs_Var` from arena to be handled by Host.
-/// 
-/// var:BORROW
-#[unsafe(no_mangle)]
-pub extern "C" fn pxs_arenarmv(var: pxs_VarT) {
-    pxs_debug!("pxs_arenarmv");
-    assert_initiated!();
-
-    if var.is_null() {
+    if arena.is_null() {
         return;
     }
 
-    let bvar = borrow_var!(var);
-    bvar.remove_from_arena();
+    let _ = pxs_PixelArena::from_raw(arena);
 }
 
-/// Check if a `pxs_Var` is currently owned by a arena.
+/// Add a `pxs_VarT` to a `pxs_PixelArena`. Upon freeing the Arena, the variable is freed aswell.
 /// 
-/// var:BORROW
+/// arena:BORROW
+/// variable:SHARED
+/// result:SHARED
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_var_isowned(var: pxs_VarT) -> bool {
-    pxs_debug!("pxs_var_isowned");
+pub extern "C" fn pxs_arenaput(arena: *mut pxs_PixelArena, var: pxs_VarT) -> pxs_VarT {
+    pxs_debug!("pxs_arenaput");
     assert_initiated!();
 
-    if var.is_null() {
-        return false;
+    if arena.is_null() || var.is_null() {
+        return std::ptr::null_mut();
     }
 
-    let bvar = borrow_var!(var);
-    bvar.is_owned()
+    let barena = unsafe{ pxs_PixelArena::from_borrow(arena) };
+    barena.alloc(var);
+
+    var
 }
 
 // ====================================== Core functions Start =======================================

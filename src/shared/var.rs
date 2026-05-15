@@ -17,7 +17,7 @@ use std::{
 use anyhow::{Error, anyhow};
 
 use crate::{
-    borrow_string, create_raw_string, shared::{PtrMagic, func::pxs_Func, get_current_arena_id, object::{apply_ref_count_alloc, apply_ref_count_delete, get_object}, pxs_Runtime, remove_var_from_arena, save_var_in_arena}
+    borrow_string, create_raw_string, shared::{PtrMagic, func::pxs_Func, object::{apply_ref_count_alloc, apply_ref_count_delete, get_object}, pxs_Runtime}
 };
 
 /// Macro for writing out the Var:: get methods.
@@ -189,9 +189,7 @@ impl pxs_VarMap {
     /// Add a new item.
     ///
     /// Old value (if any) gets dropped.
-    pub fn add_item(&mut self, mut key: pxs_Var, mut value: pxs_Var) {
-        key.remove_from_arena();
-        value.remove_from_arena();
+    pub fn add_item(&mut self, key: pxs_Var, value: pxs_Var) {
         // Drop old value.
         let _ = self.map.insert(key, value);
     }
@@ -232,15 +230,11 @@ pub struct pxs_FactoryHolder {
 
 impl pxs_FactoryHolder {
     /// Create a new factory
-    pub fn new(callback: pxs_Func, mut args: pxs_Var) -> Self {
+    pub fn new(callback: pxs_Func, args: pxs_Var) -> Self {
         // Ensure args are a list
         if !args.is_list() {
             panic!("Factory args must be pxs_List");
         }
-
-        // Remove this junk from the arena.
-        // The factory owns it now.
-        args.remove_from_arena();
 
         Self {
             callback,
@@ -317,16 +311,6 @@ pub struct pxs_VarList {
     pub vars: Vec<pxs_Var>,
 }
 
-impl PtrMagic for pxs_VarList {
-    fn into_raw(mut self) -> *mut Self {
-        // Remove all internal vars from arena
-        for v in self.vars.iter_mut() {
-            v.remove_from_arena();
-        }
-        Box::into_raw(Box::new(self))
-    }
-}
-
 impl pxs_VarList {
     /// Create a new VarList
     pub fn new() -> Self {
@@ -342,8 +326,7 @@ impl pxs_VarList {
     }
 
     /// Add a Var to the list. List will take ownership.
-    pub fn add_item(&mut self, mut item: pxs_Var) {
-        item.remove_from_arena();
+    pub fn add_item(&mut self, item: pxs_Var) {
         self.vars.push(item);
     }
 
@@ -362,8 +345,7 @@ impl pxs_VarList {
     /// Set at a specific index a item.
     ///
     /// Index must already be filled.
-    pub fn set_item(&mut self, mut item: pxs_Var, index: i32) -> bool {
-        item.remove_from_arena();
+    pub fn set_item(&mut self, item: pxs_Var, index: i32) -> bool {
         // Get correct negative index.
         let r_index = self.get_rindex(index);
 
@@ -405,6 +387,8 @@ impl pxs_VarList {
         self.vars.insert(index, item);
     }
 }
+
+impl PtrMagic for pxs_VarList {}
 
 /// The Variables actual value union.
 #[repr(C)]
@@ -470,13 +454,6 @@ pub struct pxs_Var {
 
     /// Optional delete method. This is used for Pointers in Objects, and Functions.
     pub deleter: Cell<pxs_DeleterFn>,
-
-    /// IDX assigned within arena
-    pub idx: i32,
-
-    /// Arena that this variable is attached to.
-    /// This should not be manipulated via the Host.
-    pub arena: i32
 }
 
 // Rust specific functions
@@ -485,9 +462,7 @@ impl pxs_Var {
         Self {
             tag,
             value,
-            deleter: Cell::new(deleter),
-            idx: -1,
-            arena: -1
+            deleter: Cell::new(deleter)
         }
     }
 
@@ -570,9 +545,6 @@ impl pxs_Var {
     pub fn new_list_with(vars: Vec<pxs_Var>) -> Self {
         let mut list = pxs_VarList::new();
         list.vars = vars;
-        for v in list.vars.iter_mut() {
-            v.remove_from_arena();
-        }
         Self::new(pxs_VarType::pxs_List, pxs_VarValue{list_val: list.into_raw()}, default_deleter)
     }
 
@@ -710,7 +682,7 @@ impl pxs_Var {
                 }
             };
 
-            format!("{details} :: {},{} :: {:p}", self.arena, self.idx, self)
+            details
         }
     }
 
@@ -833,21 +805,6 @@ impl pxs_Var {
             }
         }
     }
-
-    /// Check if variable is owned by a arena.
-    pub fn is_owned(&self) -> bool {
-        self.idx >= 0 && self.arena >= 0
-    }
-
-    /// Remove this variable from it's arena.
-    pub fn remove_from_arena(&mut self) {
-        if !self.is_owned() {
-            return;
-        }
-        remove_var_from_arena(self.arena, self.idx);
-        self.idx = -1;
-        self.arena = -1;
-    }
 }
 
 unsafe impl Send for pxs_Var {}
@@ -855,10 +812,6 @@ unsafe impl Sync for pxs_Var {}
 
 impl Drop for pxs_Var {
     fn drop(&mut self) {
-        if self.is_owned() {
-            self.remove_from_arena();
-        }
-
         if self.tag == pxs_VarType::pxs_String || self.tag == pxs_VarType::pxs_Exception {
             unsafe {
                 // Free the mem
@@ -895,11 +848,6 @@ impl Drop for pxs_Var {
                     return;
                 }
                 let _ = pxs_FactoryHolder::from_raw(self.value.factory_val);
-                // if val.args.is_null() {
-                //     return;
-                // }
-                // // Drop list
-                // let _ = pxs_Var::from_raw(val.args);
             }
         } else if self.tag == pxs_VarType::pxs_Map {
             let _ = unsafe {
@@ -909,18 +857,7 @@ impl Drop for pxs_Var {
     }
 }
 
-impl PtrMagic for pxs_Var {
-    // Override the `into_raw` for pxs_Var so we save in the arena.
-    fn into_raw(self) -> *mut Self {
-        let arena = get_current_arena_id();
-        let ptr = Box::into_raw(Box::new(self));
-
-        // Save in arena
-        save_var_in_arena(arena, ptr);
-
-        ptr
-    }
-}
+impl PtrMagic for pxs_Var {}
 
 impl Clone for pxs_Var {
     fn clone(&self) -> Self {
@@ -1021,6 +958,7 @@ impl std::fmt::Debug for pxs_Var {
         f.debug_struct("pxs_Var")
             .field("tag", &self.tag)
             .field("value", debug_val)
+            .field("ptr", &format!("{:p}", self).as_str())
             .finish()
     }
 }

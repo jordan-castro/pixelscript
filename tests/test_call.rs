@@ -116,14 +116,12 @@ pxs.anything(1,2);
             free_raw_string!(anything_name);
         }
 
-        pxs_newarena();
         print_helper("Python");
         test_python();
         print_helper("Lua");
         test_lua();
         print_helper("JS");
         test_js();
-        pxs_freearena();
 
         pxs_finalize();
     }
