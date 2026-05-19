@@ -1014,10 +1014,17 @@ void pxs_freearena(struct pxs_PixelArena *arena);
  * Add a `pxs_VarT` to a `pxs_PixelArena`. Upon freeing the Arena, the variable is freed aswell.
  *
  * arena:BORROW
- * variable:SHARED
- * result:SHARED
+ * var:TRANSFER
+ * result:BORROW
  */
 pxs_VarT pxs_arenaput(struct pxs_PixelArena *arena, pxs_VarT var);
+
+/**
+ * Debug state info.
+ *
+ * result:OWNED
+ */
+char *pxs_debugstate(enum pxs_Runtime runtime);
 
 /**
  * Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.

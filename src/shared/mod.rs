@@ -222,6 +222,8 @@ pub trait PixelScript {
     /// The code variable will always be a List with: [Runtime, Compiled Object, ...].
     /// Pass in optional local scope that will be included along with the compiled scope.
     fn exec_object(code: pxs_Var, local_scope: pxs_Var) -> Result<pxs_Var>;
+    /// For debugging purposes. Return a string which explains the current state.
+    fn debug() -> String;
 }
 
 /// Public enum for supported runtimes.

@@ -12,7 +12,7 @@
 - ~~Reimp pxs_DirHandle to be a pxs_VarList~~ **DONE**
 - ~~add pxs_compile which will return a `pxs_Code` object.~~ **DONE**
 - ~~Add Map~~ **DONE**
-- Review memory management:
+- ~~Review memory management:~~
     - ~~All functions return pxs_Var~~
     - ~~All functions need to be explicit in their docs on ownership~~
     - ~~Check Factories... why are we not owning the args?~~ (We are)
@@ -22,8 +22,14 @@
 - ~~Check that function calls that fail dont crash.~~
 - Add `_pxs_delete` method to free internal memory at language level. (core lib)
 - ~~Add `arenas`~~
+- Add magic methods for memory management
+    - `pxs_mgk_newarena` Creates a new arena handled by the library.
+    - `pxs_mgk_freearena` Frees the most recent craeted arena by the lib.
+    - `pxs_mgk_newint` Allocates a new integer via the Arena. 
+    - * for all pxs_Var types.
+    - Can not be used for modules... i.e. adding vars to modules. Mgk vars are not accepted.
 
-## v0.6 STD and Tests
+## v0.6 STD, Tests, Errors
 - Remove lua hacks (io, os, what else?)
 - pxs_time (Time functions)
 - pxs_os (OS functions like name, version)
@@ -33,8 +39,11 @@
     - test_all (remove this)
     - test_exec
     - test_eval
-    - test_raise (a new test of raising from one langauge to another.)
     - test_ft (a test that builds pixel ai dashs fast terrain system. If this runs, then it most likely works fine.)
+- Better error messages
+    - Explicitly coming from PXS
+    - Explicit which runtime
+    - Fix JS nasty errors
 
 ## v0.7 Wren support, WASM, C support (libtcc)
 - Add Wren support

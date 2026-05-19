@@ -31,8 +31,6 @@ A list of headaches that I've run into while using this library. Some could be c
 - PixelScript does not support returning `undefined`. The only way to do it would be to define a function for JS that returns `undefined`. And use that via 
 `pxs_call`. But Python or Lua don't have `undefined`. Python does have `nil` but it would crash the program. So no `undefined` support. For most cases just
 use `null`.
-- Is currently leaking JSRuntime. I need to review the quickjs-ng source to understand how to free it safely. Something to do with how I am creating the values or something.
-  Sucks that it's changes from quickjs where once the runtime is freed it frees all values assigned. But in quickjs-ng this is not the case.
-- You have to use `globalThis` to assign (variables, functions) to global scope.
 - `__pxs__` is a predefined name.
 - You should call `clearstate` before calling `stopthread`.
+- In general when working with JS and threads it is a trial and error to get it working just right. But it does work! I got it working in [Pixel Ai Dash](https://play.google.com/store/apps/details?id=us.epochtech.pixelaidash&hl=es_CR). Just be patient. Although as a general rule when you add JS you have to be more `explicit` in how memory works. When to clear the state, when to start/stop a thread, etc.

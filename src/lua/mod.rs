@@ -183,24 +183,6 @@ fn remove_variables_from_table(lua: &Lua, table: &LuaTable, map: &pxs_VarMap) ->
     Ok(())
 }
 
-        // // Set local scope if not null
-        // if !local_scope.is_null() {
-        //     let map = local_scope.get_map().unwrap();
-        //     let keys = map.keys();
-        //     for k in keys {
-        //         // Key => LuaValue
-        //         let lua_key = into_lua(lua, k)?;
-        //         // Value => LuaValue
-        //         let value = map.get_item(k);
-        //         if let Some(v) = value { 
-        //             let lua_value = into_lua(lua, v)?;
-        //             // Set in table
-        //             global_table.set(lua_key, lua_value)?;
-        //         }
-        //     }
-        // }
-
-
 pub struct LuaScripting;
 
 impl PixelScript for LuaScripting {
@@ -345,6 +327,12 @@ impl PixelScript for LuaScripting {
         }
 
         Ok(pxs_res)
+    }
+    
+    fn debug() -> String {
+        let state = get_lua_state();
+        let tables = state.tables.borrow();
+        format!("{{tables: {:#?}}}", tables)
     }
 }
 

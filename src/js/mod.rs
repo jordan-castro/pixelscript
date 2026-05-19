@@ -186,6 +186,19 @@ fn add_main_js() {
     run_js(include_str!("../../core/js/main.js"), "main.js", quickjs::JS_EVAL_TYPE_MODULE as i32);
 }
 
+/// Import all modules to initialize the app
+fn import_all_modules() {
+    let state = get_js_state();
+    let modules = state.modules.borrow();
+    let mut import_modules_code = String::new();
+    for m in modules.iter() {
+        import_modules_code.push_str(format!("import '{}';", m.0).as_str());
+    }
+    drop(modules);
+    drop(state);
+    run_js(&import_modules_code, "<cleanup>", quickjs::JS_EVAL_TYPE_MODULE as i32);
+}
+
 pub struct JSScripting;
 
 impl PixelScript for JSScripting {
@@ -196,16 +209,8 @@ impl PixelScript for JSScripting {
 
     fn stop() {
         Self::clear_state(false);
-
-        let state = get_js_state();
-        let modules = state.modules.borrow();
-
         // Import all modules just in case the user never did
-        let mut import_modules_code = String::new();
-        for m in modules.iter() {
-            import_modules_code.push_str(format!("import '{}';", m.0).as_str());
-        }
-        run_js(&import_modules_code, "<cleanup>", quickjs::JS_EVAL_TYPE_MODULE as i32);
+        import_all_modules();
     }
 
     fn add_module(source: std::sync::Arc<crate::shared::module::pxs_Module>) {
@@ -242,7 +247,7 @@ impl PixelScript for JSScripting {
     fn stop_thread() {
         // This is dangerous and could potentially break your program.
         // You must only call this in a real thread
-        Self::stop();
+        import_all_modules();
     }
 
     fn clear_state(call_gc: bool) {
@@ -331,6 +336,18 @@ impl PixelScript for JSScripting {
         } else {
             js_into_pxs(&res)
         }
+    }
+    
+    fn debug() -> String {
+        let state = get_js_state();
+        let binding = state.defined_objects.borrow();
+        let defined_objects = binding.keys();
+        let binding = state.module_exports.borrow();
+        let module_exports = binding.keys();
+        let binding = state.modules.borrow();
+        let module_names = binding.keys();
+
+        format!("{{defined_objects: {:#?}\nmodule_exports: {:#?}\nmodule_names:{:#?}}}", defined_objects, module_exports, module_names)
     }
 }
 

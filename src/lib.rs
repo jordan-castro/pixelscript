@@ -1855,8 +1855,8 @@ pub extern "C" fn pxs_freearena(arena: *mut pxs_PixelArena) {
 /// Add a `pxs_VarT` to a `pxs_PixelArena`. Upon freeing the Arena, the variable is freed aswell.
 /// 
 /// arena:BORROW
-/// variable:SHARED
-/// result:SHARED
+/// var:TRANSFER
+/// result:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_arenaput(arena: *mut pxs_PixelArena, var: pxs_VarT) -> pxs_VarT {
     pxs_debug!("pxs_arenaput");
@@ -1870,6 +1870,16 @@ pub extern "C" fn pxs_arenaput(arena: *mut pxs_PixelArena, var: pxs_VarT) -> pxs
     barena.alloc(var);
 
     var
+}
+
+/// Debug state info.
+/// 
+/// result:OWNED
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_debugstate(runtime: pxs_Runtime) -> *mut c_char {
+    with_backend!(runtime, Backend => {
+        create_raw_string!(Backend::debug())
+    })
 }
 
 // ====================================== Core functions Start =======================================

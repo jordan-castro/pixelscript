@@ -596,6 +596,20 @@ impl PixelScript for PythonScripting {
             Ok(pocketpyref_to_var(pocketpy::py_retval()))            
         }
     }
+    
+    fn debug() -> String {
+        let state = get_py_state();
+        let current_thread = *state.thread_idx.borrow();
+        let name_to_idx = state.name_to_idx.borrow();
+        let defined_objects = state.defined_objects.borrow();
+        let mut res = String::new();
+        res.push_str("{");
+        res.push_str(&format!("curent_thread: {current_thread}\n"));
+        res.push_str(&format!("name_to_idx: {:#?}\n", name_to_idx));
+        res.push_str(&format!("defined_objects: {:#?}\n", defined_objects));
+        res.push_str("}");
+        res
+    }
 }
 
 /// Add pxs vars to the stack
