@@ -11,7 +11,7 @@
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
-    use pixelscript::{borrow_var, create_raw_string, free_raw_string, own_string, pxs_finalize, pxs_freearena, pxs_getbool, pxs_getfloat, pxs_getint, pxs_getstring, pxs_getuint, pxs_initialize, pxs_listadd, pxs_listget, pxs_map_addpair, pxs_newarena, pxs_newbool, pxs_newexception, pxs_newfloat, pxs_newint, pxs_newlist, pxs_newmap, pxs_newmod, pxs_newnull, pxs_newstring, pxs_newuint, pxs_varcall, pxs_varis, shared::{PtrMagic, module::pxs_Module, pxs_Runtime, utils::{self, CStringSafe}, var::{pxs_Var, pxs_VarT, pxs_VarType}}};
+    use pixelscript::{borrow_var, create_raw_string, free_raw_string, own_string, pxs_addfunc, pxs_addmod, pxs_finalize, pxs_freearena, pxs_getbool, pxs_getfloat, pxs_getint, pxs_getstring, pxs_getuint, pxs_initialize, pxs_listadd, pxs_listget, pxs_map_addpair, pxs_newarena, pxs_newbool, pxs_newexception, pxs_newfloat, pxs_newint, pxs_newlist, pxs_newmap, pxs_newmod, pxs_newnull, pxs_newstring, pxs_newuint, pxs_varcall, pxs_varis, shared::{PtrMagic, module::pxs_Module, pxs_Runtime, utils::{self, CStringSafe}, var::{pxs_Var, pxs_VarT, pxs_VarType}}};
 
     // We explicitly skip Object, HostObject, Factory, and Exception because those are tested in test_objects.rs
 
@@ -109,7 +109,7 @@ def num():
 vars.asrt(vars.test_i64(10) == -1)
 vars.asrt(vars.test_u64(2) == 1)
 vars.asrt(vars.test_string('Dude') == 'Test')
-vars.asrt(vars.test_bool(false) == False)
+vars.asrt(vars.test_bool(False) == False)
 vars.asrt(vars.test_f64(0.1) == 1.2)
 vars.asrt(vars.test_null(None) == None)
 vars.asrt(vars.test_list(['Python list']) == [0])
@@ -123,8 +123,22 @@ vars.asrt(vars.test_map({0: 'Python Map'}) == {'name': 'Jordan dayo!'})
     fn test_lua() {
         let script = r#"
 local pxs = require('pxs')
+local vars = require('vars')
 
-pxs.print('Working Lua')
+local function num()
+    return 1
+end
+
+vars.asrt(vars.test_i64(10) == -1)
+vars.asrt(vars.test_u64(2) == 1)
+vars.asrt(vars.test_string('Dude') == 'Test')
+vars.asrt(vars.test_bool(false) == false)
+vars.asrt(vars.test_f64(0.1) == 1.2)
+vars.asrt(vars.test_null(nil) == nil)
+vars.asrt(vars.test_list({'Lua list'})[1] == 0)
+vars.asrt(vars.test_function(num) == 1)
+vars.asrt(vars.test_map({[0] = 'Lua Map'}).name == 'Jordan dayo!')
+
 "#;
         let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_Lua);
         assert!(res.is_null(), "Lua error is not null: {:#?}", res);
@@ -133,8 +147,21 @@ pxs.print('Working Lua')
     fn test_js() {
         let script = r#"
 import * as pxs from 'pxs';
+import * as vars from 'vars';
 
-pxs.print('Working JS');
+const num = () => {
+    return 1;
+};
+
+vars.asrt(vars.test_i64(10) == -1)
+vars.asrt(vars.test_u64(2) == 1)
+vars.asrt(vars.test_string('Dude') == 'Test')
+vars.asrt(vars.test_bool(false) == false)
+vars.asrt(vars.test_f64(0.1) == 1.2)
+vars.asrt(vars.test_null(null) == null)
+vars.asrt(vars.test_list(['JS list'])[1] == 0)
+vars.asrt(vars.test_function(num) == 1)
+vars.asrt(vars.test_map({0:'JS Map'}).name == 'Jordan dayo!')
 "#;
         let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_JavaScript);
         assert!(res.is_null(), "JS error is not null: {:#?}", res);
@@ -146,7 +173,19 @@ pxs.print('Working JS');
         pxs_initialize();
         utils::setup_pxs();
 
-        // let vars_mod = pxs_newmap()
+        let mut cstrgen = CStringSafe::new();
+        let vars_mod = pxs_newmod(cstrgen.new_string("vars"));
+        pxs_addfunc(vars_mod, cstrgen.new_string("test_i64"), test_i64);
+        pxs_addfunc(vars_mod, cstrgen.new_string("test_u64"), test_u64);
+        pxs_addfunc(vars_mod, cstrgen.new_string("test_string"), test_string);
+        pxs_addfunc(vars_mod, cstrgen.new_string("test_bool"), test_bool);
+        pxs_addfunc(vars_mod, cstrgen.new_string("test_f64"), test_f64);
+        pxs_addfunc(vars_mod, cstrgen.new_string("test_null"), test_null);
+        pxs_addfunc(vars_mod, cstrgen.new_string("test_list"), test_list);
+        pxs_addfunc(vars_mod, cstrgen.new_string("test_function"), test_function);
+        pxs_addfunc(vars_mod, cstrgen.new_string("test_map"), test_map);
+        pxs_addfunc(vars_mod, cstrgen.new_string("asrt"), asrt);
+        pxs_addmod(vars_mod);
 
         print_helper("PYTHON");
         test_python();

@@ -20,7 +20,7 @@
 - ~~Add properties to PixelObjects~~ **DONE**
 - Add anonyamous functions.
 - ~~Check that function calls that fail dont crash.~~
-- Add `_pxs_delete` method to free internal memory at language level. (core lib)
+- ~~Add `_pxs_delete` method to free internal memory at language level. (core lib)~~ (it's pxs_mem.memdel(obj))
 - ~~Add `arenas`~~
 - Add magic methods for memory management
     - `pxs_mgk_newarena` Creates a new arena handled by the library.
@@ -37,7 +37,6 @@
 - pxs_io (IO functions like write, read, etc) | This will require that `file_loader` `file_reader` and `dir_reader` are setup. 
 - Tests
     - ~~test_vars (Test all types to and from scripting)~~
-    - test_all (remove this)
     - test_exec
     - test_eval
     - test_ft (a test that builds pixel ai dashs fast terrain system. If this runs, then it most likely works fine.)
