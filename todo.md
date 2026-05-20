@@ -36,7 +36,7 @@
 - pxs_os (OS functions like name, version)
 - pxs_io (IO functions like write, read, etc) | This will require that `file_loader` `file_reader` and `dir_reader` are setup. 
 - Tests
-    - test_vars (Test all types to and from scripting)
+    - ~~test_vars (Test all types to and from scripting)~~
     - test_all (remove this)
     - test_exec
     - test_eval

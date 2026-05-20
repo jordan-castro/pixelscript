@@ -1059,6 +1059,11 @@ impl pxs_Var {
     pub fn feature_not_enabled_ep(feature: &str) -> Self {
         Self::new_exception(format!("{feature} is not enabled."))
     }
+
+    /// Expected n args
+    pub fn expected_n_args_ep(n: u32, c: u32) -> Self {
+        Self::new_exception(format!("Expected {n} args. Got {c}."))
+    }
 }
 
 /// Methods for interacting with objects and callbacks from the runtime.
