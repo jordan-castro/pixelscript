@@ -79,6 +79,11 @@ mod tests {
             pxs_listadd(list3, pxs_newint(10));
             pxs_listadd(list2, list3);
 
+            // The reason it crashed was because... f1 becomes owned by f2_args
+            // and it was being passed to the arena as if it owned it.
+            // Be very careful with who owns what pointer. I might add a new
+            // feature flag of (strict) to make it impossible to pass a owned pointer
+            // to any function that transfers memory
             let person_args = pxs_newlist();
             pxs_listadd(person_args, pxs_newstring(cstrgen.new_string("Jordan")));
             let f1 = pxs_newfactory(new_person, person_args);
