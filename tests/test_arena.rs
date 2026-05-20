@@ -22,7 +22,9 @@ mod tests {
         let _ = Person2::from_raw(ptr as *mut Person2);
     }
     extern "C" fn new_person2(args: pxs_VarT) -> pxs_VarT {
+        println!("new_person_2");
         let p = unsafe{Person::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))};
+        println!("person2 name: {}", p.name);
         let p2 = Person2{
             person: Person{
                 name: p.name.clone()
@@ -45,7 +47,9 @@ mod tests {
     }
 
     extern "C" fn new_person(args: pxs_VarT) -> pxs_VarT {
+        println!("Person");
         let name = own_string!(pxs_getstring(pxs_listget(args, 1)));
+        println!("Name: {name}");
         let person = Person{name};
         let mut cstrgen = CStringSafe::new();
         let obj = pxs_newobject(person.into_void(), drop_person, cstrgen.new_string("Person"));
@@ -75,7 +79,9 @@ mod tests {
             pxs_listadd(list3, pxs_newint(10));
             pxs_listadd(list2, list3);
 
-            let f1 = pxs_arenaput(arena, pxs_newfactory(new_person, args));
+            let person_args = pxs_newlist();
+            pxs_listadd(person_args, pxs_newstring(cstrgen.new_string("Jordan")));
+            let f1 = pxs_newfactory(new_person, person_args);
             let f2_args = pxs_newlist();
             pxs_listadd(f2_args, f1);
             let f2 = pxs_arenaput(arena, pxs_newfactory(new_person2, f2_args));
