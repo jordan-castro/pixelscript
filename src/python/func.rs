@@ -17,6 +17,10 @@ pub(super) unsafe fn py_get_arg(argv: pocketpy::py_StackRef, i: usize) -> pocket
 
 /// Use instead of the py_assign macro.
 pub(super) unsafe fn py_assign(left: pocketpy::py_Ref, right: pocketpy::py_Ref) {
+    if left.is_null() || right.is_null() {
+        return;
+    }
+
     unsafe {
         *left = *right;
     }
@@ -136,9 +140,13 @@ pub(super) unsafe extern "C" fn pocketpy_bridge(argc: i32, argv: pocketpy::py_St
     let mut success = true;
     unsafe {
         let res = call_function(fn_idx, vars);
-        let ret_slot = pocketpy::py_retval();
+        let tmp = pocketpy::py_pushtmp();
+        // let ret_slot = pocketpy::py_retval();
 
-        var_to_pocketpyref(ret_slot, &res, None);
+        var_to_pocketpyref(tmp, &res, None);
+
+        py_assign(pocketpy::py_retval(), tmp);
+        pocketpy::py_pop();
 
         if res.is_exception() {
             success = false;

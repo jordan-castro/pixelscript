@@ -6,7 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_call --no-default-features --features "lua,python,js,pxs-debug,include-core" -- --nocapture --test-threads=1
+// cargo test --test test_call --no-default-features --features "lua,python,js,include-core" -- --nocapture --test-threads=1
 
 #[allow(unused)]
 #[cfg(test)]

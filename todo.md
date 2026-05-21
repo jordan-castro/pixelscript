@@ -52,7 +52,7 @@
 - Add `unlock` feature which allows for running thread code unlocked. 
 
 ## v0.8
-- Cross language support. Calling JS from Python, 
+- Cross language support. Calling JS from Python, Lua from JS, Python from JS, etc...
 - New feature for on language support called |lang-on-demand| or something
     - Requires setting LANGUAGES static variable via `pxs_setlanguages`
 

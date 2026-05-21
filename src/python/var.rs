@@ -13,12 +13,9 @@ use std::{
 
 use crate::{
     borrow_string, create_raw_string, free_raw_string, pxs_debug, python::{
-        consume_error, func::{get_string_from_obj, py_assign}, object::create_object, pocketpy::{self}, python_pxs_get_register, python_pxs_new_register, python_pxs_remove_ref
+        consume_error, exec_main_py, func::{get_string_from_obj, py_assign}, object::create_object, pocketpy::{self}, python_pxs_get_register, python_pxs_new_register, python_pxs_remove_ref
     }, shared::{
-        PtrMagic,
-        object::get_object,
-        pxs_Runtime,
-        var::{pxs_Var, pxs_VarObject, pxs_VarType},
+        PtrMagic, object::get_object, pxs_Runtime, var::{pxs_Var, pxs_VarObject, pxs_VarType}
     }
 };
 
@@ -220,26 +217,32 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
                     create_object(idx, Arc::clone(&pixel_object), &obj_module_name);
                     // Get py_retval
                     let pyobj = pocketpy::py_retval();
+                    // Save as PythonPointer
+                    let pyptr = make_python_pointer(pyobj);
                     // Set that as the pointer
-                    pixel_object.update_lang_ptr(pyobj as *mut c_void);
-                    // POCKETPY MEMORY IS HANDLED BY POCKETPY (which I think is SUPPPER COOL!)
+                    pixel_object.update_lang_ptr(pyptr.into_void());
+                    pixel_object.update_pxs_free_method(free_py_mem);
                 }
                 // Get PTR again
                 let lang_ptr = pixel_object.lang_ptr.lock().unwrap();
+                let pyptr = PythonPointer::from_borrow_void(*lang_ptr);
                 // Assign again
-                py_assign(out, *lang_ptr as pocketpy::py_Ref);
+                py_assign(out, pyptr.get_ptr());
+
                 // *out = *(*lang_ptr as pocketpy::py_Ref);
             }
             pxs_VarType::pxs_List => {
                 // Ok take vars and convet them into pylist
-                pocketpy::py_newlist(out);
                 let list = var.get_list().unwrap();
+                pocketpy::py_newlist(out);
+
                 for i in 0..list.vars.len() {
                     let item = list.get_item(i as i32);
                     if let Some(item) = item {
                         // Add it
                         let tmp = pocketpy::py_pushtmp();
                         var_to_pocketpyref(tmp, item, module_name);
+
                         pocketpy::py_list_append(out, tmp);
                         pocketpy::py_pop();
                     }

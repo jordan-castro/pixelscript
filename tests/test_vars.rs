@@ -6,7 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_vars --no-default-features --features "lua,python,js,pxs-debug,testing" -- --nocapture --test-threads=1
+// cargo test --test test_vars --no-default-features --features "lua,python,js,testing" -- --nocapture --test-threads=1
 
 #[cfg(test)]
 #[allow(unused)]
@@ -64,6 +64,7 @@ mod tests {
 
         let new_list = pxs_newlist();
         pxs_listadd(new_list, pxs_newint(0));
+        pxs_listadd(new_list, pxs_newint(1));
         new_list
     }
 
@@ -112,7 +113,7 @@ vars.asrt(vars.test_string('Dude') == 'Test')
 vars.asrt(vars.test_bool(False) == False)
 vars.asrt(vars.test_f64(0.1) == 1.2)
 vars.asrt(vars.test_null(None) == None)
-vars.asrt(vars.test_list(['Python list']) == [0])
+vars.asrt(vars.test_list(['Python list']) == [0,1])
 vars.asrt(vars.test_function(num) == 1)
 vars.asrt(vars.test_map({0: 'Python Map'}) == {'name': 'Jordan dayo!'})
 "#;
@@ -159,7 +160,7 @@ vars.asrt(vars.test_string('Dude') == 'Test')
 vars.asrt(vars.test_bool(false) == false)
 vars.asrt(vars.test_f64(0.1) == 1.2)
 vars.asrt(vars.test_null(null) == null)
-vars.asrt(vars.test_list(['JS list'])[1] == 0)
+vars.asrt(vars.test_list(['JS list']) == [0,1])
 vars.asrt(vars.test_function(num) == 1)
 vars.asrt(vars.test_map({0:'JS Map'}).name == 'Jordan dayo!')
 "#;
