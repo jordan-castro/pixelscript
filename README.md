@@ -46,14 +46,14 @@ This will build the project and place the necessary *static* libraries in a `/px
 | `python`         | Python            | [pocketpy](https://github.com/pocketpy/pocketpy)        | Requires MSVC on Windows        |
 | `js`             | JavaScript        | [quickjs-ng](https://github.com/quickjs-ng/quickjs)     | QuickJS-NG small library. Supports ES2027 |
 <!-- | `easyjs`         | easyjs            | [easyjs](https://github.com/jordan-castro/easyjs)       | Modern syntax, compiles to JS   | -->
-<!-- | `php`            | PHP               | PH7                   | Only and the ensupports v5.3 gine is not maintained anymore | -->
-<!-- | `luajit`         | Lua               | mlua                  | requires `lua` feature. Does not give true JIT on iOS. | -->
+<!-- | `php`            | PHP               | PH7                   | Only supports v5.3 and the engine is not maintained anymore | -->
 
 ## CoreLib
 To include the PixelScript core API, add the `include-core` feature. Or include the specific modules as feature tags.
 | Module name | Module purpose |
 |-------------|----------------|
 | `pxs_json`  | Adds encode/decode functions for all languages. |
+| `pxs_mem`   | Adds memory control to scripting languages.     |
 <!-- | `pxs_time`  | Adds time functions for all languages. Similar to Python `time` module. | | -->
 <!-- | `pxs_io`    | Adds `open`, `File`, `Directory`, `close`, `glob`.      | Requires `pxs_set_filereader`, `pxs_set_filewriter`, and `pxs_set_dirreader` | -->
 <!-- | `pxs_os` | -->
@@ -64,6 +64,13 @@ Overview of what is incldued in `pxs_json` module.
 |------|------|-------------|
 | `encode` | Function | Encodes a object into a JSON string. |
 | `decode` | Function | Decodes a JSON string into a language object |
+
+### pxs_mem
+Overview of what is included in the `pxs_mem` module.
+Call `pxs_meminit` to initialize the module.
+| Name | Type | Doc Comment |
+|------|------|-------------|
+| `memdel` | Function | Decreases the refcount for a `PixelObject`. Pass in a `object`, if it does not have `_pxs_ptr` assigned it raise a exception. |
 
 ## Example
 Here is a "Hello World" example supporting Lua, Python, and JavaScript.
