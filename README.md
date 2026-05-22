@@ -70,7 +70,7 @@ Overview of what is included in the `pxs_mem` module.
 Call `pxs_meminit` to initialize the module.
 | Name | Type | Doc Comment |
 |------|------|-------------|
-| `memdel` | Function | Decreases the refcount for a `PixelObject`. Pass in a `object`, if it does not have `_pxs_ptr` assigned it raise a exception. |
+| `memdel` | Function | Decreases the refcount for a `PixelObject`. Pass in a `object`, if it does not have `_pxs_ptr` assigned it raises an exception. |
 
 ## Example
 Here is a "Hello World" example supporting Lua, Python, and JavaScript.

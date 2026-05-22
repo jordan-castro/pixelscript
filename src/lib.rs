@@ -977,7 +977,7 @@ pub extern "C" fn pxs_tostring(runtime_var: *mut pxs_Var, var: *mut pxs_Var) -> 
             let val = b_var.get_u64().unwrap();
             return pxs_Var::new_string(val.to_string()).into_raw();
         }
-        pxs_VarType::pxs_String => {
+        pxs_VarType::pxs_String | pxs_VarType::pxs_Exception => {
             return pxs_Var::new_string(b_var.get_string().unwrap().clone()).into_raw();
         }
         pxs_VarType::pxs_Bool => {
