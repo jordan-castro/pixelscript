@@ -6,13 +6,13 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_core --lib --no-default-features --features "lua,python,js,include-core" -- --nocapture --test-threads=1
+// cargo test --test test_core --lib --no-default-features --features "lua,python,js,include-core,testing,pxs-debug" -- --nocapture --test-threads=1
 #[allow(unused)]
 
 #[cfg(test)]
 mod tests {
     use pixelscript::{
-        create_raw_string, free_raw_string, own_string, own_var, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_exec, pxs_finalize, pxs_freearena, pxs_freevar, pxs_getstring, pxs_initialize, pxs_json_decode, pxs_json_encode, pxs_listadd, pxs_listget, pxs_listlen, pxs_new_shallowcopy, pxs_newarena, pxs_newcopy, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_tostring, shared::{PtrMagic, pxs_Runtime, var::{pxs_Var, pxs_VarT}}
+        create_raw_string, free_raw_string, own_string, own_var, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_exec, pxs_finalize, pxs_freearena, pxs_freevar, pxs_getstring, pxs_initialize, pxs_json_decode, pxs_json_encode, pxs_listadd, pxs_listget, pxs_listlen, pxs_meminit, pxs_new_shallowcopy, pxs_newarena, pxs_newcopy, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_tostring, shared::{PtrMagic, pxs_Runtime, utils, var::{pxs_Var, pxs_VarT}}
     };
 
     extern "C" fn call_pxs_json_encode(args: pxs_VarT) -> pxs_VarT {
@@ -57,7 +57,7 @@ mod tests {
     #[test]
     fn test_globals() {
         pxs_initialize();
-        let mname = create_raw_string!("pxs");
+        let mname = create_raw_string!("core");
         let module = pxs_newmod(mname);
         let fname = create_raw_string!("encode");
         let fname2 = create_raw_string!("decode");
@@ -66,6 +66,8 @@ mod tests {
         pxs_addfunc(module, fname2, call_pxs_json_decode);
         pxs_addfunc(module, print, print_wrapper);
         pxs_addmod(module);
+        pxs_meminit();
+        utils::setup_pxs();
         unsafe {
             free_raw_string!(mname);
             free_raw_string!(fname);
@@ -74,8 +76,10 @@ mod tests {
         }
 
         let pyscript = r#"
-from pxs import *
+from core import *
+import pxs
 import pxs_json
+import pxs_mem
 obj = {"one": 1, "two": 2}
 encoded = pxs_json.encode(obj)
 print(f'encoded: {encoded}')
@@ -86,10 +90,17 @@ encoded2 = encode(obj)
 print(f'encoded2: {encoded2}')
 decoded2 = decode(encoded2)
 print(f'decoded2 == obj: {decoded2 == obj}')
+
+p = pxs.Per('Jordan', 24)
+print(p._pxs_ptr)
+# Drop it
+pxs_mem.memdel(p)
 "#;
 
         let luascript = r#"
-local pxs = require('pxs')
+local pxs = require('core')
+local Per = require('pxs').Per
+local pxs_mem = require('pxs_mem')
 local obj = {one = 1, two= 2}
 local pxs_json = require('pxs_json')
 local encoded = pxs_json.encode(obj)
@@ -104,10 +115,16 @@ local decoded2 = pxs.decode(encoded2)
 print('encoded2: ' .. encoded2)
 print(decoded2.one)
 print(decoded2.two)
+
+local p = Per('Jordan', 24)
+print(p._pxs_ptr)
+pxs_mem.memdel(p)
 "#;
 
         let jsscript = r#"
-import {print, encode, decode} from 'pxs';
+import {print, encode, decode} from 'core';
+import { memdel, mem_delall } from 'pxs_mem';
+import { Per } from 'pxs';
 // import * as pxs_json from 'pxs_json';
 let obj = {one: 1, two: 2};
 // let encoded = pxs_json.encode(obj);
@@ -121,6 +138,13 @@ let decoded2 = decode(encoded2);
 print("Encoded 2: " + encoded2);
 print(decoded2?.one == obj.one);
 print(decoded2?.two == obj.two);
+
+let p = Per('Jordan', 24);
+print(p._pxs_ptr);
+memdel(p);
+
+let ps = [Per('Jordan', 25), Per('Jordan', 23), Per('Evelyn', 21)];
+mem_delall(ps);
 "#;
 
         let raw_pyscript = create_raw_string!(pyscript);

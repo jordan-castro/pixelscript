@@ -84,8 +84,8 @@ static mut IS_KILLED: bool = false;
 pub extern "C" fn pxs_version() -> u32 {
     pxs_debug!("pxs_version");
     let major = 0;
-    let minor = 3;
-    let patch = 5;
+    let minor = 5;
+    let patch = 14;
     (major << 16) | (minor << 8) | patch
 }
 

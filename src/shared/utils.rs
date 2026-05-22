@@ -1,9 +1,11 @@
 use std::ffi::c_char;
 
+#[cfg(feature="testing")]
+use crate::shared::{PtrMagic, pxs_Opaque};
 use crate::{create_raw_string, free_raw_string};
 #[cfg(feature = "testing")]
 use crate::{
-    own_var, pxs_addfunc, pxs_addmod, pxs_addvar, pxs_exec, pxs_freevar, pxs_listget, pxs_listlen, pxs_newint, pxs_newmod, pxs_newnull, pxs_tostring, shared::{PtrMagic, func::pxs_Func, module::pxs_Module, pxs_Runtime, var::{pxs_Var, pxs_VarT}}
+    own_string, own_var, pxs_addfunc, pxs_addmod, pxs_addobject, pxs_addvar, pxs_exec, pxs_freevar, pxs_getint, pxs_getstring, pxs_listget, pxs_listlen, pxs_newhost, pxs_newint, pxs_newmod, pxs_newnull, pxs_newobject, pxs_tostring, shared::{func::pxs_Func, module::pxs_Module, pxs_Runtime, var::{pxs_Var, pxs_VarT}}
 };
 
 /// A useful macro for debuggin in pixelscript.
@@ -43,6 +45,36 @@ macro_rules! with_feature {
             $fallback
         }
     }};
+}
+
+#[cfg(feature = "testing")]
+pub struct Person {
+    name: String,
+    age: u32
+}
+
+#[cfg(feature="testing")]
+impl PtrMagic for Person {}
+
+#[cfg(feature="testing")]
+extern "C" fn free_person(ptr: pxs_Opaque) {
+    unsafe {
+        pxs_debug!("Dropping person");
+        let _ = Person::from_raw(ptr as *mut Person);
+    }
+}
+
+#[cfg(feature = "testing")]
+extern "C" fn new_person(args: pxs_VarT) -> pxs_VarT {
+    let name = own_string!(pxs_getstring(pxs_listget(args, 1)));
+    let age = pxs_getint(pxs_listget(args, 2));
+
+    let mut cstrgen = CStringSafe::new();
+
+    let p = Person{name, age: age as u32};
+
+    let pixel_object = pxs_newobject(p.into_void(), free_person, cstrgen.new_string("Per"));
+    pxs_newhost(pixel_object)
 }
 
 #[cfg(feature = "testing")]
@@ -111,10 +143,12 @@ pub extern "C" fn print(args: pxs_VarT) -> pxs_VarT {
 
 #[cfg(feature = "testing")]
 pub fn setup_pxs() {
+    let mut cstrgen = CStringSafe::new();
     let module = create_module("pxs");
     // Add print function
     add_function(module, "print", print);
     add_variable(module, "num", pxs_newint(1));
+    pxs_addobject(module, cstrgen.new_string("Per"), new_person);
     // Save module
     pxs_addmod(module);
 }
