@@ -71,29 +71,11 @@
 
 ## Vars
 
-## STD
-- Add std library via pixelscript runtime. These are optional and handled via features
-    - pxs_io (reading/writing files/directories)
-    - pxs_os (some OS level stuff (delete, move, idk))
-    - pxs_time (similar to pythons time module. Just universal for all languages)
-
-## Lua
-- Remove io, os, and hackable modules.
-
 ## Python (PocketPy)
 - Make callback global. i.e. one per thread
 - Make object callbacks global. i.e. one per object
 - When dirreader, filereader, filewriter are set, allow with open().
 - Add a test for HostObject that holds another HostObject as reference. (FastTerrain)
-
-## JS
-- add_variable
-- add_callback
-- add_module
-- execute_javascript
-- module_add_variable
-- module_add_callback
-- module_add_module
 
 ## Maybes
 - Enums?

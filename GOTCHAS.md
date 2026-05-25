@@ -18,6 +18,10 @@ A list of headaches that I've run into while using this library. Some could be c
     - Custom wrapper system in your host language.
     - Recreate the `pxs_HostObject`.
     - Pass a `pxs_Factory`.
+- `pxs_HostObject` Does not support inheritance.
+
+## Lua (mlua)
+- A empty Table is interpreted as a `pxs_Object` not a `pxs_List`
 
 ## Python (pocketpy)
 - When running `pxs_call` it will go through a checklist until the function is found BY NAME.
@@ -25,7 +29,6 @@ A list of headaches that I've run into while using this library. Some could be c
     - current module
     - __main__ module
 - When a `pxs_Object` or `pxs_Function` is off the stack and is dropped by pxs. It fails becuase it returns None via `_pxs_register`.
-- Does not support inheritance
 
 ## JS (quickjs)
 - PixelScript does not support returning `undefined`. The only way to do it would be to define a function for JS that returns `undefined`. And use that via 
@@ -34,3 +37,4 @@ use `null`.
 - `__pxs__` is a predefined name.
 - You should call `clearstate` before calling `stopthread`.
 - In general when working with JS and threads it is a trial and error to get it working just right. But it does work! I got it working in [Pixel Ai Dash](https://play.google.com/store/apps/details?id=us.epochtech.pixelaidash&hl=es_CR). Just be patient. Although as a general rule when you add JS you have to be more `explicit` in how memory works. When to clear the state, when to start/stop a thread, etc.
+- `pxs_Module`s can not be redefined. It won't crash but it will skip any redefined module names.

@@ -215,6 +215,13 @@ impl PixelScript for JSScripting {
 
     fn add_module(source: std::sync::Arc<crate::shared::module::pxs_Module>) {
         let state = get_js_state();
+        let modules = state.modules.borrow();
+        if modules.contains_key(&source.name) {
+            // Don't add it
+            pxs_debug!("JSModule {} already exists.", &source.name);
+            return;
+        }
+        drop(modules);
         module::add_module(state.context, &source);
     }
 

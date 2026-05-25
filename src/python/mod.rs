@@ -443,7 +443,7 @@ impl PixelScript for PythonScripting {
     fn stop_thread() {
         unsafe {
             // clear current
-            Self::clear_state(false);
+            Self::clear_state(true);
 
             let idx = pocketpy::py_currentvm() - 1;
             pocketpy::py_resetvm();
@@ -463,7 +463,6 @@ impl PixelScript for PythonScripting {
         if let Some(m) = name_map {
             m.clear();
         }
-
         if call_gc {
             // Invoke GC
             unsafe {
