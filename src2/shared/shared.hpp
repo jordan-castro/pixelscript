@@ -1,6 +1,6 @@
 #pragma once
 
-#include "include/pixelscript.h"
+#include "includes/pixelscript.h"
 #include <optional>
 
 namespace pxs::shared {
