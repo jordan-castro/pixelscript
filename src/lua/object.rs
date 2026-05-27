@@ -9,20 +9,19 @@
 use std::{collections::HashMap, sync::Arc};
 
 use crate::{
-    lua::{State, from_lua, get_metatable, into_lua, store_metatable},
+    lua::{from_lua, get_metatable, into_lua, store_metatable},
     shared::{
         func::call_function,
         object::{ObjectCallback, ObjectFlags, pxs_PixelObject},
         pxs_Runtime,
         var::pxs_Var,
     },
-    with_lua_state,
 };
 use anyhow::{Result, anyhow};
 use mlua::prelude::*;
 
-fn create_object_callback(state: &mut State, fn_idx: i32, flags: u8) -> Result<LuaFunction> {
-    let func = state.engine.create_function(
+fn create_object_callback(lua: &Lua, fn_idx: i32, flags: u8) -> Result<LuaFunction> {
+    let func = lua.create_function(
         move |lua, (internal_obj, args): (LuaTable, LuaMultiValue)| -> Result<LuaValue, LuaError> {
             let mut argv = vec![];
 
@@ -56,7 +55,7 @@ fn create_object_callback(state: &mut State, fn_idx: i32, flags: u8) -> Result<L
             unsafe {
                 let res = call_function(fn_idx, argv);
                 // Convert into lua
-                let lua_val = with_lua_state!(state => {into_lua(&mut state, &res)});
+                let lua_val = into_lua(lua, &res);
                 lua_val
             }
         },
@@ -70,12 +69,7 @@ fn create_object_callback(state: &mut State, fn_idx: i32, flags: u8) -> Result<L
 }
 
 /// The __index function
-fn lua_index(
-    source: &LuaTable,
-    table: &LuaTable,
-    key: String,
-    callbacks: HashMap<String, ObjectCallback>,
-) -> LuaResult<LuaValue> {
+fn lua_index(source: &LuaTable, table: &LuaTable, key: String, callbacks: HashMap<String, ObjectCallback>) -> LuaResult<LuaValue> {
     // Oki dok, here we need to go through callback names
     let method = callbacks.get(&key);
     if let Some(method) = method {
@@ -97,13 +91,7 @@ fn lua_index(
 }
 
 /// The __newindex function
-fn lua_newindex(
-    source: &LuaTable,
-    table: &LuaTable,
-    key: String,
-    value: &LuaValue,
-    callbacks: HashMap<String, ObjectCallback>,
-) -> LuaResult<LuaValue> {
+fn lua_newindex(source: &LuaTable, table: &LuaTable, key: String, value: &LuaValue, callbacks: HashMap<String, ObjectCallback>) -> LuaResult<LuaValue> {
     let method = callbacks.get(&key);
     if let Some(method) = method {
         // Check if it is a property
@@ -123,17 +111,18 @@ fn lua_newindex(
     Ok(LuaNil)
 }
 
-pub(super) fn create_object(state: &mut State, idx: i32, source: Arc<pxs_PixelObject>) -> Result<LuaTable> {
-    let table = state.engine.create_table()?;
+pub(super) fn create_object(lua: &Lua, idx: i32, source: Arc<pxs_PixelObject>) -> Result<LuaTable> {
+    let table = lua.create_table()?;
     table.set("_pxs_ptr", LuaValue::Integer(idx as i64))?;
 
-    let metatable = get_metatable(state, &source.type_name);
+    let metatable = get_metatable(&source.type_name);
+
     // let mut state = get_state();
     let metatable = if let Some(mt) = metatable {
         mt.clone()
     } else {
         // Create new metatable
-        let mt = state.engine.create_table()?;
+        let mt = lua.create_table()?;
 
         // HashMap of String -> ObjectCallbackc
         let mut map: HashMap<String, ObjectCallback> = HashMap::new();
@@ -141,7 +130,7 @@ pub(super) fn create_object(state: &mut State, idx: i32, source: Arc<pxs_PixelOb
         // Add methods
         for method in source.callbacks.iter() {
             map.insert(method.cbk.name.clone(), method.clone());
-            let func = create_object_callback(state, method.cbk.idx, method.flags)?;
+            let func = create_object_callback(lua, method.cbk.idx, method.flags)?;
 
             // Name needs to be warped potentially.
             let name = if method.flags & ObjectFlags::IsProp as u8 != 0 {
@@ -157,32 +146,17 @@ pub(super) fn create_object(state: &mut State, idx: i32, source: Arc<pxs_PixelOb
         let newindex_source_clone = mt.clone();
         let index_callbacks_clone = map.clone();
         let newindex_callbacks_clone = map.clone();
-        let custom_index = state.engine.create_function(move |_lua, (table, key): (LuaTable, String)| {
-            Ok(lua_index(
-                &index_source_clone,
-                &table,
-                key,
-                index_callbacks_clone.clone(),
-            )?)
+        let custom_index = lua.create_function(move |_lua, (table, key): (LuaTable, String) | {
+            Ok(lua_index(&index_source_clone, &table, key, index_callbacks_clone.clone())?)
         })?;
-        let custom_newindex = state.engine.create_function(
-            move |_lua, (table, key, value): (LuaTable, String, LuaValue)| {
-                Ok(lua_newindex(
-                    &newindex_source_clone,
-                    &table,
-                    key,
-                    &value,
-                    newindex_callbacks_clone.clone(),
-                )?)
-            },
-        )?;
+        let custom_newindex = lua.create_function(move |_lua, (table, key, value): (LuaTable, String, LuaValue) | {
+            Ok(lua_newindex(&newindex_source_clone, &table, key, &value, newindex_callbacks_clone.clone())?)
+        })?;
 
         mt.set("__index", custom_index)?;
         mt.set("__newindex", custom_newindex)?;
         // save it
-        // with_lua_state!(state => {
-        store_metatable(state, &source.type_name, mt.clone());
-        // });
+        store_metatable(&source.type_name, mt.clone());
         mt
     };
 

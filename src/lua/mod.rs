@@ -17,12 +17,11 @@ use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 use std::{cell::RefCell, collections::HashMap};
 
 use crate::{
-    lua::var::{from_lua, into_lua}, shared::{PixelScript, read_file, var::{ObjectMethods, pxs_Var, pxs_VarMap}}, with_feature
+    lua::var::{from_lua, into_lua}, shared::{PixelScript, PtrMagic, ffi::ThreadLanguageState, read_file, var::{ObjectMethods, pxs_Var, pxs_VarMap}}, with_feature
 };
 
 thread_local! {
-    static LUASTATE: RefCell<State> = RefCell::new(init_state());
-    // static LUASTATE: ReentrantMutex<State> = ReentrantMutex::new(init_state());
+    static LUASTATE: ThreadLanguageState<State> = init_state();
 }
 
 /// This is the Lua state. Each language gets it's own private state
@@ -31,6 +30,15 @@ struct State {
     engine: Lua,
     /// Cached Tables
     tables: HashMap<String, LuaTable>,
+}
+
+impl PtrMagic for State {}
+
+/// Borrow lua macro.
+pub(self) macro borrow_lua($state:expr) {
+    unsafe {
+        PtrMagic::from_borrow($state)
+    }
 }
 
 /// Preload a lua source code as a module.
@@ -51,7 +59,7 @@ fn preload_lua_module(lua: &Lua, code: &str, name: &str) -> Result<(), anyhow::E
 }
 
 /// Initialize Lua state per thread.
-fn init_state() -> State {
+fn init_state() -> ThreadLanguageState<State> {
     // Define a global function in engine
     let engine = Lua::new();
 
@@ -73,31 +81,30 @@ fn init_state() -> State {
     });
     let _ = engine.load(lua_globals).set_name("<lua_globals>").exec();
 
-    State {
+    let s = State {
         engine: engine,
         tables: HashMap::new(),
-    }
+    };
+
+    ThreadLanguageState::<State>::new(s.into_raw())
 }
 
-/// Use the LUA state
-#[macro_export]
-macro_rules! with_lua_state {
-    ($state_alias:ident => $body:block) => {
-        crate::lua::LUASTATE.with(|cell| {
-            #[allow(unused_mut)]
-            let mut $state_alias = cell.borrow_mut();
-            $body
-        })
-    };
+/// Get the state of LUA.
+fn get_lua_state() -> *mut State {
+    LUASTATE.with(|mutex| {
+        mutex.get_ptr()
+    })
 }
 
 /// Get a cached metatable from lua.
-pub(self) fn get_metatable(state: &mut State, name: &str) -> Option<LuaTable> {
+pub(self) fn get_metatable(name: &str) -> Option<LuaTable> {
+    let state = borrow_lua!(get_lua_state());
     state.tables.get(name).cloned()
 }
 
 /// Cahce a metatable.
-pub(self) fn store_metatable(state: &mut State,name: &str, table: LuaTable) {
+pub(self) fn store_metatable(name: &str, table: LuaTable) {
+    let state = borrow_lua!(get_lua_state());
     state.tables.insert(name.to_string(), table);
 }
 
@@ -105,9 +112,8 @@ pub(self) fn store_metatable(state: &mut State,name: &str, table: LuaTable) {
 /// Returns a String. Empty means no error happened and was successful!
 pub fn execute(code: &str, file_name: &str) -> String {
     let res = {
-        with_lua_state!(state => {
-            state.engine.load(code).set_name(file_name).exec()
-        })
+        let state = get_lua_state();
+        state.engine.load(code).set_name(file_name).exec()
     };
     if res.is_err() {
         return res.unwrap_err().to_string();
@@ -157,15 +163,15 @@ fn setup_module_loader(lua: &Lua) -> Result<()> {
 }
 
 /// Add variables to a Table from a Map
-fn add_variables_to_table(state: &mut State, table: &LuaTable, map: &pxs_VarMap) -> Result<()> {
+fn add_variables_to_table(lua: &Lua, table: &LuaTable, map: &pxs_VarMap) -> Result<()> {
     let keys = map.keys();
     for k in keys {
         // Convert to lua
-        let lkey = into_lua(state, k)?;
+        let lkey = into_lua(lua, k)?;
         let value = map.get_item(k);
         if let Some(v) = value {
             // convert to lua
-            let lval = into_lua(state, v)?;
+            let lval = into_lua(lua, v)?;
             // Set in table
             table.set(lkey, lval)?;
         }
@@ -175,11 +181,11 @@ fn add_variables_to_table(state: &mut State, table: &LuaTable, map: &pxs_VarMap)
 }
 
 /// Remove variables from a Table.
-fn remove_variables_from_table(state: &mut State, table: &LuaTable, map: &pxs_VarMap) -> Result<()> {
+fn remove_variables_from_table(lua: &Lua, table: &LuaTable, map: &pxs_VarMap) -> Result<()> {
     let keys = map.keys();
     for k in keys {
         // Convert to lua
-        let lkey = into_lua(state, k)?;
+        let lkey = into_lua(lua, k)?;
         table.set(lkey, LuaNil)?;
     }
 
@@ -190,12 +196,10 @@ pub struct LuaScripting;
 
 impl PixelScript for LuaScripting {
     fn add_module(source: std::sync::Arc<crate::shared::module::pxs_Module>) {
-        with_lua_state!(state => {
-            let res = module::add_module(&mut state, source);
-            if res.is_err() {
-                panic!("{:#?}", res);
-            }
-        });
+        let res = module::add_module(source);
+        if res.is_err() {
+            panic!("{:#?}", res);
+        }
     }
 
     fn execute(code: &str, file_name: &str) -> Result<pxs_Var> {
@@ -209,155 +213,145 @@ impl PixelScript for LuaScripting {
 
     fn start() {
         // Initalize the state
-        with_lua_state!(state => {
-            let res = setup_module_loader(&state.engine);
-            if res.is_err() {
-                panic!("{:#?}", res);
-            }
-        });
+        let state = get_lua_state();
+        let res = setup_module_loader(&state.engine);
+        if res.is_err() {
+            panic!("{:#?}", res);
+        }
     }
 
     fn stop() {
-        // Kill lua
-        with_lua_state!(state => {
-            // Ok clear the cached tables
-            state.tables.clear();
-
-            // Ok now cler the GC.
-            state.engine.gc_collect().unwrap();
-        });
+        Self::clear_state(true);
     }
 
     fn start_thread() {
-        // LUA does not need this.
+        Self::start();
     }
 
     fn stop_thread() {
-        // LUA does not need this.
+        Self::stop();
     }
 
     fn clear_state(call_gc: bool) {
-        with_lua_state!(state => {
-            state.tables.clear();
-            if call_gc {
-                state.engine.gc_collect().unwrap();
-            }
-        });
-    }
+        let state = get_lua_state();
 
+        state.tables.borrow_mut().drain();
+
+        if call_gc {
+            state.engine.gc_collect().unwrap();
+        }
+    }
+    
     fn eval(code: &str) -> Result<pxs_Var> {
-        with_lua_state!(state => {
-            let res: LuaValue = state.engine.load(code).set_name("<lua_eval>").call(())?;
-            Ok(from_lua(res)?)   
-        })
+        let state = get_lua_state();
+        let res: LuaValue = state.engine.load(code).set_name("<lua_eval>").call(())?;
+        Ok(from_lua(res)?)   
     }
     
     fn compile(code: &str, global_scope: pxs_Var) -> Result<pxs_Var> {
-        with_lua_state!(state => {
-            let globals = state.engine.globals();
-            // Linking table between scope and globals
-            let mt = state.engine.create_table()?;
-            mt.set("__index", globals)?;
-            let scope_table: LuaTable;
-            // Check that scope if a map
-            if global_scope.is_map() {
-                let res = into_lua(&mut state, &global_scope)?;
-                scope_table = res.as_table().unwrap().to_owned();
-            } else if global_scope.is_null() {
-                let res = state.engine.create_table()?;
-                scope_table = res;
-            } else {
-                return Ok(pxs_Var::new_exception("Expected Map or Null for global scope."));
-            }
+        let state = get_lua_state();
 
-            scope_table.set_metatable(Some(mt))?;
+        let globals = state.engine.globals();
+        // Linking table between scope and globals
+        let mt = state.engine.create_table()?;
+        mt.set("__index", globals)?;
+        let scope_table: LuaTable;
+        // Check that scope if a map
+        if global_scope.is_map() {
+            let res = into_lua(&state.engine, &global_scope)?;
+            scope_table = res.as_table().unwrap().to_owned();
+        } else if global_scope.is_null() {
+            let res = state.engine.create_table()?;
+            scope_table = res;
+        } else {
+            return Ok(pxs_Var::new_exception("Expected Map or Null for global scope."));
+        }
 
-            // Compile code
-            let chunk = state.engine.load(code);
-            let chunk = chunk.set_environment(scope_table).set_name("<lua_code_block>");
-            let our_scope_table = chunk.environment().unwrap().to_owned();
+        scope_table.set_metatable(Some(mt))?;
 
-            let func = chunk.into_function()?;
+        // Compile code
+        let chunk = state.engine.load(code);
+        let chunk = chunk.set_environment(scope_table).set_name("<lua_code_block>");
+        let our_scope_table = chunk.environment().unwrap().to_owned();
 
-            // Now lets return our [CodeObject, Global Scope reference]
-            let result = pxs_Var::new_list();
-            let list = result.get_list().unwrap();
+        let func = chunk.into_function()?;
 
-            // Code Object
-            list.add_item(from_lua(mlua::Value::Function(func))?);
-            // Global Scope
-            list.add_item(from_lua(mlua::Value::Table(our_scope_table))?);
-            
-            Ok(result)
-        })
+        // Now lets return our [CodeObject, Global Scope reference]
+        let result = pxs_Var::new_list();
+        let list = result.get_list().unwrap();
+
+        // Code Object
+        list.add_item(from_lua(mlua::Value::Function(func))?);
+        // Global Scope
+        list.add_item(from_lua(mlua::Value::Table(our_scope_table))?);
+        
+        Ok(result)
     }
     
     fn exec_object(code: pxs_Var, local_scope: pxs_Var) -> Result<pxs_Var> {
-        with_lua_state!(state => {
-            // We have to get the CodeObject and the Global Scope first
-            let (code_object, global_scope) = {
-                let list = code.get_list().unwrap();
-                (list.get_item(1).unwrap(), list.get_item(2).unwrap())
-            };
+        let state = get_lua_state();
+        let lua = &state.engine;
 
-            // Now add local scope to global scope...
-            let binding = into_lua(&mut state, global_scope)?;
-            let potential_table: Option<&LuaTable> = binding.as_table();
-            if potential_table.is_none() {
-                return Ok(pxs_Var::new_exception("Globals is not a Table."));
-            }
-            let global_table: LuaTable = potential_table.unwrap().to_owned();
-            
-            // Set local scope if not null
-            if !local_scope.is_null() {
-                let map = local_scope.get_map().unwrap();
-                add_variables_to_table(&mut state, &global_table, map)?;
-            }
+        // We have to get the CodeObject and the Global Scope first
+        let (code_object, global_scope) = {
+            let list = code.get_list().unwrap();
+            (list.get_item(1).unwrap(), list.get_item(2).unwrap())
+        };
 
-            // Get the object as a function and call it
-            let binding = into_lua(&mut state, code_object)?;
-            let potential_func: Option<&LuaFunction> = binding.as_function();
-            if potential_func.is_none() {
-                return Ok(pxs_Var::new_exception("Code Object is not a function."));
-            }
-            let func = potential_func.unwrap();
-            let res: LuaValue = func.call(())?;
-            let pxs_res = from_lua(res)?;
+        // Now add local scope to global scope...
+        let binding = into_lua(lua, global_scope)?;
+        let potential_table: Option<&LuaTable> = binding.as_table();
+        if potential_table.is_none() {
+            return Ok(pxs_Var::new_exception("Globals is not a Table."));
+        }
+        let global_table: LuaTable = potential_table.unwrap().to_owned();
+        
+        // Set local scope if not null
+        if !local_scope.is_null() {
+            let map = local_scope.get_map().unwrap();
+            add_variables_to_table(lua, &global_table, map)?;
+        }
 
-            // Now remove the local_state
-            if !local_scope.is_null() {
-                let map = local_scope.get_map().unwrap();
-                remove_variables_from_table(&mut state, &global_table, map)?;
-            }
+        // Get the object as a function and call it
+        let binding = into_lua(lua, code_object)?;
+        let potential_func: Option<&LuaFunction> = binding.as_function();
+        if potential_func.is_none() {
+            return Ok(pxs_Var::new_exception("Code Object is not a function."));
+        }
+        let func = potential_func.unwrap();
+        let res: LuaValue = func.call(())?;
+        let pxs_res = from_lua(res)?;
 
-            Ok(pxs_res)
-        })
+        // Now remove the local_state
+        if !local_scope.is_null() {
+            let map = local_scope.get_map().unwrap();
+            remove_variables_from_table(lua, &global_table, map)?;
+        }
+
+        Ok(pxs_res)
     }
     
     fn debug() -> String {
-        with_lua_state!(state => {
-            let tables = &state.tables;
-            format!("{{tables: {:#?}}}", tables)
-        })
+        let state = get_lua_state();
+        let tables = state.tables.borrow();
+        format!("{{tables: {:#?}}}", tables)
     }
-
+    
     fn reset() {
-        with_lua_state!(state => {
-            state.tables.clear();
-            state.engine = Lua::new();
-        });
+        Self::clear_state(true);
     }
 }
 
 /// Convert args for ObjectMethods into LuaMutliValue
-fn args_to_lua(state: &mut State, args: &Vec<pxs_Var>) -> LuaMultiValue {
+fn args_to_lua(args: &Vec<pxs_Var>) -> LuaMultiValue {
     let mut lua_args = vec![];
+    let state = get_lua_state();
     for arg in args.iter() {
-        let lua_arg = into_lua(state, arg);
+        let lua_arg = into_lua(&state.engine, arg);
         if lua_arg.is_err() {
-            lua_args.push(into_lua(state, &pxs_Var::new_exception(lua_arg.unwrap_err().to_string())).unwrap_or(LuaNil));
+            lua_args.push(into_lua(&state.engine, &pxs_Var::new_exception(lua_arg.unwrap_err().to_string())).unwrap_or(LuaNil));
         }
-        lua_args.push(into_lua(state, arg).unwrap_or(LuaNil));
+        lua_args.push(into_lua(&state.engine, arg).unwrap_or(LuaNil));
     }
 
     // Pack lua args
@@ -377,7 +371,7 @@ impl ObjectMethods for LuaScripting {
             (&*table_ptr).clone()
         };
 
-        let lua_args = with_lua_state!(state => {args_to_lua(&mut state, &args.vars)});
+        let lua_args = args_to_lua(&args.vars);
         let res = table
             .call_function(method, lua_args)?;
 
@@ -392,9 +386,10 @@ impl ObjectMethods for LuaScripting {
         args: &mut crate::shared::var::pxs_VarList,
     ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
         // Get args as lua args
-        let lua_args = with_lua_state!(state => {args_to_lua(&mut state, &args.vars)});
+        let lua_args = args_to_lua(&args.vars);
+        let state = get_lua_state();
 
-        let function: LuaFunction = with_lua_state!(state => {state.engine.globals().get(method)})?;
+        let function: LuaFunction = state.engine.globals().get(method)?;
         let res: LuaValue = function
             .call(lua_args)?;
 
@@ -414,7 +409,7 @@ impl ObjectMethods for LuaScripting {
         let lua_function = fn_ptr as *const LuaFunction;
 
         // Convert  the methods into lua args
-        let lua_args = with_lua_state!(state => {args_to_lua(&mut state, &args.vars)});
+        let lua_args = args_to_lua(&args.vars);
 
         // Call function
         let res: LuaValue = (unsafe { &*lua_function }).call(lua_args)?;
@@ -443,10 +438,8 @@ impl ObjectMethods for LuaScripting {
             (&*table_ptr).clone()
         };
 
-        // let state = get_lua_state();
-        let res = with_lua_state!(state => {
-            table.raw_set(key, into_lua(&mut state, value)?)
-        });
+        let state = get_lua_state();
+        let res = table.raw_set(key, into_lua(&state.engine, value)?);
         Ok(match res {
             Ok(_) => pxs_Var::new_bool(true),
             Err(_) => pxs_Var::new_bool(false),
@@ -454,9 +447,9 @@ impl ObjectMethods for LuaScripting {
     }
     
     fn get_from_name(name: &str) -> Result<pxs_Var, anyhow::Error> {
-        let res: LuaValue = with_lua_state!(state => {
-            state.engine.globals().get(name)
-        })?;
+        let state = get_lua_state();
+
+        let res: LuaValue = state.engine.globals().get(name)?;
         from_lua(res)
     }
 }

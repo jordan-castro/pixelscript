@@ -29,7 +29,6 @@
     - * for all pxs_Var types.
     - Can not be used for modules... i.e. adding vars to modules. Mgk vars are not accepted.
 - Add `strict` flag to panic when passing a arena owned variable to a function that transfrrs the mem.
-- Migrate codebase to C++.
 
 ## v0.6 STD, Tests, Errors
 - Remove lua hacks (io, os, what else?)

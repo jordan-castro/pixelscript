@@ -1,3 +1,5 @@
+use crate::shared::PtrMagic;
+
 // Copyright 2026 Jordan Castro <jordan@grupojvm.com>
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
@@ -76,4 +78,37 @@ macro_rules! own_var {
         let v = pxs_Var::from_raw($var);
         v
     }};
+}
+
+/// Generic from_raw for ThreadLanguageState
+fn generic_from_raw<T>(pointer: *mut T) {
+    let _: T = unsafe { *Box::from_raw(pointer) };
+}
+
+/// Useful structure that wraps a Mut pointer of type `T`.
+/// Use it for thread_local language state
+pub(crate) struct ThreadLanguageState<T> {
+    pointer: *mut T
+}
+
+impl<T> ThreadLanguageState<T> {
+    /// Create a new `LanguageState` wrapper. `pointer` must be freeable via reboxing.
+    pub fn new(pointer: *mut T) -> Self {
+        ThreadLanguageState { pointer }
+    }
+
+    /// Get the raw pointer.
+    pub fn get_ptr(&self) -> *mut T {
+        self.pointer
+    }
+}
+
+impl<T> Drop for ThreadLanguageState<T> {
+    fn drop(&mut self) {
+        if self.pointer.is_null() {
+            return;
+        }
+        generic_from_raw::<T>(self.pointer);
+        self.pointer = std::ptr::null_mut();
+    }
 }

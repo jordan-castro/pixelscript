@@ -5,7 +5,7 @@ use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
 use crate::{
     borrow_string, js::{
-        func::create_callback, module::add_local_module, quickjs::JS_NewRuntime, utils::SmartJSValue, var::{js_into_pxs, pxs_into_js}
+        func::create_callback, module::add_local_module, utils::SmartJSValue, var::{js_into_pxs, pxs_into_js}
     }, pxs_debug, shared::{
         PXS_METHOD_NAME, PixelScript, pxs_Opaque, read_file, utils::CStringSafe, var::{ObjectMethods, pxs_Var}
     }
@@ -254,7 +254,7 @@ impl PixelScript for JSScripting {
     fn stop_thread() {
         // This is dangerous and could potentially break your program.
         // You must only call this in a real thread
-        import_all_modules();
+        Self::stop();
     }
 
     fn clear_state(call_gc: bool) {
