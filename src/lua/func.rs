@@ -10,11 +10,11 @@ use anyhow::{Result, anyhow};
 use mlua::prelude::*;
 // use mlua::{Integer, IntoLua, Lua, MultiValue, Value::Nil, Variadic};
 
-use crate::{lua::{from_lua, into_lua}, shared::{pxs_Runtime, func::call_function, var::pxs_Var}};
+use crate::{lua::{from_lua, into_lua}, shared::{func::call_function, pxs_Runtime, var::pxs_Var}, with_lua_state};
 
 /// For internal use since modules also need to use the same logic for adding a Lua callback.
 pub(super) fn internal_add_callback(lua: &Lua, fn_idx: i32) -> Result<LuaFunction> {
-    let func = lua.create_function(move |lua, args: LuaMultiValue| -> Result<LuaValue, LuaError> {
+    let func = lua.create_function(move |_, args: LuaMultiValue| -> Result<LuaValue, LuaError> {
         // Convert args -> argv for pixelmods
         let mut argv: Vec<pxs_Var> = vec![];
 
@@ -32,7 +32,7 @@ pub(super) fn internal_add_callback(lua: &Lua, fn_idx: i32) -> Result<LuaFunctio
         unsafe {
             let res = call_function(fn_idx, argv);
 
-            let lua_val = into_lua(lua, &res);
+            let lua_val = with_lua_state!(state => {into_lua(&mut state, &res)} ) ;
             lua_val
             // Memory will drop here, and Var will be automatically freed!
         }

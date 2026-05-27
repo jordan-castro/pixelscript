@@ -9,29 +9,29 @@
 use std::sync::Arc;
 
 use crate::{
-    lua::{func::internal_add_callback, get_lua_state, into_lua},
+    lua::{State, func::internal_add_callback, into_lua},
     shared::module::pxs_Module,
 };
 use anyhow::Result;
 use mlua::prelude::*;
 
 /// Create the module table.
-fn create_module(context: &Lua, module: &pxs_Module) -> Result<LuaTable> {
-    let module_table = context.create_table()?;
+fn create_module(state: &mut State, module: &pxs_Module) -> Result<LuaTable> {
+    let module_table = state.engine.create_table()?;
 
     // Add variables
     for variable in module.variables.iter() {
         module_table
             .set(
             variable.name.to_owned(),
-            into_lua(context, &variable.var)?
+            into_lua(state, &variable.var)?
             )?;
     }
 
     // Add callbacks
     for callback in module.callbacks.iter() {
         // Create lua function
-        let lua_function = internal_add_callback(context, callback.idx);
+        let lua_function = internal_add_callback(&state.engine, callback.idx);
         module_table
             .set(callback.name.as_str(), lua_function?)?;
     }
@@ -40,15 +40,12 @@ fn create_module(context: &Lua, module: &pxs_Module) -> Result<LuaTable> {
 }
 
 /// Add a module to Lua!
-pub(super) fn add_module(module: Arc<pxs_Module>) -> Result<()> {
-    // First get lua state
-    let state = get_lua_state();
-    let lua = state.engine.borrow();
-
+pub(super) fn add_module(state: &mut State, module: Arc<pxs_Module>) -> Result<()> {
     let module_for_lua = Arc::clone(&module);
 
     // Let's create a table
-    let package: LuaTable = lua
+    let package: LuaTable = state
+        .engine
         .globals()
         .get("package")?;
     let preload: LuaTable = package
@@ -57,19 +54,26 @@ pub(super) fn add_module(module: Arc<pxs_Module>) -> Result<()> {
     // Add internal modules.
     for child in module.modules.iter() {
         let child_module = child.clone();
-        add_module(Arc::clone(&child_module))?;
+        add_module(state, Arc::clone(&child_module))?;
     }
 
+    let module_table_result = create_module(state, &module_for_lua);
+    if module_table_result.is_err() {
+        return Err(LuaError::RuntimeError(module_table_result.unwrap_err().to_string()).into());
+    }
+    let module_table = module_table_result.unwrap();
     // create the loader function for require()
-    let loader = lua
-        .create_function(move |lua, _: ()| {
-            let module_table = create_module(lua, &module_for_lua);
-            if module_table.is_err() {
-                Err(LuaError::RuntimeError(module_table.unwrap_err().to_string()))
-            } else {
+    let loader = state
+        .engine
+        .create_function(move |_, _: ()| {
+            Ok(module_table.to_owned())
+            // let module_table = with_lua_state!(state => {create_module(&mut state, &module_for_lua)}) ;
+            // if module_table.is_err() {
+                // Err(LuaError::RuntimeError(module_table.unwrap_err().to_string()))
+            // } else {
                 // Return module
-                Ok(module_table.unwrap())
-            }
+                // Ok(module_table.unwrap())
+            // }
         })?;
 
     // Pre-load it
