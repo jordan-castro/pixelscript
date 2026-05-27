@@ -11,8 +11,72 @@
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
-    use pixelscript::{create_raw_string, free_raw_string, pxs_clearstate, pxs_finalize, pxs_freearena, pxs_initialize, pxs_newarena, pxs_newmod, shared::{module::pxs_Module, pxs_Runtime, utils::{self, CStringSafe}, var::pxs_VarT}};
+    use std::ffi::CStr;
+
+use pixelscript::{create_raw_string, free_raw_string, pxs_addvar, pxs_clearstate, pxs_finalize, pxs_freearena, pxs_gethost, pxs_getint, pxs_getuint, pxs_initialize, pxs_listadd, pxs_listget, pxs_newarena, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmod, pxs_newobject, pxs_newuint, shared::{PtrMagic, module::pxs_Module, pxs_Opaque, pxs_Runtime, utils::{self, CStringSafe}, var::pxs_VarT}};
     
+    #[derive(Clone)]
+    struct Vector2 {
+        x: i32,
+        y: i32
+    }
+
+    impl PtrMagic for Vector2 {}
+
+    extern "C" fn free_v2(ptr: pxs_Opaque) {
+        let _ = Vector2::from_raw(ptr as *mut Vector2);
+    }
+
+    extern "C" fn new_vector2(args: pxs_VarT) -> pxs_VarT {
+        let x = pxs_getint(pxs_listget(args, 1));
+        let y = pxs_getint(pxs_listget(args, 2));
+
+        let mut cstrgen = CStringSafe::new();
+        let v2 = Vector2{x: x as i32,y: y as i32};
+        let obj = pxs_newobject(v2.into_void(), free_v2, cstrgen.new_string("Vector2"));
+        pxs_newhost(obj)
+    }
+
+    /// Generate a Vector2 factory
+    fn factory_vector2(v2: Vector2) -> pxs_VarT {
+        let args = pxs_newlist();
+        pxs_listadd(args, pxs_newint(v2.x as i64));
+        pxs_listadd(args, pxs_newint(v2.y as i64));
+        pxs_newfactory(new_vector2, args)
+    }
+
+    #[derive(Clone)]
+    struct Tile {
+        atlas: Vector2,
+        alt: u32,
+        layer: u32
+    }
+
+    impl PtrMagic for Tile {}
+
+    extern "C" fn free_tile(ptr: pxs_Opaque) {
+        let _ = Tile::from_raw(ptr as *mut Tile);
+    }
+
+    extern "C" fn new_tile(args: pxs_VarT) -> pxs_VarT {
+        let mut cstgen = CStringSafe::new();
+        let atlas = unsafe {Vector2::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))};
+        let alt = pxs_getuint(pxs_listget(args, 2));
+        let layer = pxs_getuint(pxs_listget(args, 3));
+        let tile = Tile{atlas: Vector2 { x: atlas.x, y: atlas.y }, alt: alt as u32, layer: layer as u32};
+        let obj = pxs_newobject(tile.into_void(), free_tile, cstgen.new_string("Tile"));
+        pxs_newhost(obj)
+    }
+
+    /// Create a Factory tile
+    fn factory_tile(tile: Tile) -> pxs_VarT {
+        let factory_args = pxs_newlist();
+        pxs_listadd(factory_args, factory_vector2(tile.atlas));
+        pxs_listadd(factory_args, pxs_newuint(tile.alt as u64));
+        pxs_listadd(factory_args, pxs_newuint(tile.layer as u64));
+        pxs_newfactory(new_tile, factory_args)
+    }
+
     fn print_helper(lang: &str) {
         println!("====================== {lang} ===================");
     }
@@ -21,7 +85,8 @@ mod tests {
         let script = r#"
 from pxs import *
 
-p = Per('Jordan', 24)
+for i in range(0,1000):
+    p = Per('Jordan', 24)
 
 print('Working Python')
 "#;
@@ -33,6 +98,9 @@ print('Working Python')
         let script = r#"
 local pxs = require('pxs')
 
+for i = 1, 1000 do 
+    local p = pxs.Per('Jordan', 24)
+end
 pxs.print('Working Lua')
 "#;
         let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_Lua);
@@ -43,6 +111,9 @@ pxs.print('Working Lua')
         let script = r#"
 import * as pxs from 'pxs';
 
+for (let i = 0; i < 1000; i++) {
+    let p = pxs.Per('Jordan', 24);
+}
 pxs.print('Working JS');
 "#;
         let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_JavaScript);
@@ -50,8 +121,18 @@ pxs.print('Working JS');
     }
 
     fn setup_module() {
-        let mut cstregen = CStringSafe::new();
-        let module = pxs_newmod(cstregen.new_string("name"));
+        let mut cstr_safe = CStringSafe::new();
+        
+        let module = pxs_newmod(cstr_safe.new_string("module"));
+
+        let tile = Tile{
+            alt: 0,
+            layer: 0,
+            atlas: Vector2 { x: 1, y: 1 }
+        };
+        for i in 0..1000 {
+            pxs_addvar(module, cstr_safe.new_string(&format!("contents{i}")), factory_tile(tile.clone()));
+        }
     }
 
     #[test]
@@ -62,9 +143,8 @@ pxs.print('Working JS');
 
         print_helper("PYTHON");
         for i in 0..1000 {
-            test_python();
-            pxs_clearstate(true);
             utils::setup_pxs();
+            pxs_clearstate(true);
         }
         print_helper("LUA");
         for i in 0..1000 {

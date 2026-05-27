@@ -91,12 +91,21 @@ Arguments:
 if platform.system() == 'Windows' and (defaults or 'lua' in features.split(',')):
     cflags = os.environ.get('CFLAGS', None)
     cxxflags = os.environ.get('CXXFLAGS', None)
+
+    flags = []
+    needs_exit = False
     if not cflags or cflags.strip() != '/MT':
-        print(f'CFLAGS must be set to /MT, currently: {cflags}')
-        exit(1)
+        flags.append("set CFLAGS=/MT")
+        needs_exit = True
+        # exit(1)
     if not cxxflags or cxxflags.strip() != '/MT':
-        print('CXXFLAGS must be set to /MT')
+        flags.append("set CXXFLAGS=/MT")
+        needs_exit = True
+
+    if needs_exit:
+        print('Please run ', " && ".join(flags), ' first.')
         exit(1)
+        # exit(1)
 
 build_mode = "release" if not debug else "debug"
 build_flag = "--release" if not debug else ""

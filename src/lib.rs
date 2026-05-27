@@ -1877,9 +1877,30 @@ pub extern "C" fn pxs_arenaput(arena: *mut pxs_PixelArena, var: pxs_VarT) -> pxs
 /// result:OWNED
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_debugstate(runtime: pxs_Runtime) -> *mut c_char {
+    pxs_debug!("pxs_debugstate");
+    assert_initiated!();
     with_backend!(runtime, Backend => {
         create_raw_string!(Backend::debug())
     })
+}
+
+/// Reset the PXS runtime. 
+/// 
+/// You will have to re-define any host modules.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_reset() {
+    pxs_debug!("pxs_reset");
+    assert_initiated!();
+
+    with_feature!("python", {
+        PythonScripting::reset();
+    });
+    with_feature!("lua", {
+        LuaScripting::reset();
+    });
+    with_feature!("js", {
+        JSScripting::reset();
+    });
 }
 
 // ====================================== Core functions Start =======================================

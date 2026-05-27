@@ -202,28 +202,39 @@ pub trait PixelScript {
 
     /// Add a global module to the runtime.
     fn add_module(source: Arc<module::pxs_Module>);
+    
     /// Execute a script in this runtime.
     fn execute(code: &str, file_name: &str) -> Result<pxs_Var>;
+    
     /// Evaluate a script in this runtime. Returns a pxs_Var.
     fn eval(code: &str) -> Result<pxs_Var>;
+    
     /// Some langauges (pocketpy) need to be explicitly told that a new thread is starting.
     /// For most languages this is NOT needed.
     fn start_thread();
+    
     /// Some languages (pocketpy) need to be expliclity told that a recent thread has stopped.
     /// For most languages this is NOT needed.
     fn stop_thread();
+    
     /// Clear the current threads state. Optionally calls garbage collector.
     fn clear_state(call_gc: bool);
+    
     /// Compile and save for future use.
     /// Pass in a optional global scope, if null, defaults to empty Map.
     /// Result will be a list with: [Runtime, Compiled Object, ...]
     fn compile(code: &str, global_scope: pxs_Var) -> Result<pxs_Var>;
+    
     /// Execute a code object.
     /// The code variable will always be a List with: [Runtime, Compiled Object, ...].
     /// Pass in optional local scope that will be included along with the compiled scope.
     fn exec_object(code: pxs_Var, local_scope: pxs_Var) -> Result<pxs_Var>;
+    
     /// For debugging purposes. Return a string which explains the current state.
     fn debug() -> String;
+    
+    /// Reset the Scripting runtime.
+    fn reset();
 }
 
 /// Public enum for supported runtimes.

@@ -43,12 +43,12 @@ fn create_module(context: &Lua, module: &pxs_Module) -> Result<LuaTable> {
 pub(super) fn add_module(module: Arc<pxs_Module>) -> Result<()> {
     // First get lua state
     let state = get_lua_state();
+    let lua = state.engine.borrow();
 
     let module_for_lua = Arc::clone(&module);
 
     // Let's create a table
-    let package: LuaTable = state
-        .engine
+    let package: LuaTable = lua
         .globals()
         .get("package")?;
     let preload: LuaTable = package
@@ -61,8 +61,7 @@ pub(super) fn add_module(module: Arc<pxs_Module>) -> Result<()> {
     }
 
     // create the loader function for require()
-    let loader = state
-        .engine
+    let loader = lua
         .create_function(move |lua, _: ()| {
             let module_table = create_module(lua, &module_for_lua);
             if module_table.is_err() {

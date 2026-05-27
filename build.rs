@@ -95,7 +95,7 @@ fn build_pocketpy(_target_os: &str, target_env: &str) {
     // Check if release or debug mode
     let target_mode = std::env::var("PROFILE").unwrap_or_default();
     if target_mode == "release" {
-        // Override NDEBUG macro for performance
+        // Set NDEBUG macro for performance (https://pocketpy.dev/quick-start/#compile-flags)
         build.define("NDEBUG", None);
     }
 
@@ -127,54 +127,6 @@ fn build_quickjsng(_target_os: &str, target_env: &str) {
     }
 
     build.compile("quickjs");
-}
-
-// TODO: remove this
-fn _find_gnu_include_path() -> Vec<String> {
-    // Get current os
-    let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
-    if target_os != "windows" {
-        return vec![];
-    }
-
-    // Check for current toolchain
-    let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
-    if target_env != "gnu" {
-        return vec![];
-    }
-    // Ok here we need to find out headers...
-    let output = Command::new("gcc")
-        .arg("-v")
-        .arg("-E")
-        .arg("-")
-        .stdin(std::process::Stdio::null())
-        .output()
-        .ok();
-    let mut includes = vec![];
-
-    if let Some(output) = output {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let mut scanning = false;
-
-        for line in stderr.lines() {
-            if line.contains("#include <...> search starts here") {
-                scanning = true;
-                continue;
-            }
-            if line.contains("End of search list") {
-                break;
-            }
-
-            if scanning {
-                let path = line.trim();
-                if !path.is_empty() {
-                    includes.push(format!("-isystem{}", path.replace("\\", "/")));
-                }
-            }            
-        }
-    }
-
-    includes
 }
 
 /// Create PocketPy Rust bindings

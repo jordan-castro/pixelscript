@@ -609,6 +609,17 @@ impl PixelScript for PythonScripting {
         res.push_str("}");
         res
     }
+
+    fn reset() {
+        let state = get_py_state();
+        state.defined_objects.borrow_mut().clear();
+        unsafe {
+            pocketpy::py_resetallvm();
+            *(state.thread_idx.borrow_mut()) = 0;
+            pocketpy::py_switchvm(0);
+        }
+        Self::start();
+    }
 }
 
 /// Add pxs vars to the stack

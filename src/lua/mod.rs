@@ -27,7 +27,7 @@ thread_local! {
 /// This is the Lua state. Each language gets it's own private state
 struct State {
     /// The lua engine.
-    engine: Lua,
+    engine: RefCell<Lua>,
     /// Cached Tables
     tables: RefCell<HashMap<String, LuaTable>>,
 }
@@ -73,7 +73,7 @@ fn init_state() -> State {
     let _ = engine.load(lua_globals).set_name("<lua_globals>").exec();
 
     State {
-        engine: engine,
+        engine: RefCell::new(engine),
         tables: RefCell::new(HashMap::new()),
     }
 }
@@ -104,7 +104,7 @@ pub(self) fn store_metatable(name: &str, table: LuaTable) {
 pub fn execute(code: &str, file_name: &str) -> String {
     let res = {
         let state = get_lua_state();
-        state.engine.load(code).set_name(file_name).exec()
+        state.engine.borrow().load(code).set_name(file_name).exec()
     };
     if res.is_err() {
         return res.unwrap_err().to_string();
@@ -205,7 +205,7 @@ impl PixelScript for LuaScripting {
     fn start() {
         // Initalize the state
         let state = get_lua_state();
-        let res = setup_module_loader(&state.engine);
+        let res = setup_module_loader(&state.engine.borrow());
         if res.is_err() {
             panic!("{:#?}", res);
         }
@@ -219,7 +219,7 @@ impl PixelScript for LuaScripting {
         state.tables.borrow_mut().clear();
 
         // Ok now cler the GC.
-        state.engine.gc_collect().unwrap();
+        state.engine.borrow().gc_collect().unwrap();
     }
 
     fn start_thread() {
@@ -236,30 +236,31 @@ impl PixelScript for LuaScripting {
         state.tables.borrow_mut().drain();
 
         if call_gc {
-            state.engine.gc_collect().unwrap();
+            state.engine.borrow().gc_collect().unwrap();
         }
     }
     
     fn eval(code: &str) -> Result<pxs_Var> {
         let state = get_lua_state();
-        let res: LuaValue = state.engine.load(code).set_name("<lua_eval>").call(())?;
+        let res: LuaValue = state.engine.borrow().load(code).set_name("<lua_eval>").call(())?;
         Ok(from_lua(res)?)   
     }
     
     fn compile(code: &str, global_scope: pxs_Var) -> Result<pxs_Var> {
         let state = get_lua_state();
 
-        let globals = state.engine.globals();
+        let lua = state.engine.borrow();
+        let globals = lua.globals();
         // Linking table between scope and globals
-        let mt = state.engine.create_table()?;
+        let mt = lua.create_table()?;
         mt.set("__index", globals)?;
         let scope_table: LuaTable;
         // Check that scope if a map
         if global_scope.is_map() {
-            let res = into_lua(&state.engine, &global_scope)?;
+            let res = into_lua(&lua, &global_scope)?;
             scope_table = res.as_table().unwrap().to_owned();
         } else if global_scope.is_null() {
-            let res = state.engine.create_table()?;
+            let res = lua.create_table()?;
             scope_table = res;
         } else {
             return Ok(pxs_Var::new_exception("Expected Map or Null for global scope."));
@@ -268,7 +269,7 @@ impl PixelScript for LuaScripting {
         scope_table.set_metatable(Some(mt))?;
 
         // Compile code
-        let chunk = state.engine.load(code);
+        let chunk = lua.load(code);
         let chunk = chunk.set_environment(scope_table).set_name("<lua_code_block>");
         let our_scope_table = chunk.environment().unwrap().to_owned();
 
@@ -288,7 +289,7 @@ impl PixelScript for LuaScripting {
     
     fn exec_object(code: pxs_Var, local_scope: pxs_Var) -> Result<pxs_Var> {
         let state = get_lua_state();
-        let lua = &state.engine;
+        let lua = state.engine.borrow();
 
         // We have to get the CodeObject and the Global Scope first
         let (code_object, global_scope) = {
@@ -297,7 +298,7 @@ impl PixelScript for LuaScripting {
         };
 
         // Now add local scope to global scope...
-        let binding = into_lua(lua, global_scope)?;
+        let binding = into_lua(&lua, global_scope)?;
         let potential_table: Option<&LuaTable> = binding.as_table();
         if potential_table.is_none() {
             return Ok(pxs_Var::new_exception("Globals is not a Table."));
@@ -307,11 +308,11 @@ impl PixelScript for LuaScripting {
         // Set local scope if not null
         if !local_scope.is_null() {
             let map = local_scope.get_map().unwrap();
-            add_variables_to_table(lua, &global_table, map)?;
+            add_variables_to_table(&lua, &global_table, map)?;
         }
 
         // Get the object as a function and call it
-        let binding = into_lua(lua, code_object)?;
+        let binding = into_lua(&lua, code_object)?;
         let potential_func: Option<&LuaFunction> = binding.as_function();
         if potential_func.is_none() {
             return Ok(pxs_Var::new_exception("Code Object is not a function."));
@@ -323,7 +324,7 @@ impl PixelScript for LuaScripting {
         // Now remove the local_state
         if !local_scope.is_null() {
             let map = local_scope.get_map().unwrap();
-            remove_variables_from_table(lua, &global_table, map)?;
+            remove_variables_from_table(&lua, &global_table, map)?;
         }
 
         Ok(pxs_res)
@@ -334,18 +335,26 @@ impl PixelScript for LuaScripting {
         let tables = state.tables.borrow();
         format!("{{tables: {:#?}}}", tables)
     }
+    
+    fn reset() {
+        Self::clear_state(true);
+        let state = get_lua_state();
+        state.engine.replace(Lua::new());
+        Self::start();
+    }
 }
 
 /// Convert args for ObjectMethods into LuaMutliValue
 fn args_to_lua(args: &Vec<pxs_Var>) -> LuaMultiValue {
     let mut lua_args = vec![];
     let state = get_lua_state();
+    let lua = state.engine.borrow();
     for arg in args.iter() {
-        let lua_arg = into_lua(&state.engine, arg);
+        let lua_arg = into_lua(&lua, arg);
         if lua_arg.is_err() {
-            lua_args.push(into_lua(&state.engine, &pxs_Var::new_exception(lua_arg.unwrap_err().to_string())).unwrap_or(LuaNil));
+            lua_args.push(into_lua(&lua, &pxs_Var::new_exception(lua_arg.unwrap_err().to_string())).unwrap_or(LuaNil));
         }
-        lua_args.push(into_lua(&state.engine, arg).unwrap_or(LuaNil));
+        lua_args.push(into_lua(&lua, arg).unwrap_or(LuaNil));
     }
 
     // Pack lua args
@@ -383,7 +392,7 @@ impl ObjectMethods for LuaScripting {
         let lua_args = args_to_lua(&args.vars);
         let state = get_lua_state();
 
-        let function: LuaFunction = state.engine.globals().get(method)?;
+        let function: LuaFunction = state.engine.borrow().globals().get(method)?;
         let res: LuaValue = function
             .call(lua_args)?;
 
@@ -423,7 +432,7 @@ impl ObjectMethods for LuaScripting {
         let value: LuaValue = table.raw_get(key)?;
         from_lua(value)
     }
-    
+
     fn set(var: &pxs_Var, key: &str, value: &pxs_Var) -> Result<pxs_Var, anyhow::Error> {
         // Get object from lua
         let table = unsafe {
@@ -433,7 +442,7 @@ impl ObjectMethods for LuaScripting {
         };
 
         let state = get_lua_state();
-        let res = table.raw_set(key, into_lua(&state.engine, value)?);
+        let res = table.raw_set(key, into_lua(&state.engine.borrow(), value)?);
         Ok(match res {
             Ok(_) => pxs_Var::new_bool(true),
             Err(_) => pxs_Var::new_bool(false),
@@ -443,7 +452,7 @@ impl ObjectMethods for LuaScripting {
     fn get_from_name(name: &str) -> Result<pxs_Var, anyhow::Error> {
         let state = get_lua_state();
 
-        let res: LuaValue = state.engine.globals().get(name)?;
+        let res: LuaValue = state.engine.borrow().globals().get(name)?;
         from_lua(res)
     }
 }

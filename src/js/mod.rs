@@ -5,7 +5,7 @@ use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
 use crate::{
     borrow_string, js::{
-        func::create_callback, module::add_local_module, utils::SmartJSValue, var::{js_into_pxs, pxs_into_js}
+        func::create_callback, module::add_local_module, quickjs::JS_NewRuntime, utils::SmartJSValue, var::{js_into_pxs, pxs_into_js}
     }, pxs_debug, shared::{
         PXS_METHOD_NAME, PixelScript, pxs_Opaque, read_file, utils::CStringSafe, var::{ObjectMethods, pxs_Var}
     }
@@ -356,6 +356,11 @@ impl PixelScript for JSScripting {
 
         format!("{{defined_objects: {:#?}\nmodule_exports: {:#?}\nmodule_names:{:#?}}}", defined_objects, module_exports, module_names)
     }
+    
+    fn reset() {
+        Self::stop();
+        // Drop Context and Runtime and recreate it...
+    }   
 }
 
 impl ObjectMethods for JSScripting {
