@@ -9,7 +9,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use crate::{
-    lua::{State, borrow_lua, from_lua, get_metatable, into_lua, store_metatable},
+    lua::{State, from_lua, get_metatable, into_lua, store_metatable},
     shared::{
         ffi::ThreadSafePointer, func::call_function, object::{ObjectCallback, ObjectFlags, pxs_PixelObject}, pxs_Runtime, var::pxs_Var
     },
@@ -18,9 +18,8 @@ use anyhow::{Result, anyhow};
 use mlua::prelude::*;
 
 fn create_object_callback(state: *mut State, fn_idx: i32, flags: u8) -> Result<LuaFunction> {
-    let bstate = borrow_lua!(state);
     let thread_safe_state = ThreadSafePointer::<State>::new(state);
-    let func = bstate.engine.create_function(
+    let func = unsafe { (*state).engine.create_function(
         move |_, (internal_obj, args): (LuaTable, LuaMultiValue)| -> Result<LuaValue, LuaError> {
             let mut argv = vec![];
 
@@ -51,14 +50,12 @@ fn create_object_callback(state: *mut State, fn_idx: i32, flags: u8) -> Result<L
             }
 
             // Call
-            unsafe {
-                let res = call_function(fn_idx, argv);
-                // Convert into lua
-                let lua_val = into_lua(thread_safe_state.get_ptr(), &res);
-                lua_val
-            }
+            let res = call_function(fn_idx, argv);
+            // Convert into lua
+            let lua_val = into_lua(thread_safe_state.get_ptr(), &res);
+            lua_val
         },
-    );
+    ) };
 
     if func.is_err() {
         Err(anyhow!("{:#}", func.unwrap_err()))

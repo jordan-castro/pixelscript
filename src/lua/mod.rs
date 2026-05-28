@@ -33,13 +33,6 @@ struct State {
 
 impl PtrMagic for State {}
 
-/// Borrow lua macro.
-pub(self) macro borrow_lua($state:expr) {
-    unsafe {
-        PtrMagic::from_borrow($state) as &mut crate::lua::State
-    }
-}
-
 /// Preload a lua source code as a module.
 fn preload_lua_module(lua: &Lua, code: &str, name: &str) -> Result<(), anyhow::Error> {
     let package: LuaTable = lua.globals().get("package")?;
@@ -252,7 +245,6 @@ impl PixelScript for LuaScripting {
     
     fn compile(code: &str, global_scope: pxs_Var) -> Result<pxs_Var> {
         let state = get_lua_state();
-        // let bstate = borrow_lua!(state);
 
         unsafe {
         let globals = (*state).engine.globals();

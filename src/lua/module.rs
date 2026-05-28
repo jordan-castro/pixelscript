@@ -9,7 +9,7 @@
 use std::sync::Arc;
 
 use crate::{
-    lua::{State, borrow_lua, func::internal_add_callback, into_lua},
+    lua::{State, func::internal_add_callback, into_lua},
     shared::{ffi::ThreadSafePointer, module::pxs_Module},
 };
 use anyhow::Result;
@@ -17,8 +17,8 @@ use mlua::prelude::*;
 
 /// Create the module table.
 fn create_module(state: *mut State, module: &pxs_Module) -> Result<LuaTable> {
-    let bstate = borrow_lua!(state);
-    let module_table = bstate.engine.create_table()?;
+    // let bstate = borrow_lua!(state);
+    let module_table = unsafe { (*state).engine.create_table()? };
 
     // Add variables
     for variable in module.variables.iter() {
@@ -42,16 +42,13 @@ fn create_module(state: *mut State, module: &pxs_Module) -> Result<LuaTable> {
 
 /// Add a module to Lua!
 pub(super) fn add_module(state:*mut State, module: Arc<pxs_Module>) -> Result<()> {
-    // First get lua state
-    let bstate = borrow_lua!(state);
-
     let module_for_lua = Arc::clone(&module);
 
     // Let's create a table
-    let package: LuaTable = bstate
+    let package: LuaTable = unsafe { (*state)
         .engine
         .globals()
-        .get("package")?;
+        .get("package")? };
     let preload: LuaTable = package
         .get("preload")?;
 
@@ -64,7 +61,7 @@ pub(super) fn add_module(state:*mut State, module: Arc<pxs_Module>) -> Result<()
     let thread_safe_pointer = ThreadSafePointer::<State>::new(state);
 
     // create the loader function for require()
-    let loader = bstate
+    let loader = unsafe { (*state)
         .engine
         .create_function(move |_, _: ()| {
             let module_table = create_module(thread_safe_pointer.get_ptr(), &module_for_lua);
@@ -74,7 +71,7 @@ pub(super) fn add_module(state:*mut State, module: Arc<pxs_Module>) -> Result<()
                 // Return module
                 Ok(module_table.unwrap())
             }
-        })?;
+        })? };
 
     // Pre-load it
     preload
