@@ -20,7 +20,7 @@ use crate::{
         var::{PythonPointer, pocketpyref_to_var, var_to_pocketpyref},
     },
     shared::{
-        PixelScript, PtrMagic, ffi::ThreadLanguageState, read_file, read_file_dir, var::{ObjectMethods, pxs_Var, pxs_VarList}
+        PixelScript, PtrMagic, ffi::ThreadLanguageState, read_file, read_file_dir, utils::CStringSafe, var::{ObjectMethods, pxs_Var, pxs_VarList}
     },
     with_feature,
 };
@@ -39,15 +39,18 @@ mod module;
 mod object;
 mod var;
 
+
 thread_local! {
     static PYSTATE: ThreadLanguageState<State> = init_state();
 }
 
+/// _pxs_python_module_private
+const PYTHON_PRIVATE_METHOD: &str = "_pxs_python_module_private";
+/// __main__
+const PYTHON_MAIN_MODULE: &str = "__main__";
+
 /// This is the Pocketpy state. Each language gets it's own private state
 struct State {
-    /// Name to IDX lookup for pocketpy bridge
-    name_to_idx: HashMap<i32, HashMap<String, i32>>,
-
     /// Keep a list of defined PixelObject as class
     defined_objects: HashMap<i32, HashSet<String>>,
 
@@ -156,7 +159,6 @@ unsafe fn new_module(code: &str, name: &str) {
 /// Initialize Lua state per thread.
 fn init_state() -> ThreadLanguageState<State> {
     let state = State {
-        name_to_idx: HashMap::new(),
         defined_objects: HashMap::new(),
         thread_idx: 0,
     };
@@ -169,35 +171,6 @@ pub(self) fn get_py_state() -> *mut State {
     PYSTATE.with(|mutex| {
         mutex.get_ptr()
     })
-}
-
-/// Add a new name => idx
-pub(self) fn add_new_name_idx_fn(name: String, idx: i32) {
-    unsafe { 
-    let state = get_py_state();
-    let t = (*state).thread_idx;
-    
-    if let Some(h) = (*state).name_to_idx.get_mut(&t) {
-        h.insert(name, idx);
-    } else {
-        let mut map = HashMap::new();
-        map.insert(name, idx);
-        (*state).name_to_idx.insert(t.clone(), map);
-    }
-}
-}
-
-/// Get a IDX from a name
-pub(self) fn get_fn_idx_from_name(name: &str) -> Option<i32> {
-    unsafe {
-    let state = get_py_state();
-    let t = (*state).thread_idx;
-    if let Some(m) = (*state).name_to_idx.get(&t) {
-        m.get(name).cloned()
-    } else {
-        None
-    }
-}
 }
 
 /// Add a new defined object
@@ -226,16 +199,6 @@ pub(self) fn is_object_defined(name: &str) -> bool {
             false
         }
     }
-}
-
-/// Make a name private by prefixing "_pxs_"
-pub(self) fn make_private(name: &str) -> String {
-    format!("_pxs_{}", name)
-}
-
-/// Add your own private prefix after "_pxs_"
-pub(self) fn make_private_prefix(name: &str, prefix: &str) -> String {
-    make_private(format!("{prefix}_{name}").as_str())
 }
 
 /// This is the import overrider
@@ -365,16 +328,18 @@ unsafe fn python_setup() {
     unsafe {
         setup_module_loader();
     }
+    
+    unsafe {
+        // Setup function callbacks
+        let mut cstr_safe = CStringSafe::new();
+        let main = pocketpy::py_getmodule(cstr_safe.new_string(PYTHON_MAIN_MODULE));
+        pocketpy::py_bindfunc(main, cstr_safe.new_string(PYTHON_PRIVATE_METHOD), Some(pocketpy_bridge));
+    }
 
     // Setup some python code
     // 1. _pxs_new_register: registers a new object/function in our internal memory.
     let mut python_code = String::new();
     python_code.push_str(include_str!("../../core/python/main.py"));
-
-    // with_feature!("pxs_utils", {
-    //     // Set a new function (_pxs_items)
-    //     python_code.push_str(include_str!("../../core/python/pxs_utils.py"));
-    // });
 
     with_feature!("pxs_json", {
         // Create module
@@ -466,11 +431,6 @@ impl PixelScript for PythonScripting {
             let state = get_py_state();
             // Drop defined objects
             (*state).defined_objects.clear();
-            let idx = (*state).thread_idx.abs();
-            let name_map = (*state).name_to_idx.get_mut(&idx);
-            if let Some(m) = name_map {
-                m.clear();
-            }
             if call_gc {
                 // Invoke GC
                 pocketpy::py_gc_collect();
@@ -607,12 +567,10 @@ impl PixelScript for PythonScripting {
         let state = get_py_state();
         unsafe { 
             let current_thread = (*state).thread_idx;
-            let name_to_idx = &(*state).name_to_idx;
             let defined_objects = &(*state).defined_objects;
             let mut res = String::new();
             res.push_str("{");
             res.push_str(&format!("curent_thread: {current_thread}\n"));
-            res.push_str(&format!("name_to_idx: {:#?}\n", name_to_idx));
             res.push_str(&format!("defined_objects: {:#?}\n", defined_objects));
             res.push_str("}");
             res

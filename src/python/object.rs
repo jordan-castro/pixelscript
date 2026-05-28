@@ -9,38 +9,10 @@
 use std::sync::Arc;
 
 use crate::{
-    create_raw_string, free_raw_string, pxs_debug,
-    python::{
-        add_new_defined_object, add_new_name_idx_fn, eval_py, exec_py, is_object_defined,
-        make_private_prefix, pocketpy, pocketpy_bridge,
-    },
-    shared::object::{ObjectFlags, pxs_PixelObject},
+    pxs_debug, python::{
+        PYTHON_PRIVATE_METHOD, add_new_defined_object, eval_py, exec_py, is_object_defined, pocketpy
+    }, shared::{object::{ObjectFlags, pxs_PixelObject}, utils::CStringSafe}
 };
-
-/// Save the object function. Returns the name of the function.
-fn save_object_function(name: &str, idx: i32, module_name: &str) -> String {
-    add_new_name_idx_fn(name.to_string(), idx);
-
-    // Create a private name
-    let private_name: String = make_private_prefix("", format!("privatemethod{idx}").as_str());
-
-    // C stuff
-    let c_name = create_raw_string!(private_name.clone());
-    let c_main = create_raw_string!(module_name);
-
-    unsafe {
-        let scope = pocketpy::py_getmodule(c_main);
-
-        // if scope.is_null() {
-        //     pxs_debug!("scope is null for : {module_name}");
-        // }
-
-        pocketpy::py_bindfunc(scope, c_name, Some(pocketpy_bridge));
-        free_raw_string!(c_main);
-    }
-
-    private_name
-}
 
 /// Create a object type in the Python Runtime.
 ///
@@ -49,9 +21,10 @@ fn save_object_function(name: &str, idx: i32, module_name: &str) -> String {
 pub(super) fn create_object(idx: i32, source: Arc<pxs_PixelObject>, module_name: &str) {
     // pxs_debug!("create_object start for idx: {idx}, type_name: {} in moudule: {module_name}", source.type_name);
     let rmodule_name = module_name.to_string().clone();
+    let mut cstr_safe = CStringSafe::new();
     // Create the module if it does not already exist
     unsafe {
-        let c_module_name = create_raw_string!(rmodule_name.clone());
+        let c_module_name = cstr_safe.new_string(&rmodule_name.clone());
         let pymodule = pocketpy::py_getmodule(c_module_name);
         if pymodule.is_null() {
             pocketpy::py_newmodule(c_module_name);
@@ -69,9 +42,6 @@ pub(super) fn create_object(idx: i32, source: Arc<pxs_PixelObject>, module_name:
             format!("<create_{}>", &object_name).as_str(),
             module_name,
         );
-        // if eval_err.len() > 0 {
-        // TODO: use py_raise here
-        // }
         return;
     }
 
@@ -79,11 +49,6 @@ pub(super) fn create_object(idx: i32, source: Arc<pxs_PixelObject>, module_name:
     // First register callbacks
     let mut methods_str = String::new();
     for method in source.callbacks.iter() {
-        let method_name = format!("{}{}", object_name, method.cbk.name);
-        // pxs_debug!("Adding method name: {method_name}");
-        // let private_name = make_private(&method.name);
-        let private_name = save_object_function(&method_name, method.cbk.idx, module_name);
-
         // Check input type
         let input = if method.flags & ObjectFlags::UsesId as u8 != 0 {
             "._pxs_ptr"
@@ -99,9 +64,9 @@ pub(super) fn create_object(idx: i32, source: Arc<pxs_PixelObject>, module_name:
         let function_string = format!(
             r#"
     def {}(self, *args):
-        return {}('{}', self{}, *args)
+        return {}({}, self{}, *args)
 "#,
-        method.cbk.name, private_name, method_name, input
+        method.cbk.name, PYTHON_PRIVATE_METHOD, method.cbk.idx, input
         );
         methods_str.push_str(&function_string);
 

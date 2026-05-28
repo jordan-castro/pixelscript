@@ -7,21 +7,19 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 use crate::{
-    create_raw_string, free_raw_string,
     python::{
-        add_new_name_idx_fn, exec_py, make_private, pocketpy, pocketpy_bridge, var_to_pocketpyref,
+        PYTHON_PRIVATE_METHOD, exec_py, pocketpy, pocketpy_bridge, var_to_pocketpyref
     },
-    shared::module::pxs_Module,
+    shared::{module::pxs_Module, utils::CStringSafe},
 };
 
 pub(super) fn create_module(module: &pxs_Module) {
     // Get module name
     let module_name = module.name.clone();
-
-    // pxs_debug!("Creating module for: {module_name}");
+    let mut cstr_safe = CStringSafe::new();
 
     // Create module
-    let c_module_name = create_raw_string!(module_name.clone());
+    let c_module_name = cstr_safe.new_string(&module_name.clone());
     let pymodule = unsafe {
         // Check first if module already exists... (in the case of a variable object)
         let posmodule = pocketpy::py_getmodule(c_module_name);
@@ -32,26 +30,10 @@ pub(super) fn create_module(module: &pxs_Module) {
         }
     };
 
-    // if pymodule.is_null() {
-    //     pxs_debug!("module is null");
-    // }
-
-    // let mut variables = vec![];
-    // variables.extend(module.variables.iter().cloned());
-    // for fvar in module.factories.iter() {
-    //     let result = unsafe {
-    //         (fvar.callback)(fvar.args, std::ptr::null_mut())
-    //     };
-    //     variables.push(ModuleVariable{
-    //         name: fvar.name.clone(),
-    //         var: result
-    //     });
-    // }
-
     // Add variables to module
     for var in module.variables.iter() {
         let var_name = var.name.clone();
-        let c_var_name = create_raw_string!(var_name);
+        let c_var_name = cstr_safe.new_string(&var_name);
         let tmp = unsafe { pocketpy::py_pushtmp() };
         // pxs_debug!("|MODULEVARIABLE| {}", var.name);
         var_to_pocketpyref(
@@ -64,52 +46,39 @@ pub(super) fn create_module(module: &pxs_Module) {
         unsafe {
             let py_name = pocketpy::py_name(c_var_name);
             pocketpy::py_setattr(pymodule, py_name, tmp);
-            free_raw_string!(c_var_name);
         }
     }
+
+    // Bind a single function for the module
+    let module_function_name = PYTHON_PRIVATE_METHOD;
+
+    unsafe {
+        pocketpy::py_bindfunc(pymodule, cstr_safe.new_string(module_function_name), Some(pocketpy_bridge));
+    }
+
+    let mut methods = String::new();
 
     // Add callbacks to module... This also needs to go through the pybridge
     for method in module.callbacks.iter() {
-        let full_name = method.full_name.clone();
-        // Save function
-        add_new_name_idx_fn(full_name.clone(), method.idx);
-
-        // Private name
-        let private_name = make_private(&full_name);
-
-        let c_name = create_raw_string!(private_name.clone());
         let bridge_code = format!(
             r#"
 def {}(*args):
-    return {private_name}('{}', *args)
+    return {module_function_name}({}, *args)
 "#,
-            method.name, full_name
+            method.name, method.idx
         );
-
-        // Register pocketpy_bridge
-        unsafe {
-            pocketpy::py_bindfunc(pymodule, c_name, Some(pocketpy_bridge));
-        }
-
-        // Run bridge_code in current module
-        exec_py(
-            &bridge_code,
-            format!("<{}>", module_name).as_str(),
-            &module_name,
-        );
-
-        // Free c
-        unsafe {
-            free_raw_string!(c_name);
-        }
+        methods.push_str(&bridge_code);
     }
+
+    // Run bridge_code in current module
+    exec_py(
+        &methods,
+        format!("<{}>", module_name).as_str(),
+        &module_name,
+    );
 
     // Do the same for internal modules
     for im in module.modules.iter() {
         create_module(im);
-    }
-
-    unsafe {
-        free_raw_string!(c_module_name);
     }
 }

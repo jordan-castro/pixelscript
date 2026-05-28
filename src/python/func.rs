@@ -7,7 +7,7 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 use crate::{
-    borrow_string, create_raw_string, free_raw_string, pxs_debug, python::{consume_error, get_fn_idx_from_name, pocketpy, var::pocketpyref_to_var, var_to_pocketpyref}, shared::{func::call_function, pxs_Runtime, var::pxs_Var}
+    borrow_string, create_raw_string, free_raw_string, pxs_debug, python::{consume_error, pocketpy, var::pocketpyref_to_var, var_to_pocketpyref}, shared::{func::call_function, pxs_Runtime, var::pxs_Var}
 };
 
 /// Use instead of the py_arg macro.
@@ -109,20 +109,23 @@ pub(super) unsafe fn raise(msg: &str) -> bool {
 
 /// The pocketpy bridge
 pub(super) unsafe extern "C" fn pocketpy_bridge(argc: i32, argv: pocketpy::py_StackRef) -> bool {
-    // TODO: Why do I do argc < 1 ? Weird...
+    // Future Self: Why do I do argc < 1 ? Weird...
+    // As for why... it's because we always require the function `idx` as the first argument. And if it is not
+    // there then someone is hacking.
     if argc < 1 {
         unsafe {
             return raise("Python: argc < 1");
         }
-        // var_to_pocketpyref(ret_slot, &Var::new_null());
     }
-    let c_name = unsafe { pocketpy::py_tostr(py_get_arg(argv, 0)) };
-    let name = borrow_string!(c_name);
-    let fn_idx = get_fn_idx_from_name(name);
-    if fn_idx.is_none() {
-        return unsafe { raise("Python: fn_idx is empty.") };
+    // let c_name = unsafe { pocketpy::py_tostr(py_get_arg(argv, 0)) };
+    // let name = borrow_string!(c_name);
+    // let fn_idx = get_fn_idx_from_name(name);
+    let fn_idx = unsafe { pocketpy::py_toint(py_get_arg(argv, 0)) };
+    if fn_idx < 0 {
+        unsafe {
+            return raise("Python: fn_idx is < 0");
+        }
     }
-    let fn_idx = fn_idx.unwrap();
 
     // Convert argv into Vec<Var>
     let mut vars: Vec<pxs_Var> = vec![];
@@ -139,7 +142,7 @@ pub(super) unsafe extern "C" fn pocketpy_bridge(argc: i32, argv: pocketpy::py_St
     // Call internal function
     let mut success = true;
     unsafe {
-        let res = call_function(fn_idx, vars);
+        let res = call_function(fn_idx as i32, vars);
         let tmp = pocketpy::py_pushtmp();
         // let ret_slot = pocketpy::py_retval();
 

@@ -2,7 +2,6 @@ extern crate cbindgen;
 
 use std::env;
 use std::path::PathBuf;
-use std::process::Command;
 
 /// Build the pixelscript.h C bindings
 fn build_pixelscript_h() {

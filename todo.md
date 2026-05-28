@@ -6,7 +6,7 @@
 ## v0.5 Memory and JS support
 - ~~JS support via quickjs-ng. *JS*~~ **DONE**
 - ~~Reference counting for PixelScript object.~~ **DONE**
-- Decrease number of functions created in pocketpy. *python*
+- ~~Decrease number of functions created in pocketpy.~~ *python*
 - ~~Return pxs_Exception for errors in pixelscript.~~ **DONE**
 - ~~pxs_* library functions that return pxs_VarT need to always return a pxs_Var. nullptr will no longer be allowed.~~ **DONE**
 - ~~Reimp pxs_DirHandle to be a pxs_VarList~~ **DONE**
@@ -31,6 +31,7 @@
 - Add `strict` flag to panic when passing a arena owned variable to a function that transfrrs the mem.
 
 ## v0.6 STD, Tests, Errors
+- Use libs/lua-5.5.0/* src instead of mlua.
 - Remove lua hacks (io, os, what else?)
 - pxs_time (Time functions)
 - pxs_os (OS functions like name, version)
