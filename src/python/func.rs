@@ -26,7 +26,6 @@ pub(super) unsafe fn py_assign(left: pocketpy::py_Ref, right: pocketpy::py_Ref) 
     }
 }
 
-#[allow(unused)]
 pub(super) unsafe fn get_from_obj(obj: pocketpy::py_Ref, key: &str) -> Option<pocketpy::py_Ref> {
     unsafe { 
         let c_key = create_raw_string!(key);

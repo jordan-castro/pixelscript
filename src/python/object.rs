@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use crate::{
     pxs_debug, python::{
-        PYTHON_PRIVATE_METHOD, add_new_defined_object, eval_py, exec_py, is_object_defined, pocketpy
+        PXS_CALL_METHOD, add_new_defined_object, eval_py, exec_py, func::get_from_obj, is_object_defined, pocketpy, pocketpy_bridge
     }, shared::{object::{ObjectFlags, pxs_PixelObject}, utils::CStringSafe}
 };
 
@@ -45,6 +45,16 @@ pub(super) fn create_object(idx: i32, source: Arc<pxs_PixelObject>, module_name:
         return;
     }
 
+    // Define _pxs_call for this objects module.
+    unsafe {
+        let module = pocketpy::py_getmodule(cstr_safe.new_string(&rmodule_name.clone()));
+        let func = get_from_obj(module, PXS_CALL_METHOD);
+        if func.is_none() {
+            // Assign function to module
+            pocketpy::py_bindfunc(module, cstr_safe.new_string(PXS_CALL_METHOD), Some(pocketpy_bridge));
+        }
+    }
+
     // Object does not exist
     // First register callbacks
     let mut methods_str = String::new();
@@ -58,7 +68,7 @@ pub(super) fn create_object(idx: i32, source: Arc<pxs_PixelObject>, module_name:
 
         // Check for property
         if method.flags & ObjectFlags::IsProp as u8 != 0 {
-            methods_str.push_str("\n\t@property");
+            methods_str.push_str("\n    @property");
         }
 
         let function_string = format!(
@@ -66,12 +76,12 @@ pub(super) fn create_object(idx: i32, source: Arc<pxs_PixelObject>, module_name:
     def {}(self, *args):
         return {}({}, self{}, *args)
 "#,
-        method.cbk.name, PYTHON_PRIVATE_METHOD, method.cbk.idx, input
+        method.cbk.name, PXS_CALL_METHOD, method.cbk.idx, input
         );
         methods_str.push_str(&function_string);
 
         if method.flags & ObjectFlags::IsProp as u8 != 0 {
-            methods_str.push_str(format!("\n\t@{}.setter", method.cbk.name).as_str());
+            methods_str.push_str(format!("\n    @{}.setter", method.cbk.name).as_str());
             // Add function
             methods_str.push_str(&function_string);
         }
@@ -90,7 +100,7 @@ class _{}:
         object_name, methods_str
     );
 
-    pxs_debug!("{object_string}");
+    pxs_debug!("{object_string} {module_name}");
 
     // Execute it
     let res = exec_py(

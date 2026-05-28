@@ -8,7 +8,7 @@
 //
 use crate::{
     python::{
-        PYTHON_PRIVATE_METHOD, exec_py, pocketpy, pocketpy_bridge, var_to_pocketpyref
+        PXS_CALL_METHOD, exec_py, pocketpy, pocketpy_bridge, var_to_pocketpyref
     },
     shared::{module::pxs_Module, utils::CStringSafe},
 };
@@ -50,7 +50,7 @@ pub(super) fn create_module(module: &pxs_Module) {
     }
 
     // Bind a single function for the module
-    let module_function_name = PYTHON_PRIVATE_METHOD;
+    let module_function_name = PXS_CALL_METHOD;
 
     unsafe {
         pocketpy::py_bindfunc(pymodule, cstr_safe.new_string(module_function_name), Some(pocketpy_bridge));

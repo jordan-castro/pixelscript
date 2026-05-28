@@ -44,8 +44,8 @@ thread_local! {
     static PYSTATE: ThreadLanguageState<State> = init_state();
 }
 
-/// _pxs_python_module_private
-const PYTHON_PRIVATE_METHOD: &str = "_pxs_python_module_private";
+/// _pxs_call
+const PXS_CALL_METHOD: &str = "_pxs_call";
 /// __main__
 const PYTHON_MAIN_MODULE: &str = "__main__";
 
@@ -333,7 +333,7 @@ unsafe fn python_setup() {
         // Setup function callbacks
         let mut cstr_safe = CStringSafe::new();
         let main = pocketpy::py_getmodule(cstr_safe.new_string(PYTHON_MAIN_MODULE));
-        pocketpy::py_bindfunc(main, cstr_safe.new_string(PYTHON_PRIVATE_METHOD), Some(pocketpy_bridge));
+        pocketpy::py_bindfunc(main, cstr_safe.new_string(PXS_CALL_METHOD), Some(pocketpy_bridge));
     }
 
     // Setup some python code
