@@ -17,12 +17,12 @@ unsafe extern "C" fn init_module_function(ctx: *mut quickjs::JSContext, m: *mut 
     // Get state
     let state = get_js_state();
     
-    // Set methods
-    if let Some(exports) = state.module_exports.borrow().get(&module_name) {
-        // set
-        let mut cstrsafe = CStringSafe::new();
-        for export in exports {
-            unsafe {
+    unsafe {
+        // Set methods
+        if let Some(exports) = (*state).module_exports.get(&module_name) {
+            // set
+            let mut cstrsafe = CStringSafe::new();
+            for export in exports {
                 quickjs::JS_SetModuleExport(ctx, m, cstrsafe.new_string(&export.name), export.value.value);
             }
         }
@@ -85,16 +85,12 @@ pub(super) fn add_module(context: *mut quickjs::JSContext, module: &Arc<pxs_Modu
 
     // Save in state
     let state = get_js_state();
-    let mut module_exports = state.module_exports.borrow_mut();
-    module_exports.insert(module.name.clone(), exports);
+    unsafe {
+        (*state).module_exports.insert(module.name.clone(), exports);
 
-    // Save module
-    let mut modules = state.modules.borrow_mut();
-    modules.insert(module.name.clone(), js_mod);
-
-    drop(modules);
-    drop(module_exports);
-    drop(state);
+        // Save module
+        (*state).modules.insert(module.name.clone(), js_mod);
+    }
 
     // Add child modules
     for child in module.modules.iter() {

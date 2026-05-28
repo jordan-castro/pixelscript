@@ -458,7 +458,6 @@ dependencies = [
  "cbindgen",
  "cc",
  "mlua",
- "parking_lot",
 ]
 
 [[package]]

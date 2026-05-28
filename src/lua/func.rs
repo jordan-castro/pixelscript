@@ -10,11 +10,13 @@ use anyhow::{Result, anyhow};
 use mlua::prelude::*;
 // use mlua::{Integer, IntoLua, Lua, MultiValue, Value::Nil, Variadic};
 
-use crate::{lua::{from_lua, into_lua}, shared::{pxs_Runtime, func::call_function, var::pxs_Var}};
+use crate::{lua::{State, from_lua, into_lua}, shared::{ffi::ThreadSafePointer, func::call_function, pxs_Runtime, var::pxs_Var}};
 
 /// For internal use since modules also need to use the same logic for adding a Lua callback.
-pub(super) fn internal_add_callback(lua: &Lua, fn_idx: i32) -> Result<LuaFunction> {
-    let func = lua.create_function(move |lua, args: LuaMultiValue| -> Result<LuaValue, LuaError> {
+pub(super) fn internal_add_callback(state: *mut State, fn_idx: i32) -> Result<LuaFunction> {
+    let thread_safe_state = ThreadSafePointer::new(state);
+
+    let func = unsafe { (*state).engine.create_function(move |_, args: LuaMultiValue| -> Result<LuaValue, LuaError> {
         // Convert args -> argv for pixelmods
         let mut argv: Vec<pxs_Var> = vec![];
 
@@ -29,14 +31,12 @@ pub(super) fn internal_add_callback(lua: &Lua, fn_idx: i32) -> Result<LuaFunctio
             argv.push(lua_arg.unwrap());
         }
 
-        unsafe {
-            let res = call_function(fn_idx, argv);
+        let res = call_function(fn_idx, argv);
 
-            let lua_val = into_lua(lua, &res);
-            lua_val
-            // Memory will drop here, and Var will be automatically freed!
-        }
-    });
+        let lua_val = into_lua(thread_safe_state.get_ptr(), &res);
+        lua_val
+        // Memory will drop here, and argv and res will be automatically freed!
+    }) };
     if func.is_err() {
         Err(anyhow!(func.unwrap_err().to_string()))
     } else {

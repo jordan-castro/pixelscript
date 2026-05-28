@@ -13,7 +13,7 @@ use mlua::prelude::*;
 
 // Pure Rust goes here
 use crate::{
-    lua::object::create_object,
+    lua::{State, object::create_object},
     shared::{
         object::get_object,
         pxs_Runtime,
@@ -89,13 +89,13 @@ pub(super) fn from_lua(value: LuaValue) -> Result<pxs_Var, anyhow::Error> {
 }
 
 /// Convert a Var into a LuaValue
-pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
+pub(super) fn into_lua(state: *mut State, var: &pxs_Var) -> LuaResult<LuaValue> {
     match var.tag {
         pxs_VarType::pxs_Int64 => Ok(mlua::Value::Integer(var.get_i64().unwrap())),
         pxs_VarType::pxs_UInt64 => Ok(mlua::Value::Integer(var.get_u64().unwrap() as i64)),
         pxs_VarType::pxs_String => {
             let contents = var.get_string().unwrap().clone();
-            let lua_str = lua.create_string(contents)?;
+            let lua_str = unsafe { (*state).engine.create_string(contents)? };
 
             Ok(mlua::Value::String(lua_str))
         }
@@ -127,7 +127,7 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
                 let lang_ptr_is_null = pixel_object.lang_ptr.lock().unwrap().is_null();
                 if lang_ptr_is_null {
                     // Create the table for the first time and mutate the pixel object.
-                    let table = create_object(lua, idx, Arc::clone(&pixel_object));
+                    let table = create_object(state, idx, Arc::clone(&pixel_object));
                     // Add table ptr
                     let table_ptr = Box::into_raw(Box::new(table));
                     pixel_object.update_lang_ptr(table_ptr as *mut c_void);
@@ -145,12 +145,12 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
         }
         pxs_VarType::pxs_List => {
             // Have to convert each item to a lua variable
-            let table = lua.create_table()?;
+            let table = unsafe { (*state).engine.create_table()? };
 
             // Loop through items and BORROW them
             for item in var.get_list().unwrap().vars.iter() {
                 // Add them to table
-                let lua_val = into_lua(lua, item)?;
+                let lua_val = into_lua(state, item)?;
                 table.push(lua_val)?;
             }
 
@@ -178,7 +178,7 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
             let factory = var.get_factory().unwrap();
             let res = factory.call(pxs_Runtime::pxs_Lua);
             // convert into lua
-            into_lua(lua, &res)
+            into_lua(state, &res)
         }
         pxs_VarType::pxs_Exception => {
             // Get msg and error it
@@ -191,7 +191,7 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
         }
         pxs_VarType::pxs_Map => {
             // Key,Value pair table
-            let table = lua.create_table()?;
+            let table = unsafe { (*state).engine.create_table()? };
 
             // Get keys
             let map = var.get_map().unwrap();
@@ -200,8 +200,8 @@ pub(super) fn into_lua(lua: &Lua, var: &pxs_Var) -> LuaResult<LuaValue> {
             for k in keys {
                 let item = map.get_item(k);
                 if let Some(item) = item {
-                    let lua_key = into_lua(lua, k)?;
-                    let lua_val = into_lua(lua, item)?;
+                    let lua_key = into_lua(state, k)?;
+                    let lua_val = into_lua(state, item)?;
                     // Save
                     table.set(lua_key, lua_val)?;
                 }

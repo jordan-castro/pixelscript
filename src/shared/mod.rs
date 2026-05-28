@@ -7,14 +7,13 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 use std::{
-    cell::RefCell, ffi::{CString, c_char, c_void}, panic::Location, sync::{Arc, OnceLock}
+    ffi::{CString, c_char, c_void}, panic::Location, sync::{Arc, LazyLock}
 };
 
 use anyhow::Result;
-use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
 use crate::{
-    own_string, own_var, shared::var::{pxs_Var, pxs_VarT}
+    own_string, own_var, shared::{ffi::ThreadLanguageState, var::{pxs_Var, pxs_VarT}}
 };
 
 /// Helper methods/macros for using PixelScript
@@ -47,34 +46,52 @@ pub type pxs_Opaque = *mut c_void;
 
 /// This is the PixelScript state.
 pub(crate) struct PixelState {
-    pub load_file: RefCell<Option<pxs_LoadFileFn>>,
-    pub write_file: RefCell<Option<pxs_WriteFileFn>>,
-    pub read_dir: RefCell<Option<pxs_ReadDirFn>>,
+    pub load_file: Option<pxs_LoadFileFn>,
+    pub write_file: Option<pxs_WriteFileFn>,
+    pub read_dir: Option<pxs_ReadDirFn>,
 }
 
-/// The State static variable for PixelScript.
-static PIXEL_STATE: OnceLock<ReentrantMutex<PixelState>> = OnceLock::new();
+impl PtrMagic for PixelState {}
 
-/// Get the state of PixelScript.
-pub(crate) fn get_pixel_state() -> ReentrantMutexGuard<'static, PixelState> {
-    let mutex = PIXEL_STATE.get_or_init(|| {
-        ReentrantMutex::new(PixelState {
-            load_file: RefCell::new(None),
-            write_file: RefCell::new(None),
-            read_dir: RefCell::new(None),
-        })
-    });
-    // This will
-    mutex.lock()
+/// The State static variable for PixelScript.
+static PIXEL_STATE: LazyLock<ThreadLanguageState<PixelState>> = LazyLock::new(|| {
+    ThreadLanguageState::<PixelState>::new(init_state())
+});
+
+fn init_state() -> *mut PixelState {
+    PixelState{
+        load_file: None,
+        write_file: None,
+        read_dir: None
+    }.into_raw()
+}
+
+/// Set `read_file` function in PixelState global.
+pub(crate) fn set_read_file(func: pxs_LoadFileFn) {
+    unsafe { 
+        (*PIXEL_STATE.get_ptr()).load_file = Some(func);
+    }
+}
+
+/// Set `write_file` function in PixelState global.
+pub(crate) fn set_write_file(func: pxs_WriteFileFn) {
+    unsafe {
+        (*PIXEL_STATE.get_ptr()).write_file = Some(func);
+    }
+}
+
+/// Set `read_dir` function in PixelState global
+pub(crate) fn set_read_dir(func: pxs_ReadDirFn) {
+    unsafe {
+        (*PIXEL_STATE.get_ptr()).read_dir = Some(func);
+    }
 }
 
 /// Read a file using pxs api.
 /// This must be set by host anguage.
 pub fn read_file(file_path: &str) -> String {
-    // Get state
-    let state = get_pixel_state();
     // Get callback
-    let cbk = state.load_file.borrow();
+    let cbk = unsafe { (*PIXEL_STATE.get_ptr()).load_file };
     if cbk.is_none() {
         return String::new();
     }
@@ -93,10 +110,8 @@ pub fn read_file(file_path: &str) -> String {
 /// Write a file using pxs api.
 /// This must be set by host language.
 pub fn write_file(file_path: &str, contents: &str) {
-    // Get state
-    let state = get_pixel_state();
     // Get callback
-    let cbk = state.write_file.borrow();
+    let cbk = unsafe { (*PIXEL_STATE.get_ptr()).write_file };
     if cbk.is_none() {
         return;
     }
@@ -112,8 +127,7 @@ pub fn write_file(file_path: &str, contents: &str) {
 /// Read a Directory using pxs api.
 /// This must be set by host language.
 pub fn read_file_dir(dir_path: &str) -> Vec<String> {
-    let state = get_pixel_state();
-    let cbk = state.read_dir.borrow();
+    let cbk = unsafe { (*PIXEL_STATE.get_ptr()).read_dir };
     if cbk.is_none() {
         return vec![];
     }

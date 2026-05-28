@@ -1,13 +1,12 @@
-use std::{cell::RefCell, collections::HashMap};
+use std::collections::HashMap;
 
 use anyhow::{Result, anyhow};
-use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
 use crate::{
     borrow_string, js::{
         func::create_callback, module::add_local_module, utils::SmartJSValue, var::{js_into_pxs, pxs_into_js}
     }, pxs_debug, shared::{
-        PXS_METHOD_NAME, PixelScript, pxs_Opaque, read_file, utils::CStringSafe, var::{ObjectMethods, pxs_Var}
+        PXS_METHOD_NAME, PixelScript, PtrMagic, ffi::ThreadLanguageState, pxs_Opaque, read_file, utils::CStringSafe, var::{ObjectMethods, pxs_Var}
     }
 };
 
@@ -39,40 +38,44 @@ struct State {
     /// The `__main__` context. Each thread gets it's own context.
     context: *mut quickjs::JSContext,
     /// Keep a list of defined PixelObject as class
-    defined_objects: RefCell<HashMap<String, SmartJSValue>>,
+    defined_objects: HashMap<String, SmartJSValue>,
     /// Module defined functions or variables takes a map[module_name] => map[int] => export
-    module_exports: RefCell<HashMap<String, Vec<JSModuleMethod>>>,
+    module_exports: HashMap<String, Vec<JSModuleMethod>>,
     /// JSModules
-    modules: RefCell<HashMap<String, *mut quickjs::JSModuleDef>>,
+    modules: HashMap<String, *mut quickjs::JSModuleDef>,
 }
+
+impl PtrMagic for State {}
 
 impl Drop for State {
     fn drop(&mut self) {
-        self.defined_objects.get_mut().clear();
-        self.module_exports.get_mut().clear();
+        self.defined_objects.clear();
+        self.module_exports.clear();
 
         unsafe {
             if self.context != std::ptr::null_mut() {
                 quickjs::JS_FreeContext(self.context);
+                self.context = std::ptr::null_mut();
             }
             if self.rt != std::ptr::null_mut() {
                 quickjs::JS_FreeRuntime(self.rt);
+                self.rt = std::ptr::null_mut();
             }
         }
     }
 }
 
 thread_local! {
-    static JSTATE: ReentrantMutex<State> = ReentrantMutex::new(unsafe{init_state()});
+    static JSTATE: ThreadLanguageState<State> = ThreadLanguageState::new(unsafe{init_state()});
 }
 
 /// JS Module loader
 unsafe extern "C" fn js_module_loader(context: *mut quickjs::JSContext, module_name: *const std::ffi::c_char, _opaque: pxs_Opaque) -> *mut quickjs::JSModuleDef {
     let state = get_js_state();
-    let modules = state.modules.borrow();
     unsafe {
+        // let modules = (*state).modules.borrow();
         let name = borrow_string!(module_name);
-        if let Some(module) = modules.get(name) {
+        if let Some(module) = (*state).modules.get(name) {
             return *module;
         }
 
@@ -101,7 +104,7 @@ unsafe extern "C" fn js_module_loader(context: *mut quickjs::JSContext, module_n
 }
 
 /// Initialize the JS state.
-unsafe fn init_state() -> State {
+unsafe fn init_state() -> *mut State {
     unsafe {
         let rt = quickjs::JS_NewRuntime();
         let ctx = quickjs::JS_NewContext(rt);
@@ -118,19 +121,22 @@ unsafe fn init_state() -> State {
         State { 
             rt, 
             context: ctx, 
-            defined_objects: RefCell::new(HashMap::new()), 
-            module_exports: RefCell::new(HashMap::new()),
-            modules: RefCell::new(modules),
-        }
+            defined_objects: HashMap::new(), 
+            module_exports: HashMap::new(),
+            modules: modules,
+        }.into_raw()
     }
 }
 
-fn get_js_state() -> ReentrantMutexGuard<'static, State> {
+fn get_js_state() -> *mut State {
     JSTATE.with(|mutex| {
-        let guard = mutex.lock();
-        // Transmute the lifetime so the guard can be passed around the thread
-        unsafe { std::mem::transmute(guard) }
+        mutex.get_ptr()
     })
+}
+
+/// Get context of state
+pub(self) fn get_context(state: *mut State) -> *mut quickjs::JSContext {
+    unsafe { (*state).context }
 }
 
 /// Run JS code
@@ -138,12 +144,12 @@ fn run_js(code: &str, file_name: &str, eval_type: i32) -> SmartJSValue {
     let mut cstrsafe = CStringSafe::new();
     let state = get_js_state();
     unsafe {
-        let val = quickjs::JS_Eval(state.context, cstrsafe.new_string(code), code.len(), cstrsafe.new_string(file_name), eval_type);
+        let val = quickjs::JS_Eval(get_context(state), cstrsafe.new_string(code), code.len(), cstrsafe.new_string(file_name), eval_type);
 
         // Check for exception
-        let exception = SmartJSValue::current_exception(state.context);
+        let exception = SmartJSValue::current_exception(get_context(state));
         if exception.is_undefined() {
-            let smart = SmartJSValue::new_owned(val, state.context);
+            let smart = SmartJSValue::new_owned(val, get_context(state));
             if smart.is_promise() {
                 smart.await_value()
             } else {
@@ -160,27 +166,6 @@ fn get_js_name(name: &str) -> SmartJSValue {
     run_js(name, "<get_js_name>", quickjs::JS_EVAL_TYPE_GLOBAL as i32)
 }
 
-// /// Add pxs_Map to globalThis
-// fn add_map_to_global_this(map: &pxs_VarMap, global_this: &SmartJSValue) -> Result<()> {
-//     for key in map.keys() {
-//         let js_key = pxs_into_js(global_this.context, key)?;
-//         let mut js_val = pxs_into_js(global_this.context, map.get_item(key).unwrap())?;
-//         global_this.set_prop_value(&js_key, &mut js_val);
-//     }
-
-//     Ok(())
-// }
-
-// /// Remove pxs_Map from globalThis
-// fn remove_map_from_global_this(map: &pxs_VarMap, global_this: &SmartJSValue) -> Result<()> {
-//     for key in map.keys() {
-//         let js_key = pxs_into_js(global_this.context, key)?;
-//         global_this.del_prop(&js_key);
-//     }
-
-//     Ok(())
-// }
-
 /// Add main.js
 fn add_main_js() {
     run_js(include_str!("../../core/js/main.js"), "main.js", quickjs::JS_EVAL_TYPE_MODULE as i32);
@@ -189,13 +174,13 @@ fn add_main_js() {
 /// Import all modules to initialize the app
 fn import_all_modules() {
     let state = get_js_state();
-    let modules = state.modules.borrow();
+    // let modules = state.modules.borrow();
     let mut import_modules_code = String::new();
-    for m in modules.iter() {
-        import_modules_code.push_str(format!("import '{}';", m.0).as_str());
+    unsafe { 
+        for m in (*state).modules.iter() {
+            import_modules_code.push_str(format!("import '{}';", m.0).as_str());
+        }
     }
-    drop(modules);
-    drop(state);
     run_js(&import_modules_code, "<cleanup>", quickjs::JS_EVAL_TYPE_MODULE as i32);
 }
 
@@ -215,14 +200,15 @@ impl PixelScript for JSScripting {
 
     fn add_module(source: std::sync::Arc<crate::shared::module::pxs_Module>) {
         let state = get_js_state();
-        let modules = state.modules.borrow();
-        if modules.contains_key(&source.name) {
-            // Don't add it
-            pxs_debug!("JSModule {} already exists.", &source.name);
-            return;
+        unsafe {
+            // let modules = state.modules.borrow();
+            if (*state).modules.contains_key(&source.name) {
+                // Don't add it
+                pxs_debug!("JSModule {} already exists.", &source.name);
+                return;
+            }
         }
-        drop(modules);
-        module::add_module(state.context, &source);
+        module::add_module(get_context(state), &source);
     }
 
     fn execute(code: &str, file_name: &str) -> anyhow::Result<crate::shared::var::pxs_Var> {
@@ -260,10 +246,10 @@ impl PixelScript for JSScripting {
     fn clear_state(call_gc: bool) {
         let state = get_js_state();
         // Clear state stuff first.
-        state.defined_objects.borrow_mut().clear();
-        if call_gc {
-            unsafe {
-                quickjs::JS_RunGC(state.rt);
+        unsafe {
+            (*state).defined_objects.clear();
+            if call_gc {
+                quickjs::JS_RunGC((*state).rt);
             }
         }
     }
@@ -318,7 +304,7 @@ impl PixelScript for JSScripting {
         let global_scope = list.get_item(2).unwrap();
 
         // Convert code object to JS
-        let code_object_js = pxs_into_js(state.context, &code_object_pxs)?;
+        let code_object_js = pxs_into_js(get_context(state), &code_object_pxs)?;
         if !code_object_js.is_module() {
             return Err(anyhow!("Expected module, found: {}", code_object_js.type_string()));
         }
@@ -331,8 +317,8 @@ impl PixelScript for JSScripting {
         }
 
         let args = vec![
-            pxs_into_js(state.context, &global_scope)?,
-            pxs_into_js(state.context, &local_scope)?
+            pxs_into_js(get_context(state), &global_scope)?,
+            pxs_into_js(get_context(state), &local_scope)?
         ];
 
         // Call method
@@ -346,21 +332,30 @@ impl PixelScript for JSScripting {
     }
     
     fn debug() -> String {
-        let state = get_js_state();
-        let binding = state.defined_objects.borrow();
-        let defined_objects = binding.keys();
-        let binding = state.module_exports.borrow();
-        let module_exports = binding.keys();
-        let binding = state.modules.borrow();
-        let module_names = binding.keys();
+        unsafe {
+            let state = get_js_state();
+            let binding = &(*state).defined_objects;
+            let defined_objects = binding.keys();
+            let binding = &(*state).module_exports;
+            let module_exports = binding.keys();
+            let binding = &(*state).modules;
+            let module_names = binding.keys();
 
-        format!("{{defined_objects: {:#?}\nmodule_exports: {:#?}\nmodule_names:{:#?}}}", defined_objects, module_exports, module_names)
+            format!("{{defined_objects: {:#?}\nmodule_exports: {:#?}\nmodule_names:{:#?}}}", defined_objects, module_exports, module_names)
+        }
     }
     
     fn reset() {
         Self::stop();
         // Drop Context and Runtime and recreate it...
-    }   
+        let state = get_js_state();
+        unsafe {
+            (*state).modules.clear();
+            (*state).module_exports.clear();
+            quickjs::JS_FreeContext((*state).context);
+            (*state).context = quickjs::JS_NewContext((*state).rt);
+        }
+    }
 }
 
 impl ObjectMethods for JSScripting {
@@ -370,11 +365,11 @@ impl ObjectMethods for JSScripting {
         args: &mut crate::shared::var::pxs_VarList,
     ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
         let state = get_js_state();
-        let js_var = pxs_into_js(state.context, var)?;
+        let js_var = pxs_into_js(get_context(state), var)?;
         let mut argv = vec![];
 
         for a in args.vars.iter() {
-            argv.push(pxs_into_js(state.context, a)?);
+            argv.push(pxs_into_js(get_context(state), a)?);
         }
 
         let res = js_var.call(method, &argv);
@@ -390,7 +385,7 @@ impl ObjectMethods for JSScripting {
         let state = get_js_state();
         let mut argv = vec![];
         for arg in args.vars.iter() {
-            argv.push(pxs_into_js(state.context, arg)?);
+            argv.push(pxs_into_js(get_context(state), arg)?);
         }
 
         // Look for method in global_this or eval
@@ -410,10 +405,10 @@ impl ObjectMethods for JSScripting {
         args: &mut crate::shared::var::pxs_VarList,
     ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
         let state = get_js_state();
-        let smart_val = pxs_into_js(state.context, method)?;
+        let smart_val = pxs_into_js(get_context(state), method)?;
         let mut argv = vec![];
         for arg in args.vars.iter() {
-            argv.push(pxs_into_js(state.context, arg)?);
+            argv.push(pxs_into_js(get_context(state), arg)?);
         }
 
         let res = smart_val.call_as_source(&argv);
@@ -425,7 +420,7 @@ impl ObjectMethods for JSScripting {
         key: &str,
     ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
         let state = get_js_state();
-        let this = pxs_into_js(state.context, var)?;
+        let this = pxs_into_js(get_context(state), var)?;
         let res = this.get_prop(key);
 
         js_into_pxs(&res)
@@ -437,8 +432,8 @@ impl ObjectMethods for JSScripting {
         value: &crate::shared::var::pxs_Var,
     ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
         let state = get_js_state();
-        let this = pxs_into_js(state.context, var)?;
-        let mut value = pxs_into_js(state.context, value)?;
+        let this = pxs_into_js(get_context(state), var)?;
+        let mut value = pxs_into_js(get_context(state), value)?;
         
         this.set_prop(key, &mut value);
 

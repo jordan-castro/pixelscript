@@ -7,12 +7,10 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 use std::{
-    cell::RefCell,
     collections::{HashMap, HashSet},
 };
 
 use anyhow::{Result, anyhow};
-use parking_lot::{ReentrantMutex, ReentrantMutexGuard};
 
 use crate::{
     borrow_string, create_raw_string, free_raw_string, own_string, pxs_debug,
@@ -22,7 +20,7 @@ use crate::{
         var::{PythonPointer, pocketpyref_to_var, var_to_pocketpyref},
     },
     shared::{
-        PixelScript, PtrMagic, read_file, read_file_dir, var::{ObjectMethods, pxs_Var, pxs_VarList}
+        PixelScript, PtrMagic, ffi::ThreadLanguageState, read_file, read_file_dir, var::{ObjectMethods, pxs_Var, pxs_VarList}
     },
     with_feature,
 };
@@ -42,20 +40,22 @@ mod object;
 mod var;
 
 thread_local! {
-    static PYSTATE: ReentrantMutex<State> = ReentrantMutex::new(init_state());
+    static PYSTATE: ThreadLanguageState<State> = init_state();
 }
 
 /// This is the Pocketpy state. Each language gets it's own private state
 struct State {
     /// Name to IDX lookup for pocketpy bridge
-    name_to_idx: RefCell<HashMap<i32, HashMap<String, i32>>>,
+    name_to_idx: HashMap<i32, HashMap<String, i32>>,
 
     /// Keep a list of defined PixelObject as class
-    defined_objects: RefCell<HashMap<i32, HashSet<String>>>,
+    defined_objects: HashMap<i32, HashSet<String>>,
 
     /// Current thread idx
-    thread_idx: RefCell<i32>,
+    thread_idx: i32,
 }
+
+impl PtrMagic for State {}
 
 /// Execute python code on a certain module.
 pub(self) fn exec_py(code: &str, name: &str, module: &str) -> String {
@@ -154,69 +154,77 @@ unsafe fn new_module(code: &str, name: &str) {
 }
 
 /// Initialize Lua state per thread.
-fn init_state() -> State {
-    State {
-        name_to_idx: RefCell::new(HashMap::new()),
-        defined_objects: RefCell::new(HashMap::new()),
-        thread_idx: RefCell::new(0),
-    }
+fn init_state() -> ThreadLanguageState<State> {
+    let state = State {
+        name_to_idx: HashMap::new(),
+        defined_objects: HashMap::new(),
+        thread_idx: 0,
+    };
+
+    ThreadLanguageState::new(state.into_raw())
 }
 
 /// Get the state of Pocketpy.
-pub(self) fn get_py_state() -> ReentrantMutexGuard<'static, State> {
+pub(self) fn get_py_state() -> *mut State {
     PYSTATE.with(|mutex| {
-        let guard = mutex.lock();
-        // Transmute the lifetime so the guard can be passed around the thread
-        unsafe { std::mem::transmute(guard) }
+        mutex.get_ptr()
     })
 }
 
 /// Add a new name => idx
 pub(self) fn add_new_name_idx_fn(name: String, idx: i32) {
+    unsafe { 
     let state = get_py_state();
-    let t = state.thread_idx.borrow();
-    let mut names = state.name_to_idx.borrow_mut();
-    if let Some(h) = names.get_mut(&t) {
+    let t = (*state).thread_idx;
+    
+    if let Some(h) = (*state).name_to_idx.get_mut(&t) {
         h.insert(name, idx);
     } else {
         let mut map = HashMap::new();
         map.insert(name, idx);
-        names.insert(t.clone(), map);
+        (*state).name_to_idx.insert(t.clone(), map);
     }
+}
 }
 
 /// Get a IDX from a name
 pub(self) fn get_fn_idx_from_name(name: &str) -> Option<i32> {
+    unsafe {
     let state = get_py_state();
-    let t = state.thread_idx.borrow();
-    if let Some(m) = state.name_to_idx.borrow().get(&t) {
+    let t = (*state).thread_idx;
+    if let Some(m) = (*state).name_to_idx.get(&t) {
         m.get(name).cloned()
     } else {
         None
     }
 }
+}
 
 /// Add a new defined object
 pub(self) fn add_new_defined_object(name: &str) {
     let state = get_py_state();
-    let t = state.thread_idx.borrow();
-    if let Some(names) = state.defined_objects.borrow_mut().get_mut(&t) {
-        names.insert(name.to_string());
-    } else {
-        let mut set = HashSet::new();
-        set.insert(name.to_string());
-        state.defined_objects.borrow_mut().insert(*t, set);
+    unsafe { 
+        let t = (*state).thread_idx;
+        if let Some(names) = (*state).defined_objects.get_mut(&t) {
+            names.insert(name.to_string());
+        } else {
+            let mut set = HashSet::new();
+            set.insert(name.to_string());
+            (*state).defined_objects.insert(t, set);
+        }
     }
 }
 
 /// Check if a object is already defined
 pub(self) fn is_object_defined(name: &str) -> bool {
     let state = get_py_state();
-    let t = state.thread_idx.borrow();
-    if let Some(set) = state.defined_objects.borrow().get(&t) {
-        set.contains(name)
-    } else {
-        false
+    unsafe { 
+        let t = (*state).thread_idx;
+        if let Some(set) = (*state).defined_objects.get(&t) {
+            set.contains(name)
+        } else {
+            false
+        }
     }
 }
 
@@ -436,7 +444,7 @@ impl PixelScript for PythonScripting {
             python_setup();
             // setup_module_loader();
             let state = get_py_state();
-            *(state.thread_idx.borrow_mut()) = idx;
+            (*state).thread_idx = idx;
         }
     }
 
@@ -449,23 +457,22 @@ impl PixelScript for PythonScripting {
             pocketpy::py_resetvm();
             pocketpy::py_switchvm(idx);
             let state = get_py_state();
-            *(state.thread_idx.borrow_mut()) = idx;
+            (*state).thread_idx = idx;
         }
     }
 
     fn clear_state(call_gc: bool) {
-        // Drop defined objects
-        let state = get_py_state();
-        state.defined_objects.borrow_mut().clear();
-        let idx = state.thread_idx.borrow().abs();
-        let mut binding = state.name_to_idx.borrow_mut();
-        let name_map = binding.get_mut(&idx);
-        if let Some(m) = name_map {
-            m.clear();
-        }
-        if call_gc {
-            // Invoke GC
-            unsafe {
+        unsafe {
+            let state = get_py_state();
+            // Drop defined objects
+            (*state).defined_objects.clear();
+            let idx = (*state).thread_idx.abs();
+            let name_map = (*state).name_to_idx.get_mut(&idx);
+            if let Some(m) = name_map {
+                m.clear();
+            }
+            if call_gc {
+                // Invoke GC
                 pocketpy::py_gc_collect();
             }
         }
@@ -598,24 +605,26 @@ impl PixelScript for PythonScripting {
     
     fn debug() -> String {
         let state = get_py_state();
-        let current_thread = *state.thread_idx.borrow();
-        let name_to_idx = state.name_to_idx.borrow();
-        let defined_objects = state.defined_objects.borrow();
-        let mut res = String::new();
-        res.push_str("{");
-        res.push_str(&format!("curent_thread: {current_thread}\n"));
-        res.push_str(&format!("name_to_idx: {:#?}\n", name_to_idx));
-        res.push_str(&format!("defined_objects: {:#?}\n", defined_objects));
-        res.push_str("}");
-        res
+        unsafe { 
+            let current_thread = (*state).thread_idx;
+            let name_to_idx = &(*state).name_to_idx;
+            let defined_objects = &(*state).defined_objects;
+            let mut res = String::new();
+            res.push_str("{");
+            res.push_str(&format!("curent_thread: {current_thread}\n"));
+            res.push_str(&format!("name_to_idx: {:#?}\n", name_to_idx));
+            res.push_str(&format!("defined_objects: {:#?}\n", defined_objects));
+            res.push_str("}");
+            res
+        }
     }
 
     fn reset() {
         let state = get_py_state();
-        state.defined_objects.borrow_mut().clear();
-        unsafe {
+        unsafe { 
+            (*state).defined_objects.clear();
             pocketpy::py_resetallvm();
-            *(state.thread_idx.borrow_mut()) = 0;
+            (*state).thread_idx = 0;
             pocketpy::py_switchvm(0);
         }
         Self::start();

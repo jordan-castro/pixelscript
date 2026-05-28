@@ -40,6 +40,7 @@
     - test_exec
     - test_eval
     - test_ft (a test that builds pixel ai dashs fast terrain system. If this runs, then it most likely works fine.)
+    - make tests smart with features. Pass in specific features in test.py script that overrides the feature in the file.
 - Better error messages
     - Explicitly coming from PXS
     - Explicit which runtime

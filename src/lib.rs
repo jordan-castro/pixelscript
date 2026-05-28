@@ -28,7 +28,7 @@ use crate::python::PythonScripting;
 use crate::js::JSScripting;
 
 use crate::shared::{
-    PXS_PTR_NAME, PixelScript, PtrMagic, arena::pxs_PixelArena, func::{clear_function_lookup, lookup_add_function}, get_pixel_state, module::pxs_Module, object::{ObjectFlags, clear_object_lookup, lookup_add_object, pxs_PixelObject}, pxs_LoadFileFn, pxs_Opaque, pxs_ReadDirFn, pxs_Runtime, pxs_WriteFileFn, var::{ObjectMethods, pxs_DeleterFn, pxs_VarList, pxs_VarT, pxs_VarType}
+    PXS_PTR_NAME, PixelScript, PtrMagic, arena::pxs_PixelArena, func::{clear_function_lookup, lookup_add_function}, module::pxs_Module, object::{ObjectFlags, clear_object_lookup, lookup_add_object, pxs_PixelObject}, pxs_LoadFileFn, pxs_Opaque, pxs_ReadDirFn, pxs_Runtime, pxs_WriteFileFn, set_read_dir, set_read_file, set_write_file, var::{ObjectMethods, pxs_DeleterFn, pxs_VarList, pxs_VarT, pxs_VarType}
 };
 
 pub mod shared;
@@ -798,9 +798,7 @@ pub extern "C" fn pxs_varis(var: *mut pxs_Var, var_type: pxs_VarType) -> bool {
 pub extern "C" fn pxs_set_filereader(func: pxs_LoadFileFn) {
     pxs_debug!("pxs_set_filereader");
     assert_initiated!();
-    let state = get_pixel_state();
-    let mut load_file = state.load_file.borrow_mut();
-    *load_file = Some(func);
+    set_read_file(func);
 }
 
 /// Set a function for writing a file.
@@ -810,9 +808,7 @@ pub extern "C" fn pxs_set_filereader(func: pxs_LoadFileFn) {
 pub extern "C" fn pxs_set_filewriter(func: pxs_WriteFileFn) {
     pxs_debug!("pxs_set_filewriter");
     assert_initiated!();
-    let state = get_pixel_state();
-    let mut write_file = state.write_file.borrow_mut();
-    *write_file = Some(func);
+    set_write_file(func);
 }
 
 /// Set a function for reading a directory.
@@ -822,9 +818,7 @@ pub extern "C" fn pxs_set_filewriter(func: pxs_WriteFileFn) {
 pub extern "C" fn pxs_set_dirreader(func: pxs_ReadDirFn) {
     pxs_debug!("pxs_set_dirreader");
     assert_initiated!();
-    let state = get_pixel_state();
-    let mut read_dir = state.read_dir.borrow_mut();
-    *read_dir = Some(func);
+    set_read_dir(func);
 }
 
 /// Free a PixelScript var.

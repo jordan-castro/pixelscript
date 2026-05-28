@@ -9,14 +9,14 @@ pub(super) fn create_object(ctx: *mut quickjs::JSContext, idx: i32, source: Arc<
     let object = SmartJSValue::new_object(ctx);
 
     // Check if already exist
-    let mut defined_objects = state.defined_objects.borrow_mut();
-    if defined_objects.contains_key(type_name) {
-        let dobj = defined_objects.get(type_name).unwrap();
-        object.set_prop(PXS_PTR_NAME, &mut SmartJSValue::new_i32(ctx, idx));
-        // Set proto
-        object.set_proto(dobj);
-        // DONE
-        return object;
+    // let mut defined_objects = state.defined_objects.borrow_mut();
+    unsafe { 
+        if let Some(dobj) = (*state).defined_objects.get(type_name) {
+            object.set_prop(PXS_PTR_NAME, &mut SmartJSValue::new_i32(ctx, idx));
+            // Set proto
+            object.set_proto(dobj);
+            return object;
+        }
     }
 
     // Create new object
@@ -34,10 +34,9 @@ pub(super) fn create_object(ctx: *mut quickjs::JSContext, idx: i32, source: Arc<
     }
 
     // Define obj
-    defined_objects.insert(type_name.clone(), object);
-
-    drop(defined_objects);
-    drop(state);
+    unsafe {
+        (*state).defined_objects.insert(type_name.clone(), object);
+    }
 
     // Recursion!
     create_object(ctx, idx, source)
