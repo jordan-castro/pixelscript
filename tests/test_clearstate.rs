@@ -13,7 +13,7 @@
 mod tests {
     use std::ffi::CStr;
 
-use pixelscript::{create_raw_string, free_raw_string, pxs_addvar, pxs_clearstate, pxs_finalize, pxs_freearena, pxs_gethost, pxs_getint, pxs_getuint, pxs_initialize, pxs_listadd, pxs_listget, pxs_newarena, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmod, pxs_newobject, pxs_newuint, shared::{PtrMagic, module::pxs_Module, pxs_Opaque, pxs_Runtime, utils::{self, CStringSafe}, var::pxs_VarT}};
+use pixelscript::{create_raw_string, free_raw_string, pxs_addvar, pxs_clear, pxs_finalize, pxs_freearena, pxs_gethost, pxs_getint, pxs_getuint, pxs_initialize, pxs_listadd, pxs_listget, pxs_newarena, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmod, pxs_newobject, pxs_newuint, shared::{PtrMagic, module::pxs_Module, pxs_Opaque, pxs_Runtime, utils::{self, CStringSafe}, var::pxs_VarT}};
     
     #[derive(Clone)]
     struct Vector2 {
@@ -144,18 +144,18 @@ pxs.print('Working JS');
         print_helper("PYTHON");
         for i in 0..1000 {
             utils::setup_pxs();
-            pxs_clearstate(true);
+            pxs_clear();
         }
         print_helper("LUA");
         for i in 0..1000 {
             test_lua();
-            pxs_clearstate(true);
+            pxs_clear();
             utils::setup_pxs();
         }
         print_helper("JS");
         for i in 0..1000 {
             test_js();
-            pxs_clearstate(true);
+            pxs_clear();
             utils::setup_pxs();
         }
 

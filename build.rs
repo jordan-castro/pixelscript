@@ -66,6 +66,14 @@ fn build_ph7_bindings() {
         .expect("Couldn't write ph7 bindings!");    
 }
 
+#[cfg(feature = "lua")]
+fn build_lua(_target_os: &str, target_env: &str) {
+    let mut build = cc::Build::new();
+    build.warnings(false);
+
+    // Add sources
+}
+
 /// Build PocketPy library
 #[cfg(feature = "python")]
 fn build_pocketpy(_target_os: &str, target_env: &str) {

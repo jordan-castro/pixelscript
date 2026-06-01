@@ -39,7 +39,6 @@ mod module;
 mod object;
 mod var;
 
-
 thread_local! {
     static PYSTATE: ThreadLanguageState<State> = init_state();
 }
@@ -326,10 +325,6 @@ pub(self) fn python_pxs_remove_ref(idx: i32) {
 /// Do some python setup. This needs to be called for every thread too
 unsafe fn python_setup() {
     unsafe {
-        setup_module_loader();
-    }
-    
-    unsafe {
         // Setup function callbacks
         let mut cstr_safe = CStringSafe::new();
         let main = pocketpy::py_getmodule(cstr_safe.new_string(PYTHON_MAIN_MODULE));
@@ -372,11 +367,8 @@ impl PixelScript for PythonScripting {
         // let pxs_globals: pocketpy::py_Ref;
         unsafe {
             pocketpy::py_initialize();
-            // Create _pxs_globals
-            // let pxs_name = create_raw_string!("_pxs_globals");
-            // pxs_globals = pocketpy::py_newmodule(pxs_name);
+            setup_module_loader();
             python_setup();
-            // setup_module_loader();
         }
         // let _s = exec_main_py("1 + 1", "<init>");
         let _state = get_py_state();
@@ -415,26 +407,26 @@ impl PixelScript for PythonScripting {
 
     fn stop_thread() {
         unsafe {
-            // clear current
-            Self::clear_state(true);
-
-            let idx = pocketpy::py_currentvm() - 1;
-            pocketpy::py_resetvm();
-            pocketpy::py_switchvm(idx);
+            Self::clear();
             let state = get_py_state();
+            let idx = pocketpy::py_currentvm() - 1;
+            pocketpy::py_switchvm(idx);
             (*state).thread_idx = idx;
         }
     }
 
-    fn clear_state(call_gc: bool) {
+    fn clear() {
         unsafe {
             let state = get_py_state();
             // Drop defined objects
-            (*state).defined_objects.clear();
-            if call_gc {
-                // Invoke GC
-                pocketpy::py_gc_collect();
+            // garbage_collect implements defined_objects.clear
+            if let Some(objs) = (*state).defined_objects.get_mut(&(*state).thread_idx) {
+                objs.clear();
             }
+            pocketpy::py_resetvm();
+
+            // Reset the _pxs_newregister
+            python_setup();
         }
     }
 
@@ -577,15 +569,10 @@ impl PixelScript for PythonScripting {
         }
     }
 
-    fn reset() {
-        let state = get_py_state();
-        unsafe { 
-            (*state).defined_objects.clear();
-            pocketpy::py_resetallvm();
-            (*state).thread_idx = 0;
-            pocketpy::py_switchvm(0);
+    fn garbage_collect() {
+        unsafe {
+            pocketpy::py_gc_collect();
         }
-        Self::start();
     }
 }
 

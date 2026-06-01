@@ -50,9 +50,8 @@ fn preload_lua_module(lua: &Lua, code: &str, name: &str) -> Result<(), anyhow::E
     Ok(())
 }
 
-/// Initialize Lua state per thread.
-fn init_state() -> ThreadLanguageState<State> {
-    // Define a global function in engine
+/// Initialize the state variable as a pointer.
+fn initialize_state(state: *mut State) {
     let engine = Lua::new();
 
     let mut lua_globals = String::new();
@@ -73,12 +72,25 @@ fn init_state() -> ThreadLanguageState<State> {
     });
     let _ = engine.load(lua_globals).set_name("<lua_globals>").exec();
 
+    unsafe {
+        (*state).engine = engine;
+    }
+}
+
+/// Initialize Lua state per thread.
+fn init_state() -> ThreadLanguageState<State> {
+    // Define a global function in engine
+    let engine = Lua::new();
+
     let s = State {
         engine: engine,
         tables: HashMap::new(),
     };
+    let state_ptr = s.into_raw();
 
-    ThreadLanguageState::<State>::new(s.into_raw())
+    initialize_state(state_ptr);
+
+    ThreadLanguageState::<State>::new(state_ptr)
 }
 
 /// Get the state of LUA.
@@ -183,6 +195,15 @@ fn remove_variables_from_table(state: *mut State, table: &LuaTable, map: &pxs_Va
     Ok(())
 }
 
+/// Reset lua state
+fn reset_lua() {
+    let state = get_lua_state();
+    unsafe {
+        (*state).tables.clear();
+        (*state).engine = Lua::new();
+    }
+}
+
 pub struct LuaScripting;
 
 impl PixelScript for LuaScripting {
@@ -214,7 +235,10 @@ impl PixelScript for LuaScripting {
     }
 
     fn stop() {
-        Self::clear_state(true);
+        let state = get_lua_state();
+        unsafe {
+            (*state).tables.clear();
+        }
     }
 
     fn start_thread() {
@@ -222,21 +246,21 @@ impl PixelScript for LuaScripting {
     }
 
     fn stop_thread() {
-        Self::stop();
+        reset_lua();
     }
 
-    fn clear_state(call_gc: bool) {
+    fn clear() {
         let state = get_lua_state();
 
         unsafe {
             (*state).tables.clear();
-
-            if call_gc {
-                (*state).engine.gc_collect().unwrap();
-            }
         }
+        // Update lua
+        initialize_state(state);
+        // Reset the module loader.
+        Self::start();
     }
-    
+
     fn eval(code: &str) -> Result<pxs_Var> {
         let state = get_lua_state();
         let res: LuaValue = unsafe { (*state).engine.load(code).set_name("<lua_eval>").call(())? };
@@ -332,9 +356,12 @@ impl PixelScript for LuaScripting {
         let tables = unsafe { &(*state).tables };
         format!("{{tables: {:#?}}}", tables)
     }
-    
-    fn reset() {
-        Self::clear_state(true);
+
+    fn garbage_collect() {
+        let state = get_lua_state();
+        unsafe {
+            let _ = (*state).engine.gc_collect();
+        }
     }
 }
 

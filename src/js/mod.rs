@@ -103,11 +103,13 @@ unsafe extern "C" fn js_module_loader(context: *mut quickjs::JSContext, module_n
     }
 }
 
-/// Initialize the JS state.
-unsafe fn init_state() -> *mut State {
+unsafe fn initialize_state(state: *mut State) {
     unsafe {
         let rt = quickjs::JS_NewRuntime();
         let ctx = quickjs::JS_NewContext(rt);
+
+        (*state).rt = rt;
+        (*state).context = ctx;
 
         // Setup module loader!
         quickjs::JS_SetModuleLoaderFunc(rt, None, Some(js_module_loader), std::ptr::null_mut());
@@ -115,16 +117,24 @@ unsafe fn init_state() -> *mut State {
         // Add pxs_json.js
         let pxs_json = add_local_module(ctx, include_str!("../../core/js/pxs_json.js"), "pxs_json");
 
-        let mut modules = HashMap::new();
-        modules.insert("pxs_json".to_string(), pxs_json);
+        (*state).modules.insert("pxs_json".to_string(), pxs_json);
+    }
+} 
 
-        State { 
-            rt, 
-            context: ctx, 
+/// Initialize the JS state.
+unsafe fn init_state() -> *mut State {
+    unsafe {
+        let state_ptr = State { 
+            rt: std::ptr::null_mut(), 
+            context: std::ptr::null_mut(), 
             defined_objects: HashMap::new(), 
             module_exports: HashMap::new(),
-            modules: modules,
-        }.into_raw()
+            modules: HashMap::new(),
+        }.into_raw();
+
+        initialize_state(state_ptr);
+
+        state_ptr
     }
 }
 
@@ -184,6 +194,19 @@ fn import_all_modules() {
     run_js(&import_modules_code, "<cleanup>", quickjs::JS_EVAL_TYPE_MODULE as i32);
 }
 
+unsafe fn clear_state(state: *mut State) {
+    import_all_modules();
+    unsafe {
+        (*state).defined_objects.clear();
+        (*state).module_exports.clear();
+        (*state).modules.clear();
+        quickjs::JS_FreeContext((*state).context);
+        quickjs::JS_FreeRuntime((*state).rt);
+        (*state).context = std::ptr::null_mut();
+        (*state).rt = std::ptr::null_mut();
+    }
+}
+
 pub struct JSScripting;
 
 impl PixelScript for JSScripting {
@@ -193,9 +216,13 @@ impl PixelScript for JSScripting {
     }
 
     fn stop() {
-        Self::clear_state(false);
         // Import all modules just in case the user never did
         import_all_modules();
+
+        let state = get_js_state();
+        unsafe {
+            clear_state(state);
+        }
     }
 
     fn add_module(source: std::sync::Arc<crate::shared::module::pxs_Module>) {
@@ -243,15 +270,14 @@ impl PixelScript for JSScripting {
         Self::stop();
     }
 
-    fn clear_state(call_gc: bool) {
+    fn clear() {
         let state = get_js_state();
         // Clear state stuff first.
         unsafe {
-            (*state).defined_objects.clear();
-            if call_gc {
-                quickjs::JS_RunGC((*state).rt);
-            }
+            clear_state(state);
+            initialize_state(state);
         }
+        Self::start();
     }
 
     fn compile(
@@ -345,15 +371,12 @@ impl PixelScript for JSScripting {
         }
     }
     
-    fn reset() {
-        Self::stop();
-        // Drop Context and Runtime and recreate it...
+    fn garbage_collect() {
         let state = get_js_state();
         unsafe {
-            (*state).modules.clear();
-            (*state).module_exports.clear();
-            quickjs::JS_FreeContext((*state).context);
-            (*state).context = quickjs::JS_NewContext((*state).rt);
+            if !(*state).rt.is_null() {
+                quickjs::JS_RunGC((*state).rt);
+            } 
         }
     }
 }

@@ -873,7 +873,7 @@ pub extern "C" fn pxs_stopthread() {
 ///
 /// Optionally, if you want to run the garbage collector.
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_clearstate(gc_collect: bool) {
+pub extern "C" fn pxs_clear() {
     pxs_debug!("pxs_clearstate");
     assert_initiated!();
     // Drop function lookup
@@ -882,13 +882,13 @@ pub extern "C" fn pxs_clearstate(gc_collect: bool) {
     clear_object_lookup();
 
     with_feature!("lua", {
-        LuaScripting::clear_state(gc_collect);
+        LuaScripting::clear();
     });
     with_feature!("python", {
-        PythonScripting::clear_state(gc_collect);
+        PythonScripting::clear();
     });
     with_feature!("js", {
-        JSScripting::clear_state(gc_collect);
+        JSScripting::clear();
     })
 }
 
@@ -1878,22 +1878,20 @@ pub extern "C" fn pxs_debugstate(runtime: pxs_Runtime) -> *mut c_char {
     })
 }
 
-/// Reset the PXS runtime. 
-/// 
-/// You will have to re-define any host modules.
+/// Call GC for all backends.
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_reset() {
-    pxs_debug!("pxs_reset");
+pub extern "C" fn pxs_garbagecollect() {
+    pxs_debug!("pxs_gc");
     assert_initiated!();
 
-    with_feature!("python", {
-        PythonScripting::reset();
-    });
     with_feature!("lua", {
-        LuaScripting::reset();
+        LuaScripting::garbage_collect();
+    });
+    with_feature!("python", {
+        PythonScripting::garbage_collect();
     });
     with_feature!("js", {
-        JSScripting::reset();
+        JSScripting::garbage_collect();
     });
 }
 

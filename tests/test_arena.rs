@@ -11,7 +11,7 @@
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
-    use pixelscript::{create_raw_string, free_raw_string, own_string, pxs_addfunc, pxs_addmod, pxs_addvar, pxs_arenaput, pxs_clearstate, pxs_finalize, pxs_freearena, pxs_freevar, pxs_gethost, pxs_getint, pxs_getstring, pxs_initialize, pxs_listadd, pxs_listget, pxs_map_addpair, pxs_newarena, pxs_newbool, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmap, pxs_newmod, pxs_newnull, pxs_newobject, pxs_newstring, shared::{PtrMagic, module::pxs_Module, pxs_Opaque, pxs_Runtime, utils::{self, CStringSafe}, var::pxs_VarT}};
+    use pixelscript::{create_raw_string, free_raw_string, own_string, pxs_addfunc, pxs_addmod, pxs_addvar, pxs_clear, pxs_arenaput, pxs_finalize, pxs_freearena, pxs_freevar, pxs_gethost, pxs_getint, pxs_getstring, pxs_initialize, pxs_listadd, pxs_listget, pxs_map_addpair, pxs_newarena, pxs_newbool, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmap, pxs_newmod, pxs_newnull, pxs_newobject, pxs_newstring, shared::{PtrMagic, module::pxs_Module, pxs_Opaque, pxs_Runtime, utils::{self, CStringSafe}, var::pxs_VarT}};
 
     struct Person2 {
         person: Person
@@ -140,7 +140,7 @@ alloc(20);
         let mut cstrgen = CStringSafe::new();
         let test_mod = pxs_newmod(cstrgen.new_string("test"));
         pxs_addfunc(test_mod, cstrgen.new_string("alloc"), allocate_memory);
-        
+
         // Testing factory
         let factory_args = pxs_newlist();
         pxs_listadd(factory_args, pxs_newstring(cstrgen.new_string("contents")));
@@ -155,7 +155,7 @@ alloc(20);
         print_helper("JS");
         test_js();
 
-        pxs_clearstate(true);
+        pxs_clear();
         pxs_finalize();
     }
 }

@@ -677,7 +677,7 @@ void pxs_stopthread(void);
  *
  * Optionally, if you want to run the garbage collector.
  */
-void pxs_clearstate(bool gc_collect);
+void pxs_clear(void);
 
 /**
  * Call a method within a specifed runtime.
@@ -1027,11 +1027,9 @@ pxs_VarT pxs_arenaput(struct pxs_PixelArena *arena, pxs_VarT var);
 char *pxs_debugstate(enum pxs_Runtime runtime);
 
 /**
- * Reset the PXS runtime.
- *
- * You will have to re-define any host modules.
+ * Call GC for all backends.
  */
-void pxs_reset(void);
+void pxs_garbagecollect(void);
 
 /**
  * Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.
