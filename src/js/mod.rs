@@ -42,31 +42,71 @@ struct State {
     /// Module defined functions or variables takes a map[module_name] => map[int] => export
     module_exports: HashMap<String, Vec<JSModuleMethod>>,
     /// JSModules
-    modules: HashMap<String, *mut quickjs::JSModuleDef>,
+    modules: HashMap<String, *mut quickjs::JSModuleDef>
+}
+
+/// Creates a raw pointer with empty values
+fn new_state() -> *mut State {
+    State {
+        rt: std::ptr::null_mut(),
+        context: std::ptr::null_mut(),
+        defined_objects: HashMap::new(),
+        module_exports: HashMap::new(),
+        modules: HashMap::new(),
+    }.into_raw()
+}
+
+/// Initialize the state.
+fn init(ptr: *mut State) {
+    unsafe {
+        let rt = quickjs::JS_NewRuntime();
+        let ctx = quickjs::JS_NewContext(rt);
+
+        (*ptr).rt = rt;
+        (*ptr).context = ctx;
+
+        // Setup module loader!
+        quickjs::JS_SetModuleLoaderFunc(rt, None, Some(js_module_loader), std::ptr::null_mut());
+
+        // Add pxs_json.js
+        let pxs_json = add_local_module(ctx, include_str!("../../core/js/pxs_json.js"), "pxs_json");
+
+        (*ptr).modules.insert("pxs_json".to_string(), pxs_json);
+
+        add_main_js();
+    }
+}
+
+/// Clear the State
+fn clear(ptr: *mut State) {
+    import_all_modules();
+    unsafe {
+        (*ptr).defined_objects.clear();
+        (*ptr).module_exports.clear();
+        (*ptr).modules.clear();
+        if (*ptr).context.is_null() == false {
+            quickjs::JS_FreeContext((*ptr).context);
+        }
+        if (*ptr).rt.is_null() == false {
+            quickjs::JS_FreeRuntime((*ptr).rt);
+        }
+        (*ptr).context = std::ptr::null_mut();
+        (*ptr).rt = std::ptr::null_mut();
+    }
 }
 
 impl PtrMagic for State {}
 
 impl Drop for State {
     fn drop(&mut self) {
-        self.defined_objects.clear();
-        self.module_exports.clear();
-
-        unsafe {
-            if self.context != std::ptr::null_mut() {
-                quickjs::JS_FreeContext(self.context);
-                self.context = std::ptr::null_mut();
-            }
-            if self.rt != std::ptr::null_mut() {
-                quickjs::JS_FreeRuntime(self.rt);
-                self.rt = std::ptr::null_mut();
-            }
+        if !self.rt.is_null() {
+            panic!("JS State must be freed before dropping.");
         }
     }
 }
 
 thread_local! {
-    static JSTATE: ThreadLanguageState<State> = ThreadLanguageState::new(unsafe{init_state()});
+    static JSTATE: ThreadLanguageState<State> = ThreadLanguageState::new(new_state());
 }
 
 /// JS Module loader
@@ -100,41 +140,6 @@ unsafe extern "C" fn js_module_loader(context: *mut quickjs::JSContext, module_n
         let m = ((val_int & !15) as *mut std::ffi::c_void).cast::<quickjs::JSModuleDef>();
 
         m
-    }
-}
-
-unsafe fn initialize_state(state: *mut State) {
-    unsafe {
-        let rt = quickjs::JS_NewRuntime();
-        let ctx = quickjs::JS_NewContext(rt);
-
-        (*state).rt = rt;
-        (*state).context = ctx;
-
-        // Setup module loader!
-        quickjs::JS_SetModuleLoaderFunc(rt, None, Some(js_module_loader), std::ptr::null_mut());
-
-        // Add pxs_json.js
-        let pxs_json = add_local_module(ctx, include_str!("../../core/js/pxs_json.js"), "pxs_json");
-
-        (*state).modules.insert("pxs_json".to_string(), pxs_json);
-    }
-} 
-
-/// Initialize the JS state.
-unsafe fn init_state() -> *mut State {
-    unsafe {
-        let state_ptr = State { 
-            rt: std::ptr::null_mut(), 
-            context: std::ptr::null_mut(), 
-            defined_objects: HashMap::new(), 
-            module_exports: HashMap::new(),
-            modules: HashMap::new(),
-        }.into_raw();
-
-        initialize_state(state_ptr);
-
-        state_ptr
     }
 }
 
@@ -194,35 +199,15 @@ fn import_all_modules() {
     run_js(&import_modules_code, "<cleanup>", quickjs::JS_EVAL_TYPE_MODULE as i32);
 }
 
-unsafe fn clear_state(state: *mut State) {
-    import_all_modules();
-    unsafe {
-        (*state).defined_objects.clear();
-        (*state).module_exports.clear();
-        (*state).modules.clear();
-        quickjs::JS_FreeContext((*state).context);
-        quickjs::JS_FreeRuntime((*state).rt);
-        (*state).context = std::ptr::null_mut();
-        (*state).rt = std::ptr::null_mut();
-    }
-}
-
 pub struct JSScripting;
 
 impl PixelScript for JSScripting {
     fn start() {
-        let _state = get_js_state();
-        add_main_js();
+        init(get_js_state());
     }
 
     fn stop() {
-        // Import all modules just in case the user never did
-        import_all_modules();
-
-        let state = get_js_state();
-        unsafe {
-            clear_state(state);
-        }
+        clear(get_js_state());
     }
 
     fn add_module(source: std::sync::Arc<crate::shared::module::pxs_Module>) {
@@ -272,12 +257,8 @@ impl PixelScript for JSScripting {
 
     fn clear() {
         let state = get_js_state();
-        // Clear state stuff first.
-        unsafe {
-            clear_state(state);
-            initialize_state(state);
-        }
-        Self::start();
+        clear(state);
+        init(state);
     }
 
     fn compile(

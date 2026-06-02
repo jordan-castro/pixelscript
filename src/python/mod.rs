@@ -40,7 +40,7 @@ mod object;
 mod var;
 
 thread_local! {
-    static PYSTATE: ThreadLanguageState<State> = init_state();
+    static PYSTATE: ThreadLanguageState<State> = ThreadLanguageState::new(new_state());
 }
 
 /// _pxs_call
@@ -55,6 +55,28 @@ struct State {
 
     /// Current thread idx
     thread_idx: i32,
+}
+
+fn new_state() -> *mut State {
+    State {
+        defined_objects: HashMap::new(),
+        thread_idx: 0,
+    }.into_raw()
+}
+
+fn init() {
+    unsafe {
+        python_setup();
+    }
+}
+
+fn clear(ptr: *mut State) {
+    unsafe {
+        let idx = (*ptr).thread_idx;
+        if let Some(v) = (*ptr).defined_objects.get_mut(&idx) {
+            v.clear();
+        }
+    }
 }
 
 impl PtrMagic for State {}
@@ -153,16 +175,6 @@ unsafe fn new_module(code: &str, name: &str) {
     unsafe {
         free_raw_string!(cname);
     }
-}
-
-/// Initialize Lua state per thread.
-fn init_state() -> ThreadLanguageState<State> {
-    let state = State {
-        defined_objects: HashMap::new(),
-        thread_idx: 0,
-    };
-
-    ThreadLanguageState::new(state.into_raw())
 }
 
 /// Get the state of Pocketpy.
@@ -329,6 +341,10 @@ unsafe fn python_setup() {
         let mut cstr_safe = CStringSafe::new();
         let main = pocketpy::py_getmodule(cstr_safe.new_string(PYTHON_MAIN_MODULE));
         pocketpy::py_bindfunc(main, cstr_safe.new_string(PXS_CALL_METHOD), Some(pocketpy_bridge));
+
+        // Setup module loader.
+        let callbacks = pocketpy::py_callbacks();
+        (*callbacks).importfile = Some(import_file);
     }
 
     // Setup some python code
@@ -351,33 +367,23 @@ unsafe fn python_setup() {
     }
 }
 
-/// This needs to be called in every PKPY VM.
-unsafe fn setup_module_loader() {
-    unsafe {
-        let callbacks = pocketpy::py_callbacks();
-        (*callbacks).importfile = Some(import_file);
-    }
-}
-
 pub struct PythonScripting;
 
 impl PixelScript for PythonScripting {
     fn start() {
         // py initialize here
-        // let pxs_globals: pocketpy::py_Ref;
         unsafe {
             pocketpy::py_initialize();
-            setup_module_loader();
-            python_setup();
         }
-        // let _s = exec_main_py("1 + 1", "<init>");
-        let _state = get_py_state();
+        init();
     }
 
     fn stop() {
         unsafe {
+            pocketpy::py_resetallvm();
             pocketpy::py_finalize();
         }
+        clear(get_py_state());
     }
 
     fn add_module(source: std::sync::Arc<crate::shared::module::pxs_Module>) {
@@ -407,8 +413,13 @@ impl PixelScript for PythonScripting {
 
     fn stop_thread() {
         unsafe {
-            Self::clear();
+            // Self::clear();
             let state = get_py_state();
+            clear(state);
+
+            if (*state).thread_idx < 1 {
+                return;
+            }
             let idx = pocketpy::py_currentvm() - 1;
             pocketpy::py_switchvm(idx);
             (*state).thread_idx = idx;
@@ -416,18 +427,12 @@ impl PixelScript for PythonScripting {
     }
 
     fn clear() {
+        let state = get_py_state();
+        clear(state);
         unsafe {
-            let state = get_py_state();
-            // Drop defined objects
-            // garbage_collect implements defined_objects.clear
-            if let Some(objs) = (*state).defined_objects.get_mut(&(*state).thread_idx) {
-                objs.clear();
-            }
             pocketpy::py_resetvm();
-
-            // Reset the _pxs_newregister
-            python_setup();
         }
+        init();
     }
 
     fn eval(code: &str) -> Result<pxs_Var> {
