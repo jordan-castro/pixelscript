@@ -7,10 +7,10 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 use std::{
-    collections::HashMap, ops::{BitAnd, BitOr}, os::raw::c_void, ptr, sync::{Arc, Mutex, OnceLock}
+    collections::HashMap, ops::{BitAnd, BitOr}, os::raw::c_void, ptr, sync::{Arc, Mutex}
 };
 
-use crate::{pxs_debug, shared::{PtrMagic, module::ModuleCallback, var::{default_deleter, pxs_DeleterFn}}};
+use crate::{pxs_debug, shared::{PtrMagic, ffi::ThreadLanguageState, module::ModuleCallback, var::{default_deleter, pxs_DeleterFn}}};
 
 /// Flags for `ObjectCallback`.
 /// 
@@ -191,9 +191,11 @@ impl pxs_PixelObject {
     }
 
     /// Remove from reference counting
-    pub fn sub_reference(&self) {
+    pub fn sub_reference(&self) -> u16 {
         let mut guard = self.ref_count.lock().unwrap();
         *guard -= 1;
+
+        *guard
     }
 
     /// Check current ref count
@@ -234,33 +236,34 @@ pub struct ObjectLookup {
     pub next_idx: i32
 }
 
-/// The object lookup!
-static OBJECT_LOOKUP: OnceLock<Mutex<ObjectLookup>> = OnceLock::new();
+impl PtrMagic for ObjectLookup {}
+
+thread_local! {
+    /// The object lookup!
+    static OBJECT_LOOKUP: ThreadLanguageState<ObjectLookup> = ThreadLanguageState::new(new_object_lookup());
+}
+
+fn new_object_lookup() -> *mut ObjectLookup {
+    ObjectLookup {
+        object_hash: HashMap::new(),
+        next_idx: 0,
+    }.into_raw()
+}
 
 /// Get the Object lookup global state. Shared between all runtimes.
-fn get_object_lookup() -> std::sync::MutexGuard<'static, ObjectLookup> {
-    OBJECT_LOOKUP
-        .get_or_init(|| {
-            Mutex::new(ObjectLookup {
-                object_hash: HashMap::new(),
-                next_idx: 0
-            })
-        })
-        .lock()
-        .unwrap()
+fn get_object_lookup() -> *mut ObjectLookup {
+    OBJECT_LOOKUP.with(|mutex| {
+        mutex.get_ptr()
+    })
 }
 
 /// Apply reference counting to object in lookup.
 pub(crate) fn apply_ref_count_delete(idx: i32) {
-    let mut lookup = get_object_lookup();
-    // Check for object
-    let object = lookup.object_hash.get(&idx);
-    if let Some(object) = object {
-        object.sub_reference();
+    let lookup = get_object_lookup();
+    if let Some(object) = unsafe { (*lookup).object_hash.get(&idx) } {
         // Check # of references
-        if object.current_ref_count() == 0 {
-            // Drop it
-            lookup.object_hash.remove(&idx);
+        if object.sub_reference() == 0 {
+            unsafe{(*lookup).object_hash.remove(&idx)};
         }
     }
 }
@@ -270,37 +273,36 @@ pub(crate) fn apply_ref_count_delete(idx: i32) {
 pub(crate) fn apply_ref_count_alloc(idx: i32) {
     let lookup = get_object_lookup();
     // Check for object.
-    let object = lookup.object_hash.get(&idx);
-    if let Some(object) = object {
+    if let Some(object) = unsafe {(*lookup).object_hash.get(&idx)} {
         object.add_reference();
     }
 }
 
 pub(crate) fn clear_object_lookup() {
-    let mut lookup = get_object_lookup();
-    pxs_debug!("Clearing object lookup size: {}", lookup.object_hash.len());
-    lookup.object_hash.clear();
+    let lookup = get_object_lookup();
+    unsafe {
+        (*lookup).object_hash.clear();
+        (*lookup).next_idx = 0;
+    }
 }
 
 // add_object(Arc::clone(&pixel_arc))
 pub(crate) fn lookup_add_object(pixel_obj: Arc<pxs_PixelObject>) -> i32 {
-    let mut lookup = get_object_lookup();
+    let lookup = get_object_lookup();
 
-    let idx = lookup.next_idx;
-
-    lookup
-        .object_hash
-        .insert(idx as i32, Arc::clone(&pixel_obj));
-
-    lookup.next_idx += 1;
-    idx as i32
+    unsafe {
+        let idx = (*lookup).next_idx;
+        (*lookup).object_hash.insert(idx, Arc::clone(&pixel_obj));
+        (*lookup).next_idx += 1;
+        idx
+    }
 }
 
 /// Get a PixelObject Arc
 pub(crate) fn get_object(idx: i32) -> Option<Arc<pxs_PixelObject>> {
     let lookup = get_object_lookup();
 
-    if let Some(res) = lookup.object_hash.get(&idx) {
+    if let Some(res) = unsafe { (*lookup).object_hash.get(&idx) } {
         Some(res.to_owned())
     } else {
         None

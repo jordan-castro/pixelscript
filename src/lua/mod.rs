@@ -20,7 +20,7 @@ use crate::{
 };
 
 thread_local! {
-    static LUASTATE: ThreadLanguageState<State> = init_state();
+    static LUASTATE: ThreadLanguageState<State> = ThreadLanguageState::new(new_state());
 }
 
 /// This is the Lua state. Each language gets it's own private state
@@ -50,47 +50,37 @@ fn preload_lua_module(lua: &Lua, code: &str, name: &str) -> Result<(), anyhow::E
     Ok(())
 }
 
-/// Initialize the state variable as a pointer.
-fn initialize_state(state: *mut State) {
-    let engine = Lua::new();
+fn new_state() -> *mut State {
+    State {
+        engine: Lua::new(),
+        tables: HashMap::new(),
+    }.into_raw()
+}
 
-    let mut lua_globals = String::new();
-    lua_globals.push_str(include_str!("../../core/lua/main.lua"));
-
-    // with_feature!("pxs_utils", {
-    //     // Load in the pxs_utils methods into GLOBAL scope.
-    //     lua_globals.push_str(include_str!("../../core/lua/pxs_utils.lua"));
-    // });
-
-    with_feature!("pxs_json", {
-        // Load dkjson module
-        let _ = preload_lua_module(&engine, include_str!("../../libs/dkjson.lua"), "__dkjson__");
-        // Load in the pxs_json module
-        let _ = preload_lua_module(&engine, include_str!("../../core/lua/pxs_json.lua"), "pxs_json");
-        // Import it globally
-        lua_globals.push_str("\npxs_json = require('pxs_json')\n");
-    });
-    let _ = engine.load(lua_globals).set_name("<lua_globals>").exec();
-
+fn init(ptr: *mut State) {
     unsafe {
-        (*state).engine = engine;
+        let mut lua_globals = String::new();
+        lua_globals.push_str(include_str!("../../core/lua/main.lua"));
+
+        with_feature!("pxs_json", {
+            // Load dkjson module
+            let _ = preload_lua_module(&(*ptr).engine, include_str!("../../libs/dkjson.lua"), "__dkjson__");
+            // Load in the pxs_json module
+            let _ = preload_lua_module(&(*ptr).engine, include_str!("../../core/lua/pxs_json.lua"), "pxs_json");
+            // Import it globally
+            lua_globals.push_str("\npxs_json = require('pxs_json')\n");
+        });
+        let _ = (*ptr).engine.load(lua_globals).set_name("<lua_globals>").exec();
+
+        let _ = setup_module_loader(&(*ptr).engine);
     }
 }
 
-/// Initialize Lua state per thread.
-fn init_state() -> ThreadLanguageState<State> {
-    // Define a global function in engine
-    let engine = Lua::new();
-
-    let s = State {
-        engine: engine,
-        tables: HashMap::new(),
-    };
-    let state_ptr = s.into_raw();
-
-    initialize_state(state_ptr);
-
-    ThreadLanguageState::<State>::new(state_ptr)
+fn clear(ptr: *mut State) {
+    unsafe {
+        (*ptr).tables.clear();
+        (*ptr).engine = Lua::new();
+    }
 }
 
 /// Get the state of LUA.
@@ -195,15 +185,6 @@ fn remove_variables_from_table(state: *mut State, table: &LuaTable, map: &pxs_Va
     Ok(())
 }
 
-/// Reset lua state
-fn reset_lua() {
-    let state = get_lua_state();
-    unsafe {
-        (*state).tables.clear();
-        (*state).engine = Lua::new();
-    }
-}
-
 pub struct LuaScripting;
 
 impl PixelScript for LuaScripting {
@@ -227,18 +208,11 @@ impl PixelScript for LuaScripting {
 
     fn start() {
         // Initalize the state
-        let state = get_lua_state();
-        let res = unsafe { setup_module_loader(&(*state).engine) };
-        if res.is_err() {
-            panic!("{:#?}", res);
-        }
+        init(get_lua_state());
     }
 
     fn stop() {
-        let state = get_lua_state();
-        unsafe {
-            (*state).tables.clear();
-        }
+        clear(get_lua_state());
     }
 
     fn start_thread() {
@@ -246,19 +220,13 @@ impl PixelScript for LuaScripting {
     }
 
     fn stop_thread() {
-        reset_lua();
+        Self::stop();
     }
 
     fn clear() {
         let state = get_lua_state();
-
-        unsafe {
-            (*state).tables.clear();
-        }
-        // Update lua
-        initialize_state(state);
-        // Reset the module loader.
-        Self::start();
+        clear(state);
+        init(state);
     }
 
     fn eval(code: &str) -> Result<pxs_Var> {

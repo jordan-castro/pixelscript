@@ -874,7 +874,7 @@ pub extern "C" fn pxs_stopthread() {
 /// Optionally, if you want to run the garbage collector.
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_clear() {
-    pxs_debug!("pxs_clearstate");
+    pxs_debug!("pxs_clear");
     assert_initiated!();
     // Drop function lookup
     clear_function_lookup();
