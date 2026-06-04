@@ -7,7 +7,7 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 use std::{
-    collections::{HashMap, HashSet},
+    cell::Cell, collections::{HashMap, HashSet}, sync::LazyLock
 };
 
 use anyhow::{Result, anyhow};
@@ -39,8 +39,26 @@ mod module;
 mod object;
 mod var;
 
+/// This is a simple wrapper for instancing on the first time.
+fn setup_python_state() -> ThreadLanguageState<State> {
+    ThreadLanguageState::new(new_state())
+}
+
+/// This sets up theh python thread pool
+fn setup_python_thread_pool() -> Vec<bool> {
+    let mut vms = Vec::with_capacity(16);
+    for i in 0..16 {
+        vms.insert(i, false);
+    }
+    vms
+}
+
+/// The Python State.
+static PYSTATE: LazyLock<ThreadLanguageState<State>> = LazyLock::new(setup_python_state);
+
 thread_local! {
-    static PYSTATE: ThreadLanguageState<State> = ThreadLanguageState::new(new_state());
+    /// Current thread idx
+    static THREAD_IDX: Cell<Option<u8>> = Cell::new(None);
 }
 
 /// _pxs_call
@@ -52,15 +70,14 @@ const PYTHON_MAIN_MODULE: &str = "__main__";
 struct State {
     /// Keep a list of defined PixelObject as class
     defined_objects: HashMap<i32, HashSet<String>>,
-
-    /// Current thread idx
-    thread_idx: i32,
+    /// Thread pool 0-15
+    thread_pool: Vec<bool>
 }
 
 fn new_state() -> *mut State {
     State {
         defined_objects: HashMap::new(),
-        thread_idx: 0,
+        thread_pool: setup_python_thread_pool()
     }.into_raw()
 }
 
@@ -72,7 +89,7 @@ fn init() {
 
 fn clear(ptr: *mut State) {
     unsafe {
-        let idx = (*ptr).thread_idx;
+        let idx = get_thread_idx();
         if let Some(v) = (*ptr).defined_objects.get_mut(&idx) {
             v.clear();
         }
@@ -80,6 +97,13 @@ fn clear(ptr: *mut State) {
 }
 
 impl PtrMagic for State {}
+
+/// Get the current VM (thread idx).
+pub(self) fn get_thread_idx() -> i32 {
+    unsafe {
+        pocketpy::py_currentvm()
+    }
+}
 
 /// Execute python code on a certain module.
 pub(self) fn exec_py(code: &str, name: &str, module: &str) -> String {
@@ -179,16 +203,14 @@ unsafe fn new_module(code: &str, name: &str) {
 
 /// Get the state of Pocketpy.
 pub(self) fn get_py_state() -> *mut State {
-    PYSTATE.with(|mutex| {
-        mutex.get_ptr()
-    })
+    PYSTATE.get_ptr()
 }
 
 /// Add a new defined object
 pub(self) fn add_new_defined_object(name: &str) {
     let state = get_py_state();
     unsafe { 
-        let t = (*state).thread_idx;
+        let t = get_thread_idx();
         if let Some(names) = (*state).defined_objects.get_mut(&t) {
             names.insert(name.to_string());
         } else {
@@ -203,7 +225,7 @@ pub(self) fn add_new_defined_object(name: &str) {
 pub(self) fn is_object_defined(name: &str) -> bool {
     let state = get_py_state();
     unsafe { 
-        let t = (*state).thread_idx;
+        let t = get_thread_idx();
         if let Some(set) = (*state).defined_objects.get(&t) {
             set.contains(name)
         } else {
@@ -371,6 +393,7 @@ pub struct PythonScripting;
 
 impl PixelScript for PythonScripting {
     fn start() {
+        let _ = get_py_state();
         // py initialize here
         unsafe {
             pocketpy::py_initialize();
@@ -401,29 +424,56 @@ impl PixelScript for PythonScripting {
     }
 
     fn start_thread() {
+        let mut times_tried = 0;
         unsafe {
-            let idx = pocketpy::py_currentvm() + 1;
-            pocketpy::py_switchvm(idx);
-            python_setup();
-            // setup_module_loader();
             let state = get_py_state();
-            (*state).thread_idx = idx;
+            let mut idx = 0;
+            let mut found = false;
+            loop {
+                times_tried += 1;
+                for vm in &(*state).thread_pool {
+                    if !vm {
+                        found = true;
+                        break;
+                    }
+                    idx += 1;
+                }
+                
+                if !found {
+                    if times_tried > 10 {
+                        panic!("Could not allocate thread.");
+                    }
+                    std::thread::yield_now();
+                    continue;
+                } 
+
+                (&mut (*state).thread_pool)[idx] = true;
+                break;
+            }
+            THREAD_IDX.set(Some(idx as u8));
+            println!("starting: {idx}");
+            pocketpy::py_switchvm(idx as i32);
+            python_setup();
         }
     }
 
     fn stop_thread() {
-        unsafe {
-            // Self::clear();
-            let state = get_py_state();
-            clear(state);
+        // Self::clear();
+        let state = get_py_state();
+        clear(state);
 
-            if (*state).thread_idx < 1 {
-                return;
+        let idx = THREAD_IDX.get();
+        if let Some(idx) = idx {
+            unsafe {
+                // mark thread as public.
+                (&mut (*state).thread_pool)[idx as usize] = false;
             }
-            let idx = pocketpy::py_currentvm() - 1;
-            pocketpy::py_switchvm(idx);
-            (*state).thread_idx = idx;
+            println!("stopping: {idx}");
+        } else {
+            panic!("No thread set.");
         }
+
+        THREAD_IDX.set(None);
     }
 
     fn clear() {
@@ -559,11 +609,11 @@ impl PixelScript for PythonScripting {
             Ok(pocketpyref_to_var(pocketpy::py_retval()))            
         }
     }
-    
+
     fn debug() -> String {
         let state = get_py_state();
         unsafe { 
-            let current_thread = (*state).thread_idx;
+            let current_thread = get_thread_idx();
             let defined_objects = &(*state).defined_objects;
             let mut res = String::new();
             res.push_str("{");

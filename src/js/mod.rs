@@ -42,7 +42,7 @@ struct State {
     /// Module defined functions or variables takes a map[module_name] => map[int] => export
     module_exports: HashMap<String, Vec<JSModuleMethod>>,
     /// JSModules
-    modules: HashMap<String, *mut quickjs::JSModuleDef>
+    modules: HashMap<String, *mut quickjs::JSModuleDef>,
 }
 
 /// Creates a raw pointer with empty values
@@ -84,10 +84,10 @@ fn clear(ptr: *mut State) {
         (*ptr).defined_objects.clear();
         (*ptr).module_exports.clear();
         (*ptr).modules.clear();
-        if (*ptr).context.is_null() == false {
+        if !(*ptr).context.is_null() {
             quickjs::JS_FreeContext((*ptr).context);
         }
-        if (*ptr).rt.is_null() == false {
+        if !(*ptr).rt.is_null() {
             quickjs::JS_FreeRuntime((*ptr).rt);
         }
         (*ptr).context = std::ptr::null_mut();

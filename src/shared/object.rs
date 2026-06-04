@@ -10,7 +10,7 @@ use std::{
     collections::HashMap, ops::{BitAnd, BitOr}, os::raw::c_void, ptr, sync::{Arc, Mutex}
 };
 
-use crate::{pxs_debug, shared::{PtrMagic, ffi::ThreadLanguageState, module::ModuleCallback, var::{default_deleter, pxs_DeleterFn}}};
+use crate::{shared::{PtrMagic, ffi::ThreadLanguageState, module::ModuleCallback, var::{default_deleter, pxs_DeleterFn}}};
 
 /// Flags for `ObjectCallback`.
 /// 
