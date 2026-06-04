@@ -39,7 +39,7 @@ mod module;
 mod object;
 mod var;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone)]
 /// Enum for thread being Available or Occupied
 enum ThreadStatus {
     Available = 0,
@@ -80,6 +80,16 @@ struct State {
     defined_objects: HashMap<i32, HashSet<String>>,
     /// Thread pool 0-15
     thread_pool: Vec<ThreadStatus>
+}
+
+impl State {
+    pub fn update_thread_status(&mut self, idx: usize, val: ThreadStatus) {
+        self.thread_pool[idx] = val;
+    }
+
+    pub fn get_thread_status(&self, idx: usize) -> ThreadStatus {
+        self.thread_pool[idx]
+    }
 }
 
 fn new_state() -> *mut State {
@@ -434,36 +444,18 @@ impl PixelScript for PythonScripting {
     }
 
     fn start_thread() {
-        let mut times_tried = 0;
         unsafe {
             let state = get_py_state();
-            let mut idx = 0;
-            let mut found = false;
-            loop {
-                times_tried += 1;
-                for vm in &(*state).thread_pool {
-                    if *vm == ThreadStatus::Available {
-                        found = true;
-                        break;
-                    }
-                    idx += 1;
+            for i in 0..(*state).thread_pool.len() {
+                let vm = (*state).get_thread_status(i);
+                if vm == ThreadStatus::Available {
+                    THREAD_IDX.set(Some(i as u8));
+                    pocketpy::py_switchvm(i as i32);
+                    python_setup();
+                    (*state).update_thread_status(i, ThreadStatus::Occupied);
+                    break;
                 }
-                
-                if !found {
-                    if times_tried > 10 {
-                        panic!("Could not allocate thread.");
-                    }
-                    std::thread::yield_now();
-                    continue;
-                } 
-
-                (&mut (*state).thread_pool)[idx] = ThreadStatus::Occupied;
-                break;
             }
-            THREAD_IDX.set(Some(idx as u8));
-            println!("starting: {idx}");
-            pocketpy::py_switchvm(idx as i32);
-            python_setup();
         }
     }
 
@@ -476,7 +468,7 @@ impl PixelScript for PythonScripting {
         if let Some(idx) = idx {
             unsafe {
                 // mark thread as public.
-                (&mut (*state).thread_pool)[idx as usize] = ThreadStatus::Available;
+                (*state).update_thread_status(idx as usize, ThreadStatus::Available);
             }
             println!("stopping: {idx}");
         } else {
