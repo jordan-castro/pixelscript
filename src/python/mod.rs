@@ -39,17 +39,25 @@ mod module;
 mod object;
 mod var;
 
+#[derive(PartialEq)]
+/// Enum for thread being Available or Occupied
+enum ThreadStatus {
+    Available = 0,
+    Occupied = 1
+}
+
 /// This is a simple wrapper for instancing on the first time.
 fn setup_python_state() -> ThreadLanguageState<State> {
     ThreadLanguageState::new(new_state())
 }
 
 /// This sets up theh python thread pool
-fn setup_python_thread_pool() -> Vec<bool> {
+fn setup_python_thread_pool() -> Vec<ThreadStatus> {
     let mut vms = Vec::with_capacity(16);
     for i in 0..16 {
-        vms.insert(i, false);
+        vms.insert(i, ThreadStatus::Available);
     }
+    vms[0] = ThreadStatus::Occupied;
     vms
 }
 
@@ -71,7 +79,7 @@ struct State {
     /// Keep a list of defined PixelObject as class
     defined_objects: HashMap<i32, HashSet<String>>,
     /// Thread pool 0-15
-    thread_pool: Vec<bool>
+    thread_pool: Vec<ThreadStatus>
 }
 
 fn new_state() -> *mut State {
@@ -398,6 +406,8 @@ impl PixelScript for PythonScripting {
         unsafe {
             pocketpy::py_initialize();
         }
+        // Set the main thread to 0
+        THREAD_IDX.set(Some(0));
         init();
     }
 
@@ -432,7 +442,7 @@ impl PixelScript for PythonScripting {
             loop {
                 times_tried += 1;
                 for vm in &(*state).thread_pool {
-                    if !vm {
+                    if *vm == ThreadStatus::Available {
                         found = true;
                         break;
                     }
@@ -447,7 +457,7 @@ impl PixelScript for PythonScripting {
                     continue;
                 } 
 
-                (&mut (*state).thread_pool)[idx] = true;
+                (&mut (*state).thread_pool)[idx] = ThreadStatus::Occupied;
                 break;
             }
             THREAD_IDX.set(Some(idx as u8));
@@ -466,7 +476,7 @@ impl PixelScript for PythonScripting {
         if let Some(idx) = idx {
             unsafe {
                 // mark thread as public.
-                (&mut (*state).thread_pool)[idx as usize] = false;
+                (&mut (*state).thread_pool)[idx as usize] = ThreadStatus::Available;
             }
             println!("stopping: {idx}");
         } else {
