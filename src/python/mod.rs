@@ -444,6 +444,10 @@ impl PixelScript for PythonScripting {
     }
 
     fn start_thread() {
+        if THREAD_IDX.get().is_some() {
+            pxs_debug!("THREAD is already active.");
+        }
+
         unsafe {
             let state = get_py_state();
             for i in 0..(*state).thread_pool.len() {
@@ -456,6 +460,10 @@ impl PixelScript for PythonScripting {
                     break;
                 }
             }
+        }
+
+        if THREAD_IDX.get().is_none() {
+            pxs_debug!("THREAD was not set.");
         }
     }
 
@@ -470,12 +478,10 @@ impl PixelScript for PythonScripting {
                 // mark thread as public.
                 (*state).update_thread_status(idx as usize, ThreadStatus::Available);
             }
-            println!("stopping: {idx}");
+            THREAD_IDX.set(None);
         } else {
-            panic!("No thread set.");
+            pxs_debug!("There is not thread to stop");
         }
-
-        THREAD_IDX.set(None);
     }
 
     fn clear() {
@@ -701,7 +707,6 @@ impl ObjectMethods for PythonScripting {
                 } else {
                     // Look for in current module
                     let cmod = pocketpy::py_inspect_currentmodule();
-                    // TODO: does cmod need to be null checked.
                     // Then look for a method in current module
                     let found = pocketpy::py_getattr(cmod, pymethod_name);
                     if !found {
@@ -841,7 +846,6 @@ impl ObjectMethods for PythonScripting {
                 } else {
                     // Look for in current module
                     let cmod = pocketpy::py_inspect_currentmodule();
-                    // TODO: does cmod need to be null checked.
                     // Then look for a ref in current module
                     let found = pocketpy::py_getattr(cmod, pyname);
                     if !found {
