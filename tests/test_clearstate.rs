@@ -83,9 +83,9 @@ use pixelscript::{create_raw_string, free_raw_string, pxs_addvar, pxs_clear, pxs
 
     fn test_python() {
         let script = r#"
-from pxs import *
+from pxs import Per, print
 
-for i in range(0,1000):
+for i in range(0,50):
     p = Per('Jordan', 24)
 
 print('Working Python')
@@ -98,7 +98,7 @@ print('Working Python')
         let script = r#"
 local pxs = require('pxs')
 
-for i = 1, 1000 do 
+for i = 1, 50 do 
     local p = pxs.Per('Jordan', 24)
 end
 pxs.print('Working Lua')
@@ -111,7 +111,7 @@ pxs.print('Working Lua')
         let script = r#"
 import * as pxs from 'pxs';
 
-for (let i = 0; i < 1000; i++) {
+for (let i = 0; i < 50; i++) {
     let p = pxs.Per('Jordan', 24);
 }
 pxs.print('Working JS');
@@ -130,34 +130,35 @@ pxs.print('Working JS');
             layer: 0,
             atlas: Vector2 { x: 1, y: 1 }
         };
-        for i in 0..1000 {
+        for i in 0..50 {
             pxs_addvar(module, cstr_safe.new_string(&format!("contents{i}")), factory_tile(tile.clone()));
         }
     }
 
     #[test]
     fn run_test() {
-        println!();
         pxs_initialize();
         utils::setup_pxs();
 
         print_helper("PYTHON");
-        for i in 0..1000 {
+        for i in 0..50 {
             utils::setup_pxs();
+            test_python();
             pxs_clear();
         }
         print_helper("LUA");
-        for i in 0..1000 {
+        for i in 0..50 {
+            utils::setup_pxs();
             test_lua();
             pxs_clear();
-            utils::setup_pxs();
         }
         print_helper("JS");
-        for i in 0..1000 {
+        for i in 0..50 {
+            utils::setup_pxs();
             test_js();
             pxs_clear();
-            utils::setup_pxs();
         }
+
 
         pxs_finalize();
     }

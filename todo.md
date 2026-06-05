@@ -22,13 +22,8 @@
 - ~~Check that function calls that fail dont crash.~~
 - ~~Add `_pxs_delete` method to free internal memory at language level. (core lib)~~ (it's pxs_mem.memdel(obj))
 - ~~Add `arenas`~~
-- Add magic methods for memory management
-    - `pxs_mgk_newarena` Creates a new arena handled by the library.
-    - `pxs_mgk_freearena` Frees the most recent craeted arena by the lib.
-    - `pxs_mgk_newint` Allocates a new integer via the Arena. 
-    - * for all pxs_Var types.
-    - Can not be used for modules... i.e. adding vars to modules. Mgk vars are not accepted.
-- Add `strict` flag to panic when passing a arena owned variable to a function that transfrrs the mem.
+- Promises in JS.
+- Why (globals, locals) are null sometimes?
 
 ## v0.6 STD, Tests, Errors
 - Use libs/lua-5.5.0/* src instead of mlua.

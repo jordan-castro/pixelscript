@@ -294,6 +294,19 @@ impl SmartJSValue {
         }
     }
 
+    /// Await if promise and update value
+    pub fn await_if_promise(&mut self) {
+        if !self.is_promise() {
+            return;
+        }
+        // Drop old value
+        unsafe {
+            quickjs::JS_FreeValue(self.context, self.value);
+        }
+        // Set new value
+        self.value = self.await_value().dupped_value();
+    }
+
     /// Get As String (only works on strings)
     pub fn as_string(&self) -> Result<String> {
         if !self.is_string() {

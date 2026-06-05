@@ -203,7 +203,8 @@ unsafe fn new_module(code: &str, name: &str) {
     let cname = create_raw_string!(name);
     let module = unsafe { pocketpy::py_getmodule(cname) };
     if !module.is_null() {
-        panic!("module: {} already exists.", name);
+        pxs_debug!("PYTHON module: {name} already exists.");
+        return;
     }
 
     let _ = unsafe { pocketpy::py_newmodule(cname) };
@@ -468,7 +469,6 @@ impl PixelScript for PythonScripting {
     }
 
     fn stop_thread() {
-        // Self::clear();
         let state = get_py_state();
         clear(state);
 

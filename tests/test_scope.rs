@@ -206,8 +206,10 @@ pxs.print("Current loop idx: " .. tostring(loop_id))
         let code = r#"
 import * as pxs from 'pxs';
 
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 // JS requires wrapping in a function.
-export function __pxs__(globals, locals) {
+export async function __pxs__(globals, locals) {
     let self = globals.self;
     const init = () => {
         self.set_if_null('name', "Jordan");

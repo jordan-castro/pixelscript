@@ -266,15 +266,16 @@ impl PixelScript for JSScripting {
         global_scope: crate::shared::var::pxs_Var,
     ) -> anyhow::Result<crate::shared::var::pxs_Var> {
         // Compile object
-        let mod_obj = run_js(code, "<code_object>", (quickjs::JS_EVAL_FLAG_COMPILE_ONLY | quickjs::JS_EVAL_TYPE_MODULE) as i32);
+        let mod_obj = run_js(code, "<code_object>", (quickjs::JS_EVAL_FLAG_COMPILE_ONLY | quickjs::JS_EVAL_TYPE_MODULE | quickjs::JS_EVAL_FLAG_ASYNC) as i32);
         if mod_obj.is_exception() || mod_obj.is_error() {
             return Err(anyhow!("{}", mod_obj.get_error_exception().unwrap()));
         }
 
         // Execute it for the first time (there needs to be a specific function).
-        let res = SmartJSValue::new_owned(unsafe {
+        let mut res = SmartJSValue::new_owned(unsafe {
             quickjs::JS_EvalFunction(mod_obj.context, mod_obj.value)
         }, mod_obj.context);
+        res.await_if_promise();
         
         if res.is_exception() || res.is_error() {
             return Err(anyhow!("{}", res.get_error_exception().unwrap()));
