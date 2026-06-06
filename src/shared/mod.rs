@@ -34,10 +34,6 @@ pub mod arena;
 pub type pxs_LoadFileFn = unsafe extern "C" fn(file_path: *const c_char) -> *mut c_char;
 
 #[allow(non_camel_case_types)]
-/// Function Type for writing a file.
-pub type pxs_WriteFileFn = unsafe extern "C" fn(file_path: *const c_char, contents: *const c_char);
-
-#[allow(non_camel_case_types)]
 /// Function Type for reading a Dir. Should return a `pxs_List`
 pub type pxs_ReadDirFn = unsafe extern "C" fn(dir_path: *const c_char) -> pxs_VarT;
 
@@ -47,7 +43,6 @@ pub type pxs_Opaque = *mut c_void;
 /// This is the PixelScript state.
 pub(crate) struct PixelState {
     pub load_file: Option<pxs_LoadFileFn>,
-    pub write_file: Option<pxs_WriteFileFn>,
     pub read_dir: Option<pxs_ReadDirFn>,
 }
 
@@ -61,7 +56,6 @@ static PIXEL_STATE: LazyLock<ThreadLanguageState<PixelState>> = LazyLock::new(||
 fn init_state() -> *mut PixelState {
     PixelState{
         load_file: None,
-        write_file: None,
         read_dir: None
     }.into_raw()
 }
@@ -70,13 +64,6 @@ fn init_state() -> *mut PixelState {
 pub(crate) fn set_read_file(func: pxs_LoadFileFn) {
     unsafe { 
         (*PIXEL_STATE.get_ptr()).load_file = Some(func);
-    }
-}
-
-/// Set `write_file` function in PixelState global.
-pub(crate) fn set_write_file(func: pxs_WriteFileFn) {
-    unsafe {
-        (*PIXEL_STATE.get_ptr()).write_file = Some(func);
     }
 }
 
@@ -105,23 +92,6 @@ pub fn read_file(file_path: &str) -> String {
     // Convet *mut c_char into String
     let res_owned = own_string!(res);
     res_owned
-}
-
-/// Write a file using pxs api.
-/// This must be set by host language.
-pub fn write_file(file_path: &str, contents: &str) {
-    // Get callback
-    let cbk = unsafe { (*PIXEL_STATE.get_ptr()).write_file };
-    if cbk.is_none() {
-        return;
-    }
-    let cbk = cbk.unwrap();
-    // Convert to *const c_char
-    let c_file_path = CString::new(file_path).unwrap();
-    let c_contents = CString::new(contents).unwrap();
-
-    // Call it
-    unsafe { cbk(c_file_path.as_ptr(), c_contents.as_ptr()) };
 }
 
 /// Read a Directory using pxs api.

@@ -319,11 +319,6 @@ typedef void *pxs_Opaque;
 typedef char *(*pxs_LoadFileFn)(const char *file_path);
 
 /**
- * Function Type for writing a file.
- */
-typedef void (*pxs_WriteFileFn)(const char *file_path, const char *contents);
-
-/**
  * Function Type for reading a Dir. Should return a `pxs_List`
  */
 typedef pxs_VarT (*pxs_ReadDirFn)(const char *dir_path);
@@ -638,13 +633,6 @@ bool pxs_varis(struct pxs_Var *var, enum pxs_VarType var_type);
  * This is used to load files via import, require, etc
  */
 void pxs_set_filereader(pxs_LoadFileFn func);
-
-/**
- * Set a function for writing a file.
- *
- * This is used to write files via pxs_json
- */
-void pxs_set_filewriter(pxs_WriteFileFn func);
 
 /**
  * Set a function for reading a directory.

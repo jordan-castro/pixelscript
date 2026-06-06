@@ -800,16 +800,6 @@ pub extern "C" fn pxs_set_filereader(func: pxs_LoadFileFn) {
     set_read_file(func);
 }
 
-/// Set a function for writing a file.
-///
-/// This is used to write files via pxs_json
-#[unsafe(no_mangle)]
-pub extern "C" fn pxs_set_filewriter(func: pxs_WriteFileFn) {
-    pxs_debug!("pxs_set_filewriter");
-    assert_initiated!();
-    set_write_file(func);
-}
-
 /// Set a function for reading a directory.
 ///
 /// This is used to read a dir.
