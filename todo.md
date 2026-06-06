@@ -1,8 +1,5 @@
 # TODO
 
-- Add a LSP
-- Fix warnings (remove or ignore)
-
 ## v0.5 Memory and JS support
 - ~~JS support via quickjs-ng. *JS*~~ **DONE**
 - ~~Reference counting for PixelScript object.~~ **DONE**

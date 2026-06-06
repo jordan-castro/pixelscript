@@ -19,6 +19,14 @@ use crate::{
     lua::var::{from_lua, into_lua}, shared::{PixelScript, PtrMagic, ffi::ThreadLanguageState, read_file, var::{ObjectMethods, pxs_Var, pxs_VarMap}}, with_feature
 };
 
+#[allow(unused)]
+#[allow(non_camel_case_types)]
+#[allow(non_upper_case_globals)]
+#[allow(dead_code)]
+pub(self) mod flua {
+    include!(concat!(env!("OUT_DIR"), "/lua_bindings.rs"));
+}
+
 thread_local! {
     static LUASTATE: ThreadLanguageState<State> = ThreadLanguageState::new(new_state());
 }
@@ -26,9 +34,9 @@ thread_local! {
 /// This is the Lua state. Each language gets it's own private state
 struct State {
     /// The lua engine.
-    engine: Lua,
-    /// Cached Tables
-    tables: HashMap<String, LuaTable>,
+    engine: *mut flua::lua_State,
+    // /// Cached Tables
+    // tables: HashMap<String, *mut flua::>,
 }
 
 impl PtrMagic for State {}

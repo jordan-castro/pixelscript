@@ -8,9 +8,6 @@
 //
 use std::{ffi::c_void, sync::Arc};
 
-// use mlua::{IntoLua, Lua};
-use mlua::prelude::*;
-
 // Pure Rust goes here
 use crate::{
     lua::{State, object::create_object},
