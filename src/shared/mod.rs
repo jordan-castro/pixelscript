@@ -10,8 +10,6 @@ use std::{
     ffi::{CString, c_char, c_void}, panic::Location, sync::{Arc, LazyLock}
 };
 
-use anyhow::Result;
-
 use crate::{
     own_string, own_var, shared::{ffi::ThreadLanguageState, var::{pxs_Var, pxs_VarT}}
 };
@@ -40,6 +38,15 @@ pub type pxs_ReadDirFn = unsafe extern "C" fn(dir_path: *const c_char) -> pxs_Va
 #[allow(non_camel_case_types)]
 pub type pxs_Opaque = *mut c_void;
 
+/// Error type in PXS
+pub(crate) type PxsError = String;
+
+/// Generic Result type in PXS
+pub(crate) type PxsRes<T> = Result<T, PxsError>;
+
+/// Main Result type in PXS
+pub(crate) type PxsResult = PxsRes<pxs_Var>;
+
 /// This is the PixelScript state.
 pub(crate) struct PixelState {
     pub load_file: Option<pxs_LoadFileFn>,
@@ -52,6 +59,14 @@ impl PtrMagic for PixelState {}
 static PIXEL_STATE: LazyLock<ThreadLanguageState<PixelState>> = LazyLock::new(|| {
     ThreadLanguageState::<PixelState>::new(init_state())
 });
+
+/// This is a internal macro to create a PxsError type.
+#[macro_export]
+macro_rules! pxs_error {
+    ($($arg:tt)*) => {
+        Err(format!("{}", format_args!($($arg)*)))
+    }
+}
 
 fn init_state() -> *mut PixelState {
     PixelState{
@@ -189,10 +204,10 @@ pub trait PixelScript {
     fn add_module(source: Arc<module::pxs_Module>);
 
     /// Execute a script in this runtime.
-    fn execute(code: &str, file_name: &str) -> Result<pxs_Var>;
+    fn execute(code: &str, file_name: &str) -> PxsResult;
 
     /// Evaluate a script in this runtime. Returns a pxs_Var.
-    fn eval(code: &str) -> Result<pxs_Var>;
+    fn eval(code: &str) -> PxsResult;
 
     /// Some langauges (pocketpy) need to be explicitly told that a new thread is starting.
     /// For most languages this is NOT needed.
@@ -208,12 +223,12 @@ pub trait PixelScript {
     /// Compile and save for future use.
     /// Pass in a optional global scope, if null, defaults to empty Map.
     /// Result will be a list with: [Runtime, Compiled Object, ...]
-    fn compile(code: &str, global_scope: pxs_Var) -> Result<pxs_Var>;
+    fn compile(code: &str, global_scope: pxs_Var) -> PxsResult;
 
     /// Execute a code object.
     /// The code variable will always be a List with: [Runtime, Compiled Object, ...].
     /// Pass in optional local scope that will be included along with the compiled scope.
-    fn exec_object(code: pxs_Var, local_scope: pxs_Var) -> Result<pxs_Var>;
+    fn exec_object(code: pxs_Var, local_scope: pxs_Var) -> PxsResult;
 
     /// For debugging purposes. Return a string which explains the current state.
     fn debug() -> String;

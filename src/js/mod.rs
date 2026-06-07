@@ -1,12 +1,10 @@
 use std::collections::HashMap;
 
-use anyhow::{Result, anyhow};
-
 use crate::{
     borrow_string, js::{
         func::create_callback, module::add_local_module, utils::SmartJSValue, var::{js_into_pxs, pxs_into_js}
-    }, pxs_debug, shared::{
-        PXS_METHOD_NAME, PixelScript, PtrMagic, ffi::ThreadLanguageState, pxs_Opaque, read_file, utils::CStringSafe, var::{ObjectMethods, pxs_Var}
+    }, pxs_debug, pxs_error, shared::{
+        PXS_METHOD_NAME, PixelScript, PtrMagic, PxsResult, ffi::ThreadLanguageState, pxs_Opaque, read_file, utils::CStringSafe, var::{ObjectMethods, pxs_Var}
     }
 };
 
@@ -223,7 +221,7 @@ impl PixelScript for JSScripting {
         module::add_module(get_context(state), &source);
     }
 
-    fn execute(code: &str, file_name: &str) -> anyhow::Result<crate::shared::var::pxs_Var> {
+    fn execute(code: &str, file_name: &str) -> PxsResult {
         let res = run_js(code, file_name, (quickjs::JS_EVAL_TYPE_MODULE | quickjs::JS_EVAL_FLAG_ASYNC) as i32);
         let pxs_res = js_into_pxs(&res);
         if let Err(err) = pxs_res {
@@ -238,7 +236,7 @@ impl PixelScript for JSScripting {
         }
     }
 
-    fn eval(code: &str) -> anyhow::Result<crate::shared::var::pxs_Var> {
+    fn eval(code: &str) -> PxsResult {
         let res = run_js(code, "<eval>", (quickjs::JS_EVAL_TYPE_GLOBAL | quickjs::JS_EVAL_FLAG_ASYNC) as i32);
         js_into_pxs(&res)
     }
@@ -264,11 +262,11 @@ impl PixelScript for JSScripting {
     fn compile(
         code: &str,
         global_scope: crate::shared::var::pxs_Var,
-    ) -> anyhow::Result<crate::shared::var::pxs_Var> {
+    ) -> PxsResult {
         // Compile object
         let mod_obj = run_js(code, "<code_object>", (quickjs::JS_EVAL_FLAG_COMPILE_ONLY | quickjs::JS_EVAL_TYPE_MODULE | quickjs::JS_EVAL_FLAG_ASYNC) as i32);
         if mod_obj.is_exception() || mod_obj.is_error() {
-            return Err(anyhow!("{}", mod_obj.get_error_exception().unwrap()));
+            return pxs_error!("{}", mod_obj.get_error_exception().unwrap());
         }
 
         // Execute it for the first time (there needs to be a specific function).
@@ -278,7 +276,7 @@ impl PixelScript for JSScripting {
         res.await_if_promise();
         
         if res.is_exception() || res.is_error() {
-            return Err(anyhow!("{}", res.get_error_exception().unwrap()));
+            return pxs_error!("{}", res.get_error_exception().unwrap());
         }
 
         // Save the `mod_obj` as pxs
@@ -304,7 +302,7 @@ impl PixelScript for JSScripting {
     fn exec_object(
         code: crate::shared::var::pxs_Var,
         local_scope: crate::shared::var::pxs_Var,
-    ) -> anyhow::Result<crate::shared::var::pxs_Var> {
+    ) -> PxsResult {
         let state = get_js_state();
         let list = code.get_list().unwrap();
 
@@ -314,14 +312,14 @@ impl PixelScript for JSScripting {
         // Convert code object to JS
         let code_object_js = pxs_into_js(get_context(state), &code_object_pxs)?;
         if !code_object_js.is_module() {
-            return Err(anyhow!("Expected module, found: {}", code_object_js.type_string()));
+            return pxs_error!("Expected module, found: {}", code_object_js.type_string());
         }
 
         // Get namespace and __pxs__ method
         let ns = code_object_js.get_module_namespace();
         let pxs_method = ns.get_prop(PXS_METHOD_NAME);
         if !pxs_method.is_function() {
-            return Err(anyhow!("Expected function for __pxs__, found: {}", pxs_method.type_string()));
+            return pxs_error!("Expected function for __pxs__, found: {}", pxs_method.type_string());
         }
 
         let args = vec![
@@ -368,7 +366,7 @@ impl ObjectMethods for JSScripting {
         var: &crate::shared::var::pxs_Var,
         method: &str,
         args: &mut crate::shared::var::pxs_VarList,
-    ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
+    ) -> PxsResult {
         let state = get_js_state();
         let js_var = pxs_into_js(get_context(state), var)?;
         let mut argv = vec![];
@@ -385,7 +383,7 @@ impl ObjectMethods for JSScripting {
     fn call_method(
         method: &str,
         args: &mut crate::shared::var::pxs_VarList,
-    ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
+    ) -> PxsResult {
         // globalThis.`method`(args)
         let state = get_js_state();
         let mut argv = vec![];
@@ -408,7 +406,7 @@ impl ObjectMethods for JSScripting {
     fn var_call(
         method: &crate::shared::var::pxs_Var,
         args: &mut crate::shared::var::pxs_VarList,
-    ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
+    ) -> PxsResult {
         let state = get_js_state();
         let smart_val = pxs_into_js(get_context(state), method)?;
         let mut argv = vec![];
@@ -423,7 +421,7 @@ impl ObjectMethods for JSScripting {
     fn get(
         var: &crate::shared::var::pxs_Var,
         key: &str,
-    ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
+    ) -> PxsResult {
         let state = get_js_state();
         let this = pxs_into_js(get_context(state), var)?;
         let res = this.get_prop(key);
@@ -435,7 +433,7 @@ impl ObjectMethods for JSScripting {
         var: &crate::shared::var::pxs_Var,
         key: &str,
         value: &crate::shared::var::pxs_Var,
-    ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
+    ) -> PxsResult {
         let state = get_js_state();
         let this = pxs_into_js(get_context(state), var)?;
         let mut value = pxs_into_js(get_context(state), value)?;
@@ -445,7 +443,7 @@ impl ObjectMethods for JSScripting {
         Ok(pxs_Var::new_bool(true))
     }
 
-    fn get_from_name(name: &str) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
+    fn get_from_name(name: &str) -> PxsResult {
         js_into_pxs(&get_js_name(name))
     }
 }

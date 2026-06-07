@@ -10,19 +10,14 @@ use std::{
     cell::Cell, collections::{HashMap, HashSet}, sync::LazyLock
 };
 
-use anyhow::{Result, anyhow};
-
 use crate::{
-    borrow_string, create_raw_string, free_raw_string, own_string, pxs_debug,
-    python::{
+    borrow_string, create_raw_string, free_raw_string, own_string, pxs_debug, pxs_error, python::{
         func::{get_builtin, pocketpy_bridge, py_assign},
         module::create_module,
         var::{PythonPointer, pocketpyref_to_var, var_to_pocketpyref},
-    },
-    shared::{
-        PixelScript, PtrMagic, ffi::ThreadLanguageState, read_file, read_file_dir, utils::CStringSafe, var::{ObjectMethods, pxs_Var, pxs_VarList}
-    },
-    with_feature,
+    }, shared::{
+        PixelScript, PtrMagic, PxsResult, ffi::ThreadLanguageState, read_file, read_file_dir, utils::CStringSafe, var::{ObjectMethods, pxs_Var, pxs_VarList}
+    }, with_feature
 };
 
 // Allow for the binidngs only
@@ -434,7 +429,7 @@ impl PixelScript for PythonScripting {
         create_module(&source);
     }
 
-    fn execute(code: &str, file_name: &str) -> Result<pxs_Var> {
+    fn execute(code: &str, file_name: &str) -> PxsResult {
         let res = exec_main_py(code, file_name);
         if res.is_empty() {
             Ok(pxs_Var::new_null())
@@ -493,7 +488,7 @@ impl PixelScript for PythonScripting {
         init();
     }
 
-    fn eval(code: &str) -> Result<pxs_Var> {
+    fn eval(code: &str) -> PxsResult {
         let res = exec_main_py(code, "eval");
         Ok(if res.is_empty() {
             pocketpyref_to_var(unsafe { pocketpy::py_retval() })
@@ -502,7 +497,7 @@ impl PixelScript for PythonScripting {
         })
     }
 
-    fn compile(code: &str, scope: pxs_Var) -> Result<pxs_Var> {
+    fn compile(code: &str, scope: pxs_Var) -> PxsResult {
         let source = create_raw_string!(code);
         let file_name = create_raw_string!("<compile>");
         unsafe {
@@ -549,7 +544,7 @@ impl PixelScript for PythonScripting {
         }
     }
     
-    fn exec_object(code: pxs_Var, scope: pxs_Var) -> Result<pxs_Var> {
+    fn exec_object(code: pxs_Var, scope: pxs_Var) -> PxsResult {
         // Check if a list or a regular obj
         let code_obj = unsafe{pocketpy::py_pushtmp()};
         let code_scope = unsafe{pocketpy::py_pushtmp()};
@@ -653,7 +648,7 @@ impl ObjectMethods for PythonScripting {
         var: &crate::shared::var::pxs_Var,
         method: &str,
         args: &mut crate::shared::var::pxs_VarList,
-    ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
+    ) -> PxsResult {
         // Make a object ref
         let obj_ref = unsafe { pocketpy::py_pushtmp() };
         // Set it
@@ -694,7 +689,7 @@ impl ObjectMethods for PythonScripting {
     fn call_method(
         method: &str,
         args: &mut crate::shared::var::pxs_VarList,
-    ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
+    ) -> PxsResult {
         // Convert methods to pocketpy
         let method_name = create_raw_string!(method);
         unsafe {
@@ -754,11 +749,11 @@ impl ObjectMethods for PythonScripting {
         }
     }
 
-    fn var_call(method: &pxs_Var, args: &mut pxs_VarList) -> Result<pxs_Var, anyhow::Error> {
+    fn var_call(method: &pxs_Var, args: &mut pxs_VarList) -> PxsResult {
         pxs_debug!("PYTHON VAR CALL IS GETTING CALLED");
         // Make sure it's a function!
         if !method.is_function() {
-            return Err(anyhow!("Expected Function, found: {:#?}", method.tag));
+            return pxs_error!("Expected Function, found: {:#?}", method.tag);
         }
 
         // Get ptr as py_ref
@@ -786,10 +781,10 @@ impl ObjectMethods for PythonScripting {
         Ok(pocketpyref_to_var(py_res))
     }
 
-    fn get(var: &pxs_Var, key: &str) -> Result<pxs_Var, anyhow::Error> {
+    fn get(var: &pxs_Var, key: &str) -> PxsResult {
         unsafe {
             if var.value.object_val.is_null() {
-                return Err(anyhow!("var.value.object_val is Null"));
+                return pxs_error!("var.value.object_val is Null");
             }
             // Deref
             let python_pointer = PythonPointer::from_borrow_void(var.get_object_ptr());
@@ -809,10 +804,10 @@ impl ObjectMethods for PythonScripting {
         }
     }
 
-    fn set(var: &pxs_Var, key: &str, value: &pxs_Var) -> Result<pxs_Var, anyhow::Error> {
+    fn set(var: &pxs_Var, key: &str, value: &pxs_Var) -> PxsResult {
         unsafe {
             if var.value.object_val.is_null() {
-                return Err(anyhow!("var.value.object_val is Null"));
+                return pxs_error!("var.value.object_val is Null");
             }
 
             // Deref
@@ -834,7 +829,7 @@ impl ObjectMethods for PythonScripting {
         }
     }
 
-    fn get_from_name(name: &str) -> Result<pxs_Var, anyhow::Error> {
+    fn get_from_name(name: &str) -> PxsResult {
         unsafe {
             let ref_name = create_raw_string!(name);
             let pyname = pocketpy::py_name(ref_name);

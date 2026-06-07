@@ -35,11 +35,67 @@ thread_local! {
 struct State {
     /// The lua engine.
     engine: *mut flua::lua_State,
-    // /// Cached Tables
-    // tables: HashMap<String, *mut flua::>,
+    /// Cached Tables (Name -> idx)
+    tables: HashMap<String, i32>,
+
+    /// Saved Lua References (idx -> LuaReference).
+    references: HashMap<u32, LuaReference>
 }
 
 impl PtrMagic for State {}
+
+const LUA_REGISTRYINDEX: i32 = flua::LUA_REGISTRYINDEX;
+
+/// Helper for safely referencing Lua table/functions.
+/// Once out of scope, it will drop.
+/// 
+/// Can `clone`.
+pub(self) struct LuaReference {
+    pub idx: i32,
+}
+
+impl PtrMagic for LuaReference {}
+
+impl Drop for LuaReference {
+    fn drop(&mut self) {
+        let state = get_lua_state();
+        unsafe {
+            flua::luaL_unref((*state).engine, LUA_REGISTRYINDEX, self.idx);
+        }
+    }
+}
+
+impl Clone for LuaReference {
+    fn clone(&self) -> Self {
+        let state = get_lua_state();
+        self.push();
+        let new_idx = unsafe {
+            flua::luaL_ref((*state).engine, -1)
+        };
+
+        LuaReference { idx: new_idx }
+    }
+}
+
+impl LuaReference {
+    /// New reference based off position
+    pub fn new(position: i32) -> Self {
+        let state = get_lua_state();
+        let idx = unsafe {
+            flua::luaL_ref((*state).engine, position)
+        };
+
+        LuaReference { idx }
+    }
+
+    /// Push value to Lua stack
+    pub fn push(&self) {
+        let state = get_lua_state();
+        unsafe {
+            flua::lua_rawgeti((*state).engine, LUA_REGISTRYINDEX, self.idx as i64);
+        }
+    }
+}
 
 /// Preload a lua source code as a module.
 fn preload_lua_module(lua: &Lua, code: &str, name: &str) -> Result<(), anyhow::Error> {

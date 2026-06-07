@@ -2,10 +2,9 @@
 // Convert JS vars to PXS vars.
 
 use std::{ffi::c_void, sync::Arc};
-use anyhow::{Result, anyhow};
 
-use crate::{js::{SmartJSValue, object::create_object, quickjs}, shared::{
-    PtrMagic, object::get_object, pxs_Runtime, var::{pxs_Var, pxs_VarObject}
+use crate::{js::{SmartJSValue, object::create_object, quickjs}, pxs_error, shared::{
+    PtrMagic, PxsRes, PxsResult, object::get_object, pxs_Runtime, var::{pxs_Var, pxs_VarObject}
 }};
 
 /// JS PXS Container.
@@ -35,7 +34,7 @@ unsafe extern "C" fn js_deleter(ptr: *mut c_void) {
 }
 
 /// Convert a JS Value into a pxs_Var
-pub(super) fn js_into_pxs(value: &SmartJSValue) -> Result<pxs_Var> {
+pub(super) fn js_into_pxs(value: &SmartJSValue) -> PxsResult {
     // let value = value.clone();
     if value.is_int() {
         Ok(pxs_Var::new_i64(value.as_i32()? as i64))
@@ -76,7 +75,7 @@ pub(super) fn js_into_pxs(value: &SmartJSValue) -> Result<pxs_Var> {
 }
 
 /// Convert a `pxs_Var` into a JS Value.
-pub(super) fn pxs_into_js(context: *mut quickjs::JSContext, var: &pxs_Var) -> Result<SmartJSValue> {
+pub(super) fn pxs_into_js(context: *mut quickjs::JSContext, var: &pxs_Var) -> PxsRes<SmartJSValue> {
     match var.tag {
         crate::shared::var::pxs_VarType::pxs_Int64 => Ok(SmartJSValue::new_i32(context, var.get_i64()? as i32)),
         // TODO: support UInt
@@ -90,7 +89,7 @@ pub(super) fn pxs_into_js(context: *mut quickjs::JSContext, var: &pxs_Var) -> Re
             let container_ptr = var.get_object_ptr();
             if container_ptr.is_null() {
                 // I want to return Exception("Object pointer not found.")
-                return Err(anyhow!("Object pointer not found"));
+                return pxs_error!("Object pointer not found");
             }
             let container = unsafe{JSPXSContainer::from_borrow_void(container_ptr)};
 
@@ -130,7 +129,7 @@ pub(super) fn pxs_into_js(context: *mut quickjs::JSContext, var: &pxs_Var) -> Re
             // What?
             let container_ptr = var.get_function().unwrap();
             if container_ptr.is_null() {
-                return Err(anyhow!("Function pointer not found"));
+                return pxs_error!("Function pointer not found");
             }
             let container = unsafe{JSPXSContainer::from_borrow_void(container_ptr)};
             Ok(container.value.clone())
