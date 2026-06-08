@@ -37,6 +37,7 @@
     - Explicitly coming from PXS
     - Explicit which runtime
     - Fix JS nasty errors
+- Look into no_std
 
 ## v0.7 Wren support, WASM, C support (libtcc)
 - Add Wren support

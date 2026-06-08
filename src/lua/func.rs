@@ -6,40 +6,91 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-use anyhow::{Result, anyhow};
-use mlua::prelude::*;
 // use mlua::{Integer, IntoLua, Lua, MultiValue, Value::Nil, Variadic};
 
-use crate::{lua::{State, from_lua, into_lua}, shared::{ffi::ThreadSafePointer, func::call_function, pxs_Runtime, var::pxs_Var}};
+use crate::{create_raw_string, free_raw_string, lua::{lua, from_lua, lua_error, lua_pop, lua_upvalueindex, var::push_lua_stack}, shared::{PXS_PTR_NAME, func::call_function, object::ObjectFlags, pxs_Runtime}};
 
-/// For internal use since modules also need to use the same logic for adding a Lua callback.
-pub(super) fn internal_add_callback(state: *mut State, fn_idx: i32) -> Result<LuaFunction> {
-    let thread_safe_state = ThreadSafePointer::new(state);
+pub(super) unsafe extern "C" fn lua_object_bridge(L: *mut lua::lua_State) -> core::ffi::c_int {
+    unsafe {
+        let argc = lua::lua_gettop(L);
+        let obj = 1; // object is always first
 
-    let func = unsafe { (*state).engine.create_function(move |_, args: LuaMultiValue| -> Result<LuaValue, LuaError> {
-        // Convert args -> argv for pixelmods
-        let mut argv: Vec<pxs_Var> = vec![];
+        // Get fn idx
+        let fn_idx = lua::lua_tointegerx(L, lua_upvalueindex(1), core::ptr::null_mut());
+        let flags = lua::lua_tointegerx(L, lua_upvalueindex(2), core::ptr::null_mut());
 
-        // Pass in the runtime type
-        argv.push(pxs_Var::new_i64(pxs_Runtime::pxs_Lua as i64));
-
-        for arg in args {
-            let lua_arg = from_lua(arg);
-            if lua_arg.is_err() {
-                return Err(LuaError::RuntimeError(lua_arg.unwrap_err().to_string()));
-            }
-            argv.push(lua_arg.unwrap());
+        // Check that obj is a table
+        if lua::lua_type(L, obj) != lua::LUA_TTABLE as i32 {
+            return lua_error(L, "self required.");
         }
 
-        let res = call_function(fn_idx, argv);
+        // Let's setup our callback
+        let mut argv = vec![
+            pxs_Runtime::pxs_Lua.into_var()
+        ];
 
-        let lua_val = into_lua(thread_safe_state.get_ptr(), &res);
-        lua_val
-        // Memory will drop here, and argv and res will be automatically freed!
-    }) };
-    if func.is_err() {
-        Err(anyhow!(func.unwrap_err().to_string()))
-    } else {
-        Ok(func.unwrap())
+        // Check flags
+        if flags as u8 & (ObjectFlags::UsesId as u8) != 0 {
+            // Get _pxs_ptr
+            let ptr_string = create_raw_string!(PXS_PTR_NAME);
+            lua::lua_pushstring(L, ptr_string);
+            free_raw_string!(ptr_string);
+            lua::lua_rawget(L, obj);
+            argv.push(from_lua(-1).unwrap());
+            // pop
+            lua_pop(L, 1);
+        } else {
+            argv.push(from_lua(1).unwrap());
+        }
+
+        for i in 2..=argc {
+            argv.push(from_lua(i).unwrap());
+        }
+
+        // Call the fuction
+        let res = call_function(fn_idx as i32, argv);
+        let success: Result<i32, String> = push_lua_stack(&res);
+        if success.is_err() {
+            return lua_error(L, &success.unwrap_err().to_string());
+        }
+
+        // Always return 1 dog
+        1
+    }
+}
+
+/// The lua function bridge
+pub(super) unsafe extern "C" fn lua_bridge(L: *mut lua::lua_State) -> core::ffi::c_int {
+    unsafe {
+        let argc = lua::lua_gettop(L);
+
+        // Get fn idx
+        let fn_idx = lua::lua_tointegerx(L, lua_upvalueindex(1), std::ptr::null_mut());
+
+        // Now we have fn idx, lets set up our callback
+        let mut argv = vec![
+            pxs_Runtime::pxs_Lua.into_var()
+        ];
+
+        // Num of args (skip first)
+        for i in 1..=argc {
+            let var = from_lua(i);
+            if let Ok(var) = var {
+                argv.push(var);
+            } else {
+                return lua_error(L, &var.unwrap_err().to_string());
+            }
+        }
+
+        // Call callback
+        let res = call_function(fn_idx as i32, argv);
+
+        let success: Result<i32, String> = push_lua_stack(&res);
+        if success.is_err() {
+            return lua_error(L, &success.unwrap_err().to_string());
+        }
+
+        // Always return 1 as number of args returned.
+        1
     }
 }

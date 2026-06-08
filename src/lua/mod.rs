@@ -6,24 +6,24 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
+#![allow(non_snake_case)]
+
 pub mod func;
 pub mod module;
 pub mod object;
 pub mod var;
 
-use anyhow::{Result, anyhow};
-use mlua::prelude::*;
-use std::collections::HashMap;
-
+#[cfg(feature="pxs_json")]
+use crate::lua::module::preload_lua_module;
 use crate::{
-    lua::var::{from_lua, into_lua}, shared::{PixelScript, PtrMagic, ffi::ThreadLanguageState, read_file, var::{ObjectMethods, pxs_Var, pxs_VarMap}}, with_feature
+    borrow_string, create_raw_string, free_raw_string, lua::var::from_lua, pxs_error, shared::{PixelScript, PtrMagic, ffi::ThreadLanguageState, read_file, utils::CStringSafe, var::{ObjectMethods, pxs_Var, pxs_VarMap}}, with_feature
 };
 
 #[allow(unused)]
 #[allow(non_camel_case_types)]
 #[allow(non_upper_case_globals)]
 #[allow(dead_code)]
-pub(self) mod flua {
+pub(self) mod lua {
     include!(concat!(env!("OUT_DIR"), "/lua_bindings.rs"));
 }
 
@@ -34,17 +34,12 @@ thread_local! {
 /// This is the Lua state. Each language gets it's own private state
 struct State {
     /// The lua engine.
-    engine: *mut flua::lua_State,
-    /// Cached Tables (Name -> idx)
-    tables: HashMap<String, i32>,
-
-    /// Saved Lua References (idx -> LuaReference).
-    references: HashMap<u32, LuaReference>
+    engine: *mut lua::lua_State,
 }
 
 impl PtrMagic for State {}
 
-const LUA_REGISTRYINDEX: i32 = flua::LUA_REGISTRYINDEX;
+const LUA_REGISTRYINDEX: i32 = lua::LUA_REGISTRYINDEX;
 
 /// Helper for safely referencing Lua table/functions.
 /// Once out of scope, it will drop.
@@ -60,7 +55,7 @@ impl Drop for LuaReference {
     fn drop(&mut self) {
         let state = get_lua_state();
         unsafe {
-            flua::luaL_unref((*state).engine, LUA_REGISTRYINDEX, self.idx);
+            lua::luaL_unref((*state).engine, LUA_REGISTRYINDEX, self.idx);
         }
     }
 }
@@ -70,7 +65,7 @@ impl Clone for LuaReference {
         let state = get_lua_state();
         self.push();
         let new_idx = unsafe {
-            flua::luaL_ref((*state).engine, -1)
+            lua::luaL_ref((*state).engine, -1)
         };
 
         LuaReference { idx: new_idx }
@@ -82,7 +77,7 @@ impl LuaReference {
     pub fn new(position: i32) -> Self {
         let state = get_lua_state();
         let idx = unsafe {
-            flua::luaL_ref((*state).engine, position)
+            lua::luaL_ref((*state).engine, position)
         };
 
         LuaReference { idx }
@@ -92,33 +87,79 @@ impl LuaReference {
     pub fn push(&self) {
         let state = get_lua_state();
         unsafe {
-            flua::lua_rawgeti((*state).engine, LUA_REGISTRYINDEX, self.idx as i64);
+            lua::lua_rawgeti((*state).engine, LUA_REGISTRYINDEX, self.idx as i64);
         }
     }
 }
 
-/// Preload a lua source code as a module.
-fn preload_lua_module(lua: &Lua, code: &str, name: &str) -> Result<(), anyhow::Error> {
-    let package: LuaTable = lua.globals().get("package")?;
-    let preload: LuaTable = package.get("preload")?;
+/// Push a string to lua
+pub(self) fn push_string(L: *mut lua::lua_State, contents: &str) {
+    let mut cstring = CStringSafe::new();
+    unsafe {
+        lua::lua_pushstring(L, cstring.new_string(contents));
+    }
+}
 
-    let owned_code = String::from(code);
-    let owned_name = String::from(name);
+/// Push a function to lua
+pub(self) fn push_function(state: *mut State) {
+    
+}
 
-    let loader = lua.create_function(move |lua, _: ()| {
-        let res: LuaTable = lua.load(&owned_code).set_name(format!("pxs_internal_{}", &owned_name)).eval()?;
-        Ok(res)
-    })?;
+pub(self) fn lua_error(L: *mut lua::lua_State, contents: &str) -> std::ffi::c_int {
+    unsafe {
+        let msg = create_raw_string!(contents);
+        let res = lua::luaL_error(L, msg);
+        free_raw_string!(msg);
 
-    preload.set(name, loader)?;
-    Ok(())
+        res
+    }
+}
+
+/// Pop the stack
+pub(self) fn lua_pop(L: *mut lua::lua_State, amount: core::ffi::c_int) {
+    // #define lua_pop(L,n)		lua_settop(L, -(n)-1)
+    unsafe {
+        lua::lua_settop(L, -(amount)-1);
+    }
+}
+
+/// #define lua_replace(L,idx)	(lua_copy(L, -1, (idx)), lua_pop(L, 1))
+pub(self) fn lua_replace(L: *mut lua::lua_State, idx: core::ffi::c_int) {
+    unsafe {
+        lua::lua_copy(L, -1, idx);
+    }
+    lua_pop(L, 1);
+}
+
+/// #define lua_upvalueindex(i)	(LUA_REGISTRYINDEX - (i))
+pub(self) fn lua_upvalueindex(i: core::ffi::c_int) -> core::ffi::c_int {
+    LUA_REGISTRYINDEX - i
+}
+
+/// #define lua_remove(L,idx)	(lua_rotate(L, (idx), -1), lua_pop(L, 1))
+pub(self) fn lua_remove(L: *mut lua::lua_State, idx: core::ffi::c_int) {
+    unsafe {
+        lua::lua_rotate(L, idx, -1);
+        lua_pop(L, 1);
+    }
+}
+
+/// Get the error as a string (handle it in PXS)
+pub(self) fn lua_get_error(L: *mut lua::lua_State) -> String {
+    unsafe {
+let lua_error = borrow_string!(lua::lua_tolstring(L, -1, core::ptr::null_mut()));
+            // Pop the error obvio
+            lua_pop(L, 1);
+            lua_error.to_string()
+    }
 }
 
 fn new_state() -> *mut State {
-    State {
-        engine: Lua::new(),
-        tables: HashMap::new(),
-    }.into_raw()
+    unsafe {
+        State {
+            engine: lua::luaL_newstate(),
+        }.into_raw()
+    }
 }
 
 fn init(ptr: *mut State) {
@@ -128,13 +169,13 @@ fn init(ptr: *mut State) {
 
         with_feature!("pxs_json", {
             // Load dkjson module
-            let _ = preload_lua_module(&(*ptr).engine, include_str!("../../libs/dkjson.lua"), "__dkjson__");
+            let _ = preload_lua_module((*ptr).engine, include_str!("../../libs/dkjson.lua"), "__dkjson__");
             // Load in the pxs_json module
-            let _ = preload_lua_module(&(*ptr).engine, include_str!("../../core/lua/pxs_json.lua"), "pxs_json");
+            let _ = preload_lua_module((*ptr).engine, include_str!("../../core/lua/pxs_json.lua"), "pxs_json");
             // Import it globally
             lua_globals.push_str("\npxs_json = require('pxs_json')\n");
         });
-        let _ = (*ptr).engine.load(lua_globals).set_name("<lua_globals>").exec();
+        let _ = execute(ptr, &lua_globals, "<lua_globals>");
 
         let _ = setup_module_loader(&(*ptr).engine);
     }
@@ -152,18 +193,6 @@ fn get_lua_state() -> *mut State {
     LUASTATE.with(|mutex| {
         mutex.get_ptr()
     })
-}
-
-/// Get a cached metatable from lua.
-pub(self) fn get_metatable(state: *mut State, name: &str) -> Option<LuaTable> {
-    unsafe { (*state).tables.get(name).cloned() }
-}
-
-/// Cahce a metatable.
-pub(self) fn store_metatable(state: *mut State, name: &str, table: LuaTable) {
-    unsafe {
-        (*state).tables.insert(name.to_string(), table);
-    }
 }
 
 /// Execute some orbituary lua code.
