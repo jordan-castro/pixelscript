@@ -153,7 +153,7 @@ pub(super) fn push_lua_stack(var: &pxs_Var) -> PxsRes<i32> {
             pxs_VarType::pxs_Factory => {
                 let factory = var.get_factory().unwrap();
                 let res = factory.call(pxs_Runtime::pxs_Lua);
-                push_lua_stack(&res);
+                push_lua_stack(&res)?;
             },
             pxs_VarType::pxs_Exception => {
                 let msg = var.get_string()?;
@@ -165,8 +165,8 @@ pub(super) fn push_lua_stack(var: &pxs_Var) -> PxsRes<i32> {
                 lua_createtable(L, 0, keys.len() as i32);
                 let table = lua_gettop(L);
                 for k in keys {
-                    push_lua_stack(k);
-                    push_lua_stack(map.get_item(k).unwrap());
+                    push_lua_stack(k)?;
+                    push_lua_stack(map.get_item(k).unwrap())?;
                     lua_settable(L, table);
                 }
             },

@@ -15,7 +15,7 @@ use std::{
 };
 
 use crate::{
-    borrow_string, create_raw_string, pxs_error, shared::{PtrMagic, PxsError, PxsResult, func::pxs_Func, object::{apply_ref_count_alloc, apply_ref_count_delete, get_object}, pxs_Runtime}
+    borrow_string, create_raw_string, pxs_error, shared::{PtrMagic, PxsError, PxsRes, PxsResult, func::pxs_Func, object::{apply_ref_count_alloc, apply_ref_count_delete, get_object}, pxs_Runtime}
 };
 
 /// Macro for writing out the Var:: get methods.
@@ -1079,7 +1079,7 @@ pub trait ObjectMethods {
     fn get(var: &pxs_Var, key: &str) -> PxsResult;
 
     /// Setter
-    fn set(var: &pxs_Var, key: &str, value: &pxs_Var) -> PxsResult;
+    fn set(var: &pxs_Var, key: &str, value: &pxs_Var) -> PxsRes<()>;
 
     /// Get a object/function based off their name
     fn get_from_name(name: &str) -> PxsResult;

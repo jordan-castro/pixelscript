@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use crate::{
     lua::{
-        State, func::lua_bridge, lua, lua_get_error, lua_pop, lua_upvalueindex, push_string, var::push_lua_stack
+        State, engine::Engine, func::lua_bridge, lua, lua_get_error, lua_upvalueindex
     },
     pxs_error,
     shared::{PxsRes, module::pxs_Module, utils::CStringSafe},
@@ -46,78 +46,66 @@ pub(super) fn compile_chunk(L: *mut lua::lua_State, code: &str, name: &str) -> P
 
 /// Preload a lua source code as a module.
 pub(super) fn preload_lua_module(L: *mut lua::lua_State, code: &str, name: &str) -> PxsRes<()> {
-    let mut cstring = CStringSafe::new();
-    unsafe {
-        lua::lua_getglobal(L, cstring.new_string("package"));
-        push_string(L, "preload");
-        lua::lua_rawget(L, -2);
-        let preload_idx = lua::lua_gettop(L);
+    let mut engine = Engine::new(L);
+    // Get package
+    engine.get_global("package");
+    engine.push_string("preload");
+    let preload_idx = engine.get_top();
 
-        compile_chunk(L, code, name)?;
-        let status = lua::lua_pcallk(L, 0, 1, 0, 0, None);
+    // Compile code
+    engine.compile_chunk(code, name)?;
+    // run it
+    engine.call(0, 1)?;
 
-        if status != lua::LUA_OK as i32 {
-            let lua_error = lua_get_error(L);
-            lua_pop(L, 2);
-            return pxs_error!("{lua_error}");
-        }
+    // Pass result ito upvalue
+    engine.push_function(module_loader, 1);
+    engine.set_field(preload_idx, name);
 
-        // Pass result into upvalue
-        lua::lua_pushcclosure(L, Some(module_loader), 1);
-        lua::lua_setfield(L, preload_idx, cstring.new_string(name));
-
-        // Now we need to drop everything
-        lua_pop(L, 2);
-
-        Ok(())
-    }
+    Ok(())
 }
 
 pub(super) fn add_module(state: *mut State, module: Arc<pxs_Module>) -> PxsRes<()> {
-    let mut cstring = CStringSafe::new();
-    unsafe {
-        let L = (*state).engine;
+    let mut engine = Engine::from_state(state);
 
-        // Create the table
-        lua::lua_createtable(
-            L,
-            0,
-            (module.variables.len() + module.callbacks.len()) as i32,
-        );
-        let table = lua::lua_gettop(L);
+    // Create module table
+    let table = engine.create_table(0, (module.variables.len() +module.callbacks.len()) as i32);
 
-        for var in module.variables.iter() {
-            push_string(L, &var.name);
-            push_lua_stack(&var.var);
-            lua::lua_rawset(L, table);
-        }
-
-        for callback in module.callbacks.iter() {
-            push_string(L, &callback.name);
-            lua::lua_pushinteger(L, callback.idx as i64);
-            lua::lua_pushcclosure(L, Some(lua_bridge), 1);
-            lua::lua_rawset(L, table);
-        }
-
-        lua::lua_getglobal(L, cstring.new_string("package"));
-        push_string(L, "preload");
-        lua::lua_rawget(L, -2);
-        let preload_idx = lua::lua_gettop(L);
-
-        // Now we have preload module
-
-        // Module stuff
-        push_string(L, &module.name);
-        lua::lua_pushvalue(L, table);
-        lua::lua_pushcclosure(L, Some(module_loader), 1);
-        lua::lua_rawset(L, preload_idx); // push to the preload table
-
-        lua_pop(L, 3);
-
-        for child in module.modules.iter() {
-            let _ = add_module(state, Arc::clone(&child));
-        }
-
-        Ok(())
+    // Add variables
+    for var in module.variables.iter() {
+        engine.push_string(&var.name);
+        engine.push_pxs(&var.var)?;
+        engine.raw_set(table);
     }
+
+    // Add callbacks
+    for cbk in module.callbacks.iter() {
+        engine.push_string(&cbk.name);
+        engine.push_integer(cbk.idx); // add idx to upvalue.
+        engine.push_function(lua_bridge, 1);
+        engine.raw_set(table);
+    }
+
+    // Setup loader
+
+    // Get preload
+    engine.get_global("package");
+    engine.push_string("preload");
+    engine.raw_get(-2);
+    let preload_idx = engine.get_top();
+
+    // Now we actually have the preload module
+    // module stuff
+    engine.push_string(&module.name);
+    engine.push_value(table); // add table to upvalues
+    engine.push_function(module_loader, 1);
+    engine.raw_set(preload_idx);
+
+    // Drop the engine to clean stack.
+    drop(engine);
+
+    for child in module.modules.iter() {
+        add_module(state, Arc::clone(&child))?;
+    }
+
+    Ok(())
 }

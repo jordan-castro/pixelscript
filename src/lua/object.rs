@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use crate::{
     lua::{
-        State, func::lua_object_bridge, lua, lua_pop, lua_remove, push_string
+        State, engine::Engine, func::lua_object_bridge, lua, lua_error, lua_pop, lua_remove, push_string
     }, shared::{
         PXS_PTR_NAME,
         object::{ObjectFlags, pxs_PixelObject},
@@ -24,37 +24,48 @@ unsafe extern "C" fn lua_index(L: *mut lua::lua_State) -> core::ffi::c_int {
         let table = 1;
         let key = 2;
 
-        lua::lua_getmetatable(L, table);
-        let mt = lua::lua_gettop(L);
+        let mut engine = Engine::new(L);
 
-        lua::lua_pushvalue(L, key);
-        lua::lua_rawget(L, mt);
+        // Get the meta table because that is what has the values
+        engine.get_meta(table);
+        let mt = engine.get_top();
 
-        // Check if result is a table
-        let index_result = lua::lua_gettop(L);
-        let lua_type = lua::lua_type(L, index_result);
+        // Check for key
+        engine.push_value(key);
+        engine.raw_get(mt);
+
+        // Check if type is a table
+        let lua_type = engine.get_type(-1);
 
         if lua_type == lua::LUA_TTABLE as i32 {
             // This is a property. Check for 1, call, return value
-            lua::lua_rawgeti(L, index_result, 1 as i64);
-            let is_function = lua::lua_type(L, -1) == lua::LUA_TFUNCTION as i32;
-            if !is_function {
-                lua::lua_settop(L, 2);
+            engine.raw_get_index(-1, 1);
+            // Check if function
+            if engine.get_type(-1) != lua::LUA_TFUNCTION as i32 {
+                // Drop engine to clean stack.
+                drop(engine);
                 lua::lua_pushnil(L);
                 return 1;
             }
 
-            // Call the function
-            lua::lua_pushvalue(L, table);
-            let status = lua::lua_pcallk(L, 1, 1, 0, 0, None);
-            if status != lua::LUA_OK as i32 {
-                return lua::lua_error(L);
+            // Pass in `self`
+            engine.push_value(table);
+            // Pass in `key`
+            engine.push_value(key);
+            let res = engine.call(2, 1);
+            if res.is_err() {
+                return lua_error(L, &res.unwrap_err().to_string());
             }
 
+            // Assign our result to be the current top.
             lua::lua_settop(L, 5);
+
             lua_remove(L, 4);
-            lua_remove(L, 3);
+            lua_remove(L, 5);
+
+            engine.decrease(3); // Get the engine out of our way.
         }
+
         // Not a table so it's just a regular function
         // so... just return it
     }
@@ -98,7 +109,7 @@ unsafe extern "C" fn lua_newindex(L: *mut lua::lua_State) -> core::ffi::c_int {
             // Pop the MT.
             lua_pop(L, 1);
         }
-        
+
     }
     0
 }

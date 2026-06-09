@@ -15,7 +15,7 @@
     - ~~Check Factories... why are we not owning the args?~~ (We are)
     - ~~Mark functions as expected return type.~~
 - ~~Add properties to PixelObjects~~ **DONE**
-- Add anonyamous functions.
+- Add anonyamous functions. (Get sent to `pxs_anon` module?)
 - ~~Check that function calls that fail dont crash.~~
 - ~~Add `_pxs_delete` method to free internal memory at language level. (core lib)~~ (it's pxs_mem.memdel(obj))
 - ~~Add `arenas`~~
@@ -38,12 +38,23 @@
     - Explicit which runtime
     - Fix JS nasty errors
 - Look into no_std
+- Bench marks
 
-## v0.7 Wren support, WASM, C support (libtcc)
+## v0.7 Wasm and Dynamic Language support
+- Migrate from `PixelScript` into `pxs_PixelScript` type which makes language backends dynamic.
+    - Lua into dynamic
+    - Python into dynamic
+    - JS into dynamic
+- Function for enabling each language
+    - `pxs_enablepython`
+    - `pxs_enablelua`
+    - `pxs_enablejs`
+    - `pxs_enablewren`
+    - `pxs_enablec`
+    - Will require that the language feature is also enabled.
 - Add Wren support
-- WASM support + Wasm web page similar to pocketpy live playground.
 - Add C support via libtcc
-- Add `unlock` feature which allows for running thread code unlocked. 
+- WASM support + Wasm web page similar to pocketpy live playground.
 
 ## v0.8
 - Cross language support. Calling JS from Python, Lua from JS, Python from JS, etc...

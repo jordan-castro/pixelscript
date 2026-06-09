@@ -16,7 +16,7 @@ use crate::{
         module::create_module,
         var::{PythonPointer, pocketpyref_to_var, var_to_pocketpyref},
     }, shared::{
-        PixelScript, PtrMagic, PxsResult, ffi::ThreadLanguageState, read_file, read_file_dir, utils::CStringSafe, var::{ObjectMethods, pxs_Var, pxs_VarList}
+        PixelScript, PtrMagic, PxsRes, PxsResult, ffi::ThreadLanguageState, read_file, read_file_dir, utils::CStringSafe, var::{ObjectMethods, pxs_Var, pxs_VarList}
     }, with_feature
 };
 
@@ -804,7 +804,7 @@ impl ObjectMethods for PythonScripting {
         }
     }
 
-    fn set(var: &pxs_Var, key: &str, value: &pxs_Var) -> PxsResult {
+    fn set(var: &pxs_Var, key: &str, value: &pxs_Var) -> PxsRes<()> {
         unsafe {
             if var.value.object_val.is_null() {
                 return pxs_error!("var.value.object_val is Null");
@@ -822,10 +822,10 @@ impl ObjectMethods for PythonScripting {
             let res = pocketpy::py_setattr(object, py_key, tmp);
 
             if !res {
-                return Ok(pxs_Var::new_exception(consume_error()));
+                return pxs_error!("{}", consume_error());
             }
 
-            Ok(pocketpyref_to_var(pocketpy::py_retval()))
+            Ok(())
         }
     }
 

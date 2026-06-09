@@ -4,7 +4,7 @@ use crate::{
     borrow_string, js::{
         func::create_callback, module::add_local_module, utils::SmartJSValue, var::{js_into_pxs, pxs_into_js}
     }, pxs_debug, pxs_error, shared::{
-        PXS_METHOD_NAME, PixelScript, PtrMagic, PxsResult, ffi::ThreadLanguageState, pxs_Opaque, read_file, utils::CStringSafe, var::{ObjectMethods, pxs_Var}
+        PXS_METHOD_NAME, PixelScript, PtrMagic, PxsRes, PxsResult, ffi::ThreadLanguageState, pxs_Opaque, read_file, utils::CStringSafe, var::{ObjectMethods, pxs_Var}
     }
 };
 
@@ -433,14 +433,14 @@ impl ObjectMethods for JSScripting {
         var: &crate::shared::var::pxs_Var,
         key: &str,
         value: &crate::shared::var::pxs_Var,
-    ) -> PxsResult {
+    ) -> PxsRes<()> {
         let state = get_js_state();
         let this = pxs_into_js(get_context(state), var)?;
         let mut value = pxs_into_js(get_context(state), value)?;
         
         this.set_prop(key, &mut value);
 
-        Ok(pxs_Var::new_bool(true))
+        Ok(())
     }
 
     fn get_from_name(name: &str) -> PxsResult {
