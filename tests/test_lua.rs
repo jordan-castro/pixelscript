@@ -374,6 +374,7 @@ mod tests {
             end
 
             local person = pxs.Person("Jordan")
+            pxs.print("Person " ..tostring(person))
             pxs.print(person:get_name())
             person:set_name("Jordan Castro")
             pxs.print(person:get_name())

@@ -171,6 +171,8 @@ fn new_state() -> *mut State {
 
 fn init(ptr: *mut State) {
     unsafe {
+        lua::luaL_openselectedlibs((*ptr).engine, !0, 0);
+
         let mut lua_globals = String::new();
         lua_globals.push_str(include_str!("../../core/lua/main.lua"));
 

@@ -14,6 +14,7 @@ pub struct Engine {
 
 impl Drop for Engine {
     fn drop(&mut self) {
+        println!("TOP: {}, allocations: {}", self.get_top(), self.num_allocated);   
         self.reset();
     }
 }
@@ -31,6 +32,9 @@ impl Engine {
 
     /// Reset the allocations of the engine
     pub fn reset(&mut self) {
+        if self.num_allocated == 0 {
+            return;
+        }
         self.pop(self.num_allocated as i32);
     }
 
@@ -206,7 +210,9 @@ impl Engine {
         unsafe {
             lua::lua_rawget(self.L, table);
         }
-        self.increase(1);
+        // We remove the key BUT add its value.
+        // self.decrease(1);
+        // self.increase(1);
     }
 
     /// Call `lua_rawgeti`
