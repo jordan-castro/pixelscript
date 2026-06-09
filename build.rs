@@ -91,14 +91,15 @@ fn build_lua(target_os: &str, target_env: &str) {
     }
 
     build.include("libs/lua-5.5.0");
-    build.std("c99");
 
     if target_env == "msvc" {
         build.static_crt(true);
         build.flag("/utf-8");
+        build.std("c11");
     } else {
         build.flag("-O3");
         build.flag("-fPIC");
+        build.std("c99");
     }
 
     if target_os == "linux" {
