@@ -1,4 +1,4 @@
-use crate::{lua::{State, compile_chunk, from_lua, lua, lua_call, lua_pop, lua_push_globals, push_lua_stack, push_string}, shared::{PxsRes, PxsResult, utils::CStringSafe, var::pxs_Var}};
+use crate::{lua::{State, compile_chunk, from_lua, lua, lua_call, lua_pop, lua_push_globals, lua_remove, push_lua_stack, push_string}, shared::{PxsRes, PxsResult, utils::CStringSafe, var::pxs_Var}};
 
 /// Engine that handles all Lua calls.
 /// 
@@ -10,18 +10,19 @@ pub struct Engine {
     L: *mut lua::lua_State,
     /// The number of allocations
     num_allocated: u32,
+    /// Uses allocation tracking
+    use_allocation_tracking: bool
 }
 
 impl Drop for Engine {
     fn drop(&mut self) {
-        println!("TOP: {}, allocations: {}", self.get_top(), self.num_allocated);   
         self.reset();
     }
 }
 
 impl Engine {
     pub fn new(L: *mut lua::lua_State) -> Self {
-        Engine{L, num_allocated: 0}
+        Engine{L, num_allocated: 0, use_allocation_tracking: true}
     }
 
     pub fn from_state(state: *mut State) -> Self {
@@ -30,8 +31,15 @@ impl Engine {
         }
     }
 
+    pub fn without_alloc(L: *mut lua::lua_State) -> Self {
+        Engine{L: L, num_allocated: 0, use_allocation_tracking: false}
+    }
+
     /// Reset the allocations of the engine
     pub fn reset(&mut self) {
+        if !self.use_allocation_tracking {
+            return;
+        }
         if self.num_allocated == 0 {
             return;
         }
@@ -40,6 +48,9 @@ impl Engine {
 
     /// Update num allocated
     pub fn decrease(&mut self, amount: u32) {
+        if !self.use_allocation_tracking {
+            return;
+        }
         self.num_allocated = if amount > self.num_allocated {
             0
         } else {
@@ -49,6 +60,9 @@ impl Engine {
 
     /// Update num allocated
     pub fn increase(&mut self, amount: u32) {
+        if !self.use_allocation_tracking {
+            return;
+        }
         self.num_allocated += amount;
     }
 
@@ -119,6 +133,14 @@ impl Engine {
         self.increase(1);
     }
 
+    /// Push boolean
+    pub fn push_boolean(&mut self, b: bool) {
+        unsafe {
+            lua::lua_pushboolean(self.L, b as i32);
+        }
+        self.increase(1);
+    }
+
     /// Push value
     pub fn push_value(&mut self, value: i32) {
         unsafe {
@@ -139,6 +161,15 @@ impl Engine {
             lua::lua_settable(self.L, table);
         }
         self.decrease(2);
+    }
+
+    /// Call `lua_gettable`
+    pub fn get_table(&mut self, table: i32) {
+        unsafe {
+            lua::lua_gettable(self.L, table);
+        }
+        // self.decrease(1);
+        // self.increase(1);
     }
 
     /// Push nil
@@ -223,6 +254,14 @@ impl Engine {
         self.increase(1);
     }
 
+    /// Call `lua_remove`
+    pub fn remove(&self, i: i32) {
+        if !self.use_allocation_tracking {
+            return;
+        }
+        lua_remove(self.L, i);
+    }
+
     /// Call `lua_len`
     /// 
     /// Also returns the length.
@@ -234,6 +273,13 @@ impl Engine {
 
         unsafe {
             lua::lua_tointegerx(self.L, -1, core::ptr::null_mut()) as i32
+        }
+    }
+
+    /// Call `lua_toboolean`
+    pub fn to_boolean(&self, idx: i32) -> bool {
+        unsafe {
+            lua::lua_toboolean(self.L, idx) == 1
         }
     }
 
@@ -253,6 +299,14 @@ impl Engine {
         self.decrease(2);
     }
 
+    /// Call `lua_rawseti`
+    pub fn raw_set_index(&mut self, table: i32, index: i32) {
+        unsafe {
+            lua::lua_rawseti(self.L, table, index as i64);
+        }
+        self.decrease(1);
+    }
+
     /// Call `lua_getmetatable`
     pub fn get_meta(&mut self, table: i32) {
         unsafe {
@@ -267,4 +321,20 @@ impl Engine {
             lua::lua_type(self.L, idx)
         }
     }
+
+    /// Call `luaL_newmetatable`
+    /// 
+    /// Returns 0, 1
+    /// 
+    /// 0 = Already exists
+    /// 1 = New
+    pub fn new_meta(&mut self, name: &str) -> i32 {
+        let mut cstring = CStringSafe::new();
+        unsafe {
+            let res = lua::luaL_newmetatable(self.L, cstring.new_string(name));
+            self.increase(1);
+            res
+        }
+    }
+
 }

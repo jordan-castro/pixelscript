@@ -116,22 +116,22 @@ impl<T> Drop for ThreadLanguageState<T> {
 unsafe impl<T> Sync for ThreadLanguageState<T> {}
 unsafe impl<T> Send for ThreadLanguageState<T> {}
 
-/// Wraps a pointer and allows it to be passed around threads.
-/// 
-/// It does not free the pointer.
-pub(crate) struct ThreadSafePointer<T> {
-    pointer: *mut T
-}
+// /// Wraps a pointer and allows it to be passed around threads.
+// /// 
+// /// It does not free the pointer.
+// pub(crate) struct ThreadSafePointer<T> {
+//     pointer: *mut T
+// }
 
-impl<T> ThreadSafePointer<T> {
-    pub fn new(pointer: *mut T) -> Self {
-        ThreadSafePointer { pointer }
-    }
+// impl<T> ThreadSafePointer<T> {
+//     pub fn new(pointer: *mut T) -> Self {
+//         ThreadSafePointer { pointer }
+//     }
 
-    pub fn get_ptr(&self) -> *mut T {
-        self.pointer
-    }
-}
+//     pub fn get_ptr(&self) -> *mut T {
+//         self.pointer
+//     }
+// }
 
-unsafe impl<T> Sync for ThreadSafePointer<T> {}
-unsafe impl<T> Send for ThreadSafePointer<T> {}
+// unsafe impl<T> Sync for ThreadSafePointer<T> {}
+// unsafe impl<T> Send for ThreadSafePointer<T> {}

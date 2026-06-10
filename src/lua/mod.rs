@@ -87,9 +87,9 @@ impl Clone for LuaReference {
 
 impl LuaReference {
     /// New reference based off position
-    pub fn new(position: i32) -> Self {
+    pub fn new() -> Self {
         let state = get_lua_state();
-        let idx = unsafe { lua::luaL_ref((*state).engine, position) };
+        let idx = unsafe { lua::luaL_ref((*state).engine, LUA_REGISTRYINDEX) };
 
         LuaReference { idx }
     }
@@ -129,6 +129,7 @@ pub(self) fn lua_pop(L: *mut lua::lua_State, amount: core::ffi::c_int) {
     }
 }
 
+#[allow(unused)]
 /// #define lua_replace(L,idx)	(lua_copy(L, -1, (idx)), lua_pop(L, 1))
 pub(self) fn lua_replace(L: *mut lua::lua_State, idx: core::ffi::c_int) {
     unsafe {

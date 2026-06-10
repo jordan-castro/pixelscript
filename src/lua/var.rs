@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 // Pure Rust goes here
 use crate::{
-    borrow_string, lua::{LuaReference, lua::{self, lua_createtable, lua_geti, lua_gettop, lua_rawseti, lua_settable}, get_lua_state, object::create_object}, pxs_error, shared::{
+    borrow_string, lua::{LuaReference, get_lua_state, lua::{self, lua_createtable, lua_geti, lua_gettop, lua_rawseti, lua_settable}, object::create_object}, pxs_error, shared::{
         PtrMagic, PxsRes, PxsResult, object::get_object, pxs_Opaque, pxs_Runtime, utils::CStringSafe, var::{pxs_Var, pxs_VarObject, pxs_VarType}
     }
 };
@@ -55,7 +55,7 @@ pub(super) fn from_lua(idx: i32) -> PxsResult {
             Ok(pxs_Var::new_string(rust_string.to_string()))
         } else if lua_type == lua::LUA_TFUNCTION as i32 {
             // Register the lua value.
-            let reference = LuaReference::new(idx);
+            let reference = LuaReference::new();
             Ok(pxs_Var::new_function(reference.into_void(), Some(free_lua_mem)))
         } else if lua_type == lua::LUA_TTABLE as i32 {
             // Check length
@@ -63,7 +63,7 @@ pub(super) fn from_lua(idx: i32) -> PxsResult {
 
             if t_length == 0 {
                 // Register table
-                let reference = LuaReference::new(idx);
+                let reference = LuaReference::new();
                 Ok(pxs_Var::new_object(pxs_VarObject::new_lang_only(reference.into_void()), Some(free_lua_mem)))
             } else {
                 // List dayo!
@@ -120,9 +120,11 @@ pub(super) fn push_lua_stack(var: &pxs_Var) -> PxsRes<i32> {
                 let lang_ptr_is_null = pixel_object.lang_ptr.lock().unwrap().is_null();
                 if lang_ptr_is_null {
                     // Create the table for the first time
-                    let table = create_object(state, idx, Arc::clone(&pixel_object));
+                    create_object(state, idx, Arc::clone(&pixel_object));
+
                     // Add table ptr
-                    let table_ptr = LuaReference::new(table);
+                    let table_ptr = LuaReference::new();
+                    println!("table_ptr: {}", table_ptr.idx);
                     pixel_object.update_lang_ptr(table_ptr.into_void());
                     pixel_object.update_pxs_free_method(free_lua_mem);
                 }
