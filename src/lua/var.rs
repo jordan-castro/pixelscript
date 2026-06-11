@@ -124,7 +124,6 @@ pub(super) fn push_lua_stack(var: &pxs_Var) -> PxsRes<i32> {
 
                     // Add table ptr
                     let table_ptr = LuaReference::new();
-                    println!("table_ptr: {}", table_ptr.idx);
                     pixel_object.update_lang_ptr(table_ptr.into_void());
                     pixel_object.update_pxs_free_method(free_lua_mem);
                 }

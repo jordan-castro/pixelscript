@@ -10,72 +10,67 @@ use std::sync::Arc;
 
 use crate::{
     borrow_string, lua::{
-        State, engine::Engine, func::lua_object_bridge, lua, lua_error, lua_pop, lua_remove
+        State, engine::Engine, func::lua_object_bridge, lua_error, lua
     }, shared::{
         PXS_PTR_NAME,
-        object::{ObjectFlags, pxs_PixelObject},
+        object::{ObjectFlags, pxs_PixelObject}, utils::create_private_name,
     }
 };
 
 /// __index
 unsafe extern "C" fn lua_index(L: *mut lua::lua_State) -> core::ffi::c_int {
-    println!("lua_index");
-        let table = 1;
-        let key = 2;
+    let table = 1;
+    let key = 2;
 
-        let function_name = unsafe {
-            borrow_string!(lua::lua_tolstring(L, key, core::ptr::null_mut())).to_string()
-        };
-        let function_name = format!("__pxs{function_name}__");
+    let function_name = unsafe {
+        borrow_string!(lua::lua_tolstring(L, key, core::ptr::null_mut())).to_string()
+    };
+    // Possible private name.
+    let private_name = create_private_name(&function_name);
 
-        let mut engine = Engine::without_alloc(L);
+    let mut engine = Engine::without_alloc(L);
 
-        // Get the meta table because that is what has the values
-        engine.get_meta(table);
-        let mt = engine.get_top();
-        
-        // Get list of key to boolean (is property)
-        engine.get_field(mt, "_pxs_props");
-        // Is a table
-        let pxs_props_table = engine.get_top();
-        
-        // Check for key in this table to know what to do with it
-        engine.push_value(key);
-        engine.get_table(pxs_props_table);
+    // Get the meta table because that is what has the values
+    engine.get_meta(table); // 1 (3)
+    let mt = engine.get_top();
 
-        // Check if bool
-        if !engine.to_boolean(-1) {
-            // This is a regular thingy. So just get it and return it
-            // Pop pxs_props_tble
-            engine.pop(1);
-            engine.push_value(key);
-            engine.raw_get(mt);
+    // Check for non private name first
+    engine.push_string(&function_name); // 2 (4)
+    engine.raw_get(mt); // 2 (4)
 
-            // Remove the MT. Since the engine wont handle it.
-            engine.remove(3);
+    if engine.get_type(engine.get_top()) != lua::LUA_TNIL as i32 {
+        // We have our result!
+        engine.remove(3); // remove MT
+        return 1;
+    }
 
-            return 1;
-        }
-        
-        // Ok yes it is a property
-        // Lets remove the property table. We dont need it anymore
-        engine.pop(1);
+    // We may have a property
+    engine.pop(1); // 1 (3) Now only MT is on top.
 
-        // Lets get to work
-        engine.push_string(&function_name);
-        engine.raw_get(mt);
-        // We have the callback
-        // setup args
-        engine.push_value(table);
-        // Call func with table.
-        let res = engine.call(1, 1);
-        if res.is_err() {
-            return lua_error(L, &res.unwrap_err().to_string());
-        }
+    // Check private name
+    engine.push_string(&private_name); // 2 (4)
+    engine.raw_get(mt); // 2 (4)
 
-        // Result is on stack.
-        // Remove MT
-        engine.remove(3);
+    if engine.get_type(engine.get_top()) != lua::LUA_TFUNCTION as i32 {
+        // Who knows what this is, just return it
+        engine.remove(3); // remove MT
+        return 1;
+    }
+
+    // We have our function on top!
+    // Lets push the table
+    engine.push_value(table); // 3 (5)
+    let res = engine.call(1, 1); // if successfull 3 (5)
+    if res.is_err() {
+        engine.pop(1); // MT 
+        return lua_error(L, &res.unwrap_err().to_string());
+    }
+
+    // We got a value!
+    // Just need to return it
+    // I need to remove MT only
+    engine.remove(3);
+    // Done
     1
 }
 
@@ -85,55 +80,37 @@ unsafe extern "C" fn lua_newindex(L: *mut lua::lua_State) -> core::ffi::c_int {
     let key = 2;
     let value = 3;
 
-    let mut engine = Engine::without_alloc(L);
+    let mut engine = Engine::new(L);
 
-    // Setup function name.
-    let function_name = unsafe {
-        borrow_string!(lua::lua_tolstring(L, key, core::ptr::null_mut())).to_string()
-    };
-    let function_name = format!("__pxs{function_name}__");
+    // Property 
+    let property_name = engine.to_string(key);
+    let private_name = create_private_name(&property_name);
 
-    // Get the MT
+    // Get MT
     engine.get_meta(table);
     let mt = engine.get_top();
 
-    // Check 
+    // Check if MT has private name
+    engine.push_string(&private_name);
+    engine.raw_get(mt);
 
+    if engine.get_type(engine.get_top()) != lua::LUA_TFUNCTION as i32 {
+        // Set it like you would normally
+        engine.push_value(key);
+        engine.push_value(value);
+        engine.set_table(table);
+    } else {
+        // This is a function!
+        // Push table, value
+        engine.push_value(table);
+        engine.push_value(value);
+        let res = engine.call(2, 1); // this should always be nil
+        if res.is_err() {
+            return lua_error(L, &res.unwrap_err().to_string());
+        }
+    }
 
-    // unsafe {
-
-    //     lua::lua_getmetatable(L, table);
-    //     let mt = lua::lua_gettop(L);
-
-    //     lua::lua_pushvalue(L, key);
-    //     lua::lua_rawget(L, mt);
-
-    //     // Check if result is a table (which means a property)
-    //     let index_result = lua::lua_gettop(L);
-    //     let lua_type = lua::lua_type(L, index_result);
-
-    //     if lua_type == lua::LUA_TTABLE as i32 {
-    //         lua::lua_rawgeti(L, -1, 1);
-    //         lua::lua_pushvalue(L, table);
-    //         lua::lua_pushvalue(L, value);
-    //         let status = lua::lua_pcallk(L, 2, 1, 0, 0, None);
-
-    //         if status != lua::LUA_OK as i32 {
-    //             return lua::lua_error(L);
-    //         }
-
-    //         lua::lua_settop(L, 3);
-    //     } else {
-    //         // Pop the raw get
-    //         lua_pop(L, 1);
-    //         lua::lua_pushvalue(L, key);
-    //         lua::lua_pushvalue(L, value);
-    //         lua::lua_rawset(L, table);
-    //         // Pop the MT.
-    //         lua_pop(L, 1);
-    //     }
-
-    // }
+    drop(engine);
     0
 }
 
@@ -169,27 +146,21 @@ pub(super) fn create_object(
 
     // Add callbacks
     for method in source.callbacks.iter() {
-        // All methods are internal tables
-        // Properties get `is_prop` == true
-        let property_table = engine.create_table(0, 1);
-        if method.flags & ObjectFlags::IsProp as u8 != 0 {
-            engine.push_boolean(true)
+        // The method name changes if a prop _pxs{name}_.
+        let method_name = if method.flags & ObjectFlags::IsProp as u8 != 0 {
+            create_private_name(&method.cbk.name)
         } else {
-            engine.push_boolean(false);
-        }
-        engine.raw_set_index(property_table, 1);
+            method.cbk.name.clone()
+        };
 
-        // Setup function up values
+        // Setup the function up values
         engine.push_integer(method.cbk.idx);
         engine.push_integer(method.flags as i32);
         engine.push_function(lua_object_bridge, 2);
 
-        // Add to table
-        engine.raw_set_index(property_table, 2);
-
-        // Add the table to the MT.
-        engine.set_field(mt, &method.cbk.name);
-    }    
+        // Add to metatable
+        engine.set_field(mt, &method_name);
+    }
 
     // Bind __index
     engine.push_string("__index");

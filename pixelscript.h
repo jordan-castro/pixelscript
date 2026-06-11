@@ -1053,6 +1053,11 @@ pxs_VarT pxs_json_decode(pxs_VarT rt,
  */
 void pxs_meminit(void);
 
+/**
+ * The lua function
+ */
+int pxslua_rustbridge(lua_State *L, char *err_buff);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus

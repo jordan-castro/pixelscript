@@ -384,11 +384,12 @@ mod tests {
                 return n1 + n2
             end
             -- Call it
-            pxs.print(tostring(pxs.call_function(hadd, {1,2})))
+            local v, err = pxs.call_function(1, {1,2})
+            pxs.print(tostring(pxs.call_function(hadd, {1,2})[1]))
             function get_pi()
                 return 3.145
             end 
-            pxs.print(tostring(pxs.call_function(get_pi)))
+            pxs.print(tostring(pxs.call_function(get_pi)[1]))
         "#;
         let res = execute_code(lua_code, "<test>", pxs_Runtime::pxs_Lua);
         assert!(res.is_null(), "Lua Error is not empty: {:#?}", res);

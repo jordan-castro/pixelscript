@@ -42,6 +42,14 @@ pub(self) mod lua {
     include!(concat!(env!("OUT_DIR"), "/lua_bindings.rs"));
 }
 
+/// The lua function
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn pxslua_rustbridge(L: *mut lua::lua_State, err_buff: *mut *mut core::ffi::c_char) -> core::ffi::c_int {
+    unsafe 
+    // Get the function type up value
+    let function_type = lua:
+}
+
 thread_local! {
     static LUASTATE: ThreadLanguageState<State> = ThreadLanguageState::new(new_state());
 }
@@ -113,11 +121,10 @@ pub(self) fn push_string(L: *mut lua::lua_State, contents: &str) {
 
 pub(self) fn lua_error(L: *mut lua::lua_State, contents: &str) -> std::ffi::c_int {
     unsafe {
-        let msg = create_raw_string!(contents);
-        let res = lua::luaL_error(L, msg);
-        free_raw_string!(msg);
+        push_string(L, contents);
+        lua::lua_error(L);
 
-        res
+        0
     }
 }
 
@@ -307,7 +314,7 @@ fn setup_module_loader(L: *mut lua::lua_State) {
     // Push module loader
     engine.push_function(module_loader_func, 0);
     // Add to table
-    engine.set_index(s_idx, len + 1);
+    engine.set_index(s_idx, (len + 1) as i32);
 }
 
 /// Add variables to a Table from a Map

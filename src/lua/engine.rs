@@ -1,4 +1,5 @@
-use crate::{lua::{State, compile_chunk, from_lua, lua, lua_call, lua_pop, lua_push_globals, lua_remove, push_lua_stack, push_string}, shared::{PxsRes, PxsResult, utils::CStringSafe, var::pxs_Var}};
+#![allow(unused)]
+use crate::{borrow_string, lua::{State, compile_chunk, from_lua, lua, lua_call, lua_pop, lua_push_globals, lua_remove, lua_upvalueindex, push_lua_stack, push_string}, shared::{PxsRes, PxsResult, utils::CStringSafe, var::pxs_Var}};
 
 /// Engine that handles all Lua calls.
 /// 
@@ -31,6 +32,7 @@ impl Engine {
         }
     }
 
+    /// Engine without allocation tracking. Use this in lua functions.
     pub fn without_alloc(L: *mut lua::lua_State) -> Self {
         Engine{L: L, num_allocated: 0, use_allocation_tracking: false}
     }
@@ -265,14 +267,14 @@ impl Engine {
     /// Call `lua_len`
     /// 
     /// Also returns the length.
-    pub fn len(&mut self, table: i32) -> i32 {
+    pub fn len(&mut self, table: i32) -> i64 {
         unsafe {
             lua::lua_len(self.L, table);
         }
         self.increase(1);
 
         unsafe {
-            lua::lua_tointegerx(self.L, -1, core::ptr::null_mut()) as i32
+            lua::lua_tointegerx(self.L, -1, core::ptr::null_mut())
         }
     }
 
@@ -281,6 +283,21 @@ impl Engine {
         unsafe {
             lua::lua_toboolean(self.L, idx) == 1
         }
+    }
+    
+    /// Call `lua_tointeger`
+    pub fn to_integer(&self, idx: i32) -> i64 {
+        unsafe {
+            lua::lua_tointegerx(self.L, idx, core::ptr::null_mut())
+        }
+    }
+
+    /// Call `lua_tostring`
+    pub fn to_string(&self, idx: i32) -> String {
+        let s = unsafe {
+            lua::lua_tolstring(self.L, idx, core::ptr::null_mut())
+        };
+        borrow_string!(s).to_string()
     }
 
     /// Call `lua_seti`
@@ -319,6 +336,13 @@ impl Engine {
     pub fn get_type(&self, idx: i32) -> i32 {
         unsafe {
             lua::lua_type(self.L, idx)
+        }
+    }
+
+    /// Call `lua_getupvalue`
+    pub fn get_upvalue(&self, idx: i32) -> i32 {
+        unsafe {
+            lua_upvalueindex(idx)
         }
     }
 

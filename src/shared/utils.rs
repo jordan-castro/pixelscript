@@ -182,3 +182,8 @@ impl CStringSafe {
         raw.cast_const()
     }
 }
+
+/// Create a private PXS name for a backend
+pub fn create_private_name(name: &str) -> String {
+    format!("__pxs{name}__")
+}

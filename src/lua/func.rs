@@ -8,7 +8,7 @@
 //
 // use mlua::{Integer, IntoLua, Lua, MultiValue, Value::Nil, Variadic};
 
-use crate::{create_raw_string, free_raw_string, lua::{lua, from_lua, lua_error, lua_pop, lua_upvalueindex, var::push_lua_stack}, shared::{PXS_PTR_NAME, func::call_function, object::ObjectFlags, pxs_Runtime}};
+use crate::{create_raw_string, free_raw_string, lua::{from_lua, lua, lua_call, lua_error, lua_pop, lua_upvalueindex, push_string, var::push_lua_stack}, pxs_debug, shared::{PXS_PTR_NAME, func::call_function, object::ObjectFlags, pxs_Runtime, utils::CStringSafe}};
 
 pub(super) unsafe extern "C" fn lua_object_bridge(L: *mut lua::lua_State) -> core::ffi::c_int {
     unsafe {
@@ -78,7 +78,8 @@ pub(super) unsafe extern "C" fn lua_bridge(L: *mut lua::lua_State) -> core::ffi:
             if let Ok(var) = var {
                 argv.push(var);
             } else {
-                return lua_error(L, &var.unwrap_err().to_string());
+                return 0;
+                // return lua_error(L, &err);
             }
         }
 
@@ -87,7 +88,7 @@ pub(super) unsafe extern "C" fn lua_bridge(L: *mut lua::lua_State) -> core::ffi:
 
         let success: Result<i32, String> = push_lua_stack(&res);
         if success.is_err() {
-            return lua_error(L, &success.unwrap_err().to_string());
+            return 0;
         }
 
         // Always return 1 as number of args returned.
