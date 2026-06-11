@@ -278,8 +278,9 @@ fn main() {
     {
         build_lua(&target_os, &target_env);
         build_lua_bindings();
-        println!("cargo:rerun-if-changes=libs/lua-5.5.0");
-        println!("cargo:rerun-if-changes=libs/pxs_lua");
+        println!("cargo:rerun-if-changed=libs/lua-5.5.0");
+        println!("cargo:rerun-if-changed=libs/pxs_lua/pxs_lua.c");
+        println!("cargo:rerun-if-changed=libs/pxs_lua/pxs_lua.h");
     }
 
     // Compile pocketpy

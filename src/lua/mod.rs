@@ -17,7 +17,7 @@ pub mod var;
 #[cfg(feature = "pxs_json")]
 use crate::lua::module::preload_lua_module;
 use crate::{
-    borrow_string, create_raw_string, free_raw_string,
+    borrow_string,
     lua::{
         engine::Engine,
         module::compile_chunk,
@@ -40,14 +40,6 @@ use crate::{
 #[allow(dead_code)]
 pub(self) mod lua {
     include!(concat!(env!("OUT_DIR"), "/lua_bindings.rs"));
-}
-
-/// The lua function
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn pxslua_rustbridge(L: *mut lua::lua_State, err_buff: *mut *mut core::ffi::c_char) -> core::ffi::c_int {
-    unsafe 
-    // Get the function type up value
-    let function_type = lua:
 }
 
 thread_local! {

@@ -342,7 +342,8 @@ impl Engine {
     /// Call `lua_getupvalue`
     pub fn get_upvalue(&self, idx: i32) -> i32 {
         unsafe {
-            lua_upvalueindex(idx)
+            let position = lua_upvalueindex(idx);
+            self.to_integer(position) as i32
         }
     }
 

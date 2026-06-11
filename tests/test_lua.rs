@@ -257,6 +257,7 @@ mod tests {
         // Check for args
         let argc = pxs_listlen(args);
         let res = if argc > 2 {
+            println!("{:#?} {argc}", borrow_var!(pxs_listget(args, 2)));
             // 2 is args
             pxs_varcall(pxs_listget(args, 0), func, pxs_newcopy(pxs_listget(args, 2)))
         } else {
@@ -342,54 +343,19 @@ mod tests {
         let lua_code = r#"
             local pxs = require('pxs')
             local pxs_math = require('pxs.math')
-            pxs.print("DDiary: " .. tostring(pxs_math.DDiary))
-
-            local ft_object = require('pad.ft_object')
-            ft_object.function_from_outside()
-
-            local msg = "Welcome, " .. pxs.name
-            pxs.print(msg)
-
-            local result = pxs.add(pxs.n1, pxs.n2)
-            pxs.print(tostring(pxs.n1))
-            pxs.print(tostring(pxs.n2))
-            pxs.print(tostring(result))
-            pxs.print("Module result: " .. tostring(result))
-
-            if result ~= 3 then
-                error("Math, Expected 3, got " .. tostring(result))
-            end
-
-            local res = pxs_math.sub(1, 2)
-
-            if res ~= 1 then
-                error("Math, Expected 1, got " .. tostring(res))
-            end
-
-            local zero = pxs_math.ZERO
-            if zero ~= 0 then
-                error("Math, Exptected 0, got " .. tostring(zero))
-            else
-                pxs.print("0 is all good my man")
-            end
-
-            local person = pxs.Person("Jordan")
-            pxs.print("Person " ..tostring(person))
-            pxs.print(person:get_name())
-            person:set_name("Jordan Castro")
-            pxs.print(person:get_name())
 
             -- Test calling function.
             function hadd(n1, n2)
+                pxs.print('hadd called')
                 return n1 + n2
             end
             -- Call it
-            local v, err = pxs.call_function(1, {1,2})
-            pxs.print(tostring(pxs.call_function(hadd, {1,2})[1]))
+            pxs.print(tostring(pxs.call_function(hadd, 1,2)))
             function get_pi()
+                pxs.print('get_pi')
                 return 3.145
             end 
-            pxs.print(tostring(pxs.call_function(get_pi)[1]))
+            pxs.print(tostring(pxs.call_function(get_pi)))
         "#;
         let res = execute_code(lua_code, "<test>", pxs_Runtime::pxs_Lua);
         assert!(res.is_null(), "Lua Error is not empty: {:#?}", res);

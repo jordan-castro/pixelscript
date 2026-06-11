@@ -8,26 +8,100 @@
 //
 // use mlua::{Integer, IntoLua, Lua, MultiValue, Value::Nil, Variadic};
 
-use crate::{create_raw_string, free_raw_string, lua::{from_lua, lua, lua_call, lua_error, lua_pop, lua_upvalueindex, push_string, var::push_lua_stack}, pxs_debug, shared::{PXS_PTR_NAME, func::call_function, object::ObjectFlags, pxs_Runtime, utils::CStringSafe}};
+use crate::{
+    create_raw_string, free_raw_string,
+    lua::{
+        engine::Engine,
+        from_lua, lua, lua_pop, lua_upvalueindex,
+        object::{lua_index, lua_newindex},
+        var::push_lua_stack,
+    },
+    own_string, pxs_error,
+    shared::{
+        PXS_PTR_NAME, PxsRes, func::call_function, object::ObjectFlags, pxs_Runtime,
+    },
+};
 
-pub(super) unsafe extern "C" fn lua_object_bridge(L: *mut lua::lua_State) -> core::ffi::c_int {
+pub const LUA_OBJECT_BRIDGE_FUNCTION: i32 = 0;
+pub const LUA_MODULE_BRIDGE_FUNCTION: i32 = 1;
+pub const LUA_INDEX_BRIDGE_FUNCTION: i32 = 2;
+pub const LUA_NEWINDEX_BRIDGE_FUNCTION: i32 = 3;
+
+#[unsafe(no_mangle)]
+unsafe extern "C" fn pxslua_free_ruststring(ptr: *mut core::ffi::c_char) {
+    if !ptr.is_null() {
+        let _ = own_string!(ptr);
+    }
+}
+
+/// This is defined in libs/pxs_lua.h
+/// The idea is that we let C handle the lua_errors
+#[unsafe(no_mangle)]
+unsafe extern "C" fn pxslua_rustbridge(
+    L: *mut lua::lua_State,
+    err_buff: *mut *mut core::ffi::c_char,
+) -> core::ffi::c_int {
+    let engine = Engine::without_alloc(L);
+    // Get the function type up value
+    let function_type = engine.get_upvalue(1);
+
+    let res = if function_type == LUA_OBJECT_BRIDGE_FUNCTION {
+        lua_object_bridge(L)
+    } else if function_type == LUA_MODULE_BRIDGE_FUNCTION {
+        lua_bridge(L)
+    } else if function_type == LUA_INDEX_BRIDGE_FUNCTION {
+        lua_index(L)
+    } else if function_type == LUA_NEWINDEX_BRIDGE_FUNCTION {
+        lua_newindex(L)
+    } else {
+        Ok(0)
+    };
+
+    match res {
+        Ok(num) => num,
+        Err(err) => {
+            let raw_string = create_raw_string!(err);
+            unsafe {
+                *err_buff = raw_string;
+            }
+            -1
+        }
+    }
+}
+
+/// Checks if the value is a function or a table.
+/// If so, then it pushes it to the top.
+/// This is specific for lua_bridege and lua_object_bridge because of how from_lua works.
+/// Which if you need to know: from_lua when it is a table or function, it creates a LuaReference which uses the top
+/// value on the stack.
+fn push_if_special(L: *mut lua::lua_State, index: i32) -> bool {
+    unsafe {
+        let t = lua::lua_type(L, index);
+        if t == lua::LUA_TFUNCTION as i32 || t == lua::LUA_TTABLE as i32 {
+            lua::lua_pushvalue(L, index);
+            true
+        } else {
+            false
+        }
+    }
+}
+
+fn lua_object_bridge(L: *mut lua::lua_State) -> PxsRes<i32> {
     unsafe {
         let argc = lua::lua_gettop(L);
         let obj = 1; // object is always first
 
         // Get fn idx
-        let fn_idx = lua::lua_tointegerx(L, lua_upvalueindex(1), core::ptr::null_mut());
-        let flags = lua::lua_tointegerx(L, lua_upvalueindex(2), core::ptr::null_mut());
+        let fn_idx = lua::lua_tointegerx(L, lua_upvalueindex(2), core::ptr::null_mut());
+        let flags = lua::lua_tointegerx(L, lua_upvalueindex(3), core::ptr::null_mut());
 
         // Check that obj is a table
         if lua::lua_type(L, obj) != lua::LUA_TTABLE as i32 {
-            return lua_error(L, "self required.");
+            return pxs_error!("self required.");
         }
 
         // Let's setup our callback
-        let mut argv = vec![
-            pxs_Runtime::pxs_Lua.into_var()
-        ];
+        let mut argv = vec![pxs_Runtime::pxs_Lua.into_var()];
 
         // Check flags
         if flags as u8 & (ObjectFlags::UsesId as u8) != 0 {
@@ -44,42 +118,48 @@ pub(super) unsafe extern "C" fn lua_object_bridge(L: *mut lua::lua_State) -> cor
         }
 
         for i in 2..=argc {
-            argv.push(from_lua(i).unwrap());
+            lua::lua_pushvalue(L, i);
+            let var = from_lua(i);
+            lua_pop(L, 1);
+            if let Ok(var) = var {
+                argv.push(var);
+            } else {
+                return pxs_error!("{}", var.unwrap_err().to_string());
+            }
         }
 
         // Call the fuction
         let res = call_function(fn_idx as i32, argv);
         let success: Result<i32, String> = push_lua_stack(&res);
         if success.is_err() {
-            return lua_error(L, &success.unwrap_err().to_string());
+            return pxs_error!("{}", success.unwrap_err().to_string());
         }
 
         // Always return 1 dog
-        1
+        Ok(1)
     }
 }
 
 /// The lua function bridge
-pub(super) unsafe extern "C" fn lua_bridge(L: *mut lua::lua_State) -> core::ffi::c_int {
+fn lua_bridge(L: *mut lua::lua_State) -> PxsRes<i32> {
     unsafe {
         let argc = lua::lua_gettop(L);
 
         // Get fn idx
-        let fn_idx = lua::lua_tointegerx(L, lua_upvalueindex(1), std::ptr::null_mut());
+        let fn_idx = lua::lua_tointegerx(L, lua_upvalueindex(2), std::ptr::null_mut());
 
         // Now we have fn idx, lets set up our callback
-        let mut argv = vec![
-            pxs_Runtime::pxs_Lua.into_var()
-        ];
+        let mut argv = vec![pxs_Runtime::pxs_Lua.into_var()];
 
         // Num of args (skip first)
         for i in 1..=argc {
-            let var = from_lua(i);
+            lua::lua_pushvalue(L, i);
+            let var = from_lua(-1);
+            lua_pop(L, 1);
             if let Ok(var) = var {
                 argv.push(var);
             } else {
-                return 0;
-                // return lua_error(L, &err);
+                return pxs_error!("{}", var.unwrap_err().to_string());
             }
         }
 
@@ -88,10 +168,10 @@ pub(super) unsafe extern "C" fn lua_bridge(L: *mut lua::lua_State) -> core::ffi:
 
         let success: Result<i32, String> = push_lua_stack(&res);
         if success.is_err() {
-            return 0;
+            return pxs_error!("{}", success.unwrap_err().to_string());
         }
 
         // Always return 1 as number of args returned.
-        1
+        Ok(1)
     }
 }

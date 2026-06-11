@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use crate::{
     lua::{
-        State, engine::Engine, func::lua_bridge, lua, lua_get_error, lua_upvalueindex
+        State, engine::Engine, func::LUA_MODULE_BRIDGE_FUNCTION, lua, lua_get_error, lua_upvalueindex
     },
     pxs_error,
     shared::{PxsRes, module::pxs_Module, utils::CStringSafe},
@@ -80,8 +80,9 @@ pub(super) fn add_module(state: *mut State, module: Arc<pxs_Module>) -> PxsRes<(
     // Add callbacks
     for cbk in module.callbacks.iter() {
         engine.push_string(&cbk.name);
+        engine.push_integer(LUA_MODULE_BRIDGE_FUNCTION);
         engine.push_integer(cbk.idx); // add idx to upvalue.
-        engine.push_function(lua_bridge, 1);
+        engine.push_function(lua::pxslua_callback, 2);
         engine.raw_set(table);
     }
 

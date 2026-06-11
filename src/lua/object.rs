@@ -10,15 +10,14 @@ use std::sync::Arc;
 
 use crate::{
     borrow_string, lua::{
-        State, engine::Engine, func::lua_object_bridge, lua_error, lua
-    }, shared::{
-        PXS_PTR_NAME,
-        object::{ObjectFlags, pxs_PixelObject}, utils::create_private_name,
+        State, engine::Engine, func::{LUA_INDEX_BRIDGE_FUNCTION, LUA_NEWINDEX_BRIDGE_FUNCTION, LUA_OBJECT_BRIDGE_FUNCTION}, lua
+    }, pxs_error, shared::{
+        PXS_PTR_NAME, PxsRes, object::{ObjectFlags, pxs_PixelObject}, utils::create_private_name
     }
 };
 
 /// __index
-unsafe extern "C" fn lua_index(L: *mut lua::lua_State) -> core::ffi::c_int {
+pub(super) fn lua_index(L: *mut lua::lua_State) -> PxsRes<i32> {
     let table = 1;
     let key = 2;
 
@@ -41,7 +40,7 @@ unsafe extern "C" fn lua_index(L: *mut lua::lua_State) -> core::ffi::c_int {
     if engine.get_type(engine.get_top()) != lua::LUA_TNIL as i32 {
         // We have our result!
         engine.remove(3); // remove MT
-        return 1;
+        return Ok(1);
     }
 
     // We may have a property
@@ -54,7 +53,7 @@ unsafe extern "C" fn lua_index(L: *mut lua::lua_State) -> core::ffi::c_int {
     if engine.get_type(engine.get_top()) != lua::LUA_TFUNCTION as i32 {
         // Who knows what this is, just return it
         engine.remove(3); // remove MT
-        return 1;
+        return Ok(1);
     }
 
     // We have our function on top!
@@ -63,7 +62,7 @@ unsafe extern "C" fn lua_index(L: *mut lua::lua_State) -> core::ffi::c_int {
     let res = engine.call(1, 1); // if successfull 3 (5)
     if res.is_err() {
         engine.pop(1); // MT 
-        return lua_error(L, &res.unwrap_err().to_string());
+        return pxs_error!("{}", res.unwrap_err().to_string());
     }
 
     // We got a value!
@@ -71,11 +70,11 @@ unsafe extern "C" fn lua_index(L: *mut lua::lua_State) -> core::ffi::c_int {
     // I need to remove MT only
     engine.remove(3);
     // Done
-    1
+    Ok(1)
 }
 
 /// __newindex
-unsafe extern "C" fn lua_newindex(L: *mut lua::lua_State) -> core::ffi::c_int {
+pub(super) fn lua_newindex(L: *mut lua::lua_State) -> PxsRes<i32> {
     let table = 1;
     let key = 2;
     let value = 3;
@@ -106,12 +105,12 @@ unsafe extern "C" fn lua_newindex(L: *mut lua::lua_State) -> core::ffi::c_int {
         engine.push_value(value);
         let res = engine.call(2, 1); // this should always be nil
         if res.is_err() {
-            return lua_error(L, &res.unwrap_err().to_string());
+            return pxs_error!("{}", res.unwrap_err().to_string());
         }
     }
 
     drop(engine);
-    0
+    Ok(0)
 }
 
 /// Create a new lua table and push it to stack. It's position on stack is returned.
@@ -154,9 +153,11 @@ pub(super) fn create_object(
         };
 
         // Setup the function up values
+        engine.push_integer(LUA_OBJECT_BRIDGE_FUNCTION);
         engine.push_integer(method.cbk.idx);
         engine.push_integer(method.flags as i32);
-        engine.push_function(lua_object_bridge, 2);
+        engine.push_function(lua::pxslua_callback, 3);
+        // engine.push_function(lua_object_bridge, 2);
 
         // Add to metatable
         engine.set_field(mt, &method_name);
@@ -164,12 +165,14 @@ pub(super) fn create_object(
 
     // Bind __index
     engine.push_string("__index");
-    engine.push_function(lua_index, 0);
+    engine.push_integer(LUA_INDEX_BRIDGE_FUNCTION);
+    engine.push_function(lua::pxslua_callback, 1);
     engine.raw_set(mt);
 
     // Bind __newindex
     engine.push_string("__newindex");
-    engine.push_function(lua_newindex, 0);
+    engine.push_integer(LUA_NEWINDEX_BRIDGE_FUNCTION);
+    engine.push_function(lua::pxslua_callback, 1);
     engine.raw_set(mt);
 
     // Just put it on the top

@@ -14,13 +14,13 @@ int pxslua_callback(lua_State* L) {
     // char* buffer = (char*)malloc(strlen())
     // Call the bridge
     int result = pxslua_rustbridge(L, &err_buf);
-    
+
     if (result < 0) {
         if (err_buf == NULL) {
             lua_pushstring(L, "Unknown error.");
         } else {
             lua_pushstring(L, err_buf);
-            free(err_buf);
+            pxslua_free_ruststring(err_buf);
         }
         return lua_error(L);
     }
