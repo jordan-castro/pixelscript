@@ -21,7 +21,7 @@ Because most games pick only one language for scripting. PixelScript gives modde
 Each language runtime uses the same PixelScript bindings.
 
 ## Version
-pixelscript crate is currently at version 0.6.0.
+pixelscript crate is currently at version 0.6.1.
 
 ## How to use
 pixelscript can be used within a rust application or via ffi.
@@ -151,3 +151,10 @@ Made with ❤️ by [@epochtechgames](https://x.com/epochtechgames)
 - Use C lua bindings via ffi.
 - Each thread gets its own language state (including pixelscript state).
 - Remove (os, io, debug) from lua runtime.
+
+### 0.6.1
+- Remove lua module loaders (2,3,4)
+    - 2 path searcher
+    - 3 c searcher
+    - 4 all searcher
+- Added VFS loader for lua files.
