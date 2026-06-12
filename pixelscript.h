@@ -1061,14 +1061,6 @@ pxs_VarT pxs_json_decode(pxs_VarT rt,
  */
 void pxs_meminit(void);
 
-void pxslua_free_ruststring(char *ptr);
-
-/**
- * This is defined in libs/pxs_lua.h
- * The idea is that we let C handle the lua_errors
- */
-int pxslua_rustbridge(lua_State *L, char **err_buff);
-
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus

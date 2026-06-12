@@ -49,7 +49,7 @@ pub(super) fn preload_lua_module(L: *mut lua::lua_State, code: &str, name: &str)
     let mut engine = Engine::new(L);
     // Get package
     engine.get_global("package");
-    engine.push_string("preload");
+    engine.get_field(-1, "preload");
     let preload_idx = engine.get_top();
 
     // Compile code

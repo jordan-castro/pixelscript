@@ -29,6 +29,17 @@ pub(super) fn lua_index(L: *mut lua::lua_State) -> PxsRes<i32> {
 
     let mut engine = Engine::without_alloc(L);
 
+    // Check on regular table first. (_pxs_ptr) or user assigned values.
+    engine.push_value(key);
+    engine.raw_get(table);
+    
+    if engine.get_type(-1) != lua::LUA_TNIL as i32 {
+        // We got something, return it.
+        return Ok(1);
+    } 
+    // Pop nil from the stack
+    engine.pop(1);
+
     // Get the meta table because that is what has the values
     engine.get_meta(table); // 1 (3)
     let mt = engine.get_top();
@@ -97,7 +108,7 @@ pub(super) fn lua_newindex(L: *mut lua::lua_State) -> PxsRes<i32> {
         // Set it like you would normally
         engine.push_value(key);
         engine.push_value(value);
-        engine.set_table(table);
+        engine.raw_set(table);
     } else {
         // This is a function!
         // Push table, value
@@ -131,7 +142,7 @@ pub(super) fn create_object(
     // Set the "_pxs_ptr"
     engine.push_string(PXS_PTR_NAME);
     engine.push_integer(idx);
-    engine.set_table(table);
+    engine.raw_set(table);
 
     // Create a new meta table
     let created = engine.new_meta(&source.type_name);

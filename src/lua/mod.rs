@@ -14,7 +14,6 @@ pub mod module;
 pub mod object;
 pub mod var;
 
-#[cfg(feature = "pxs_json")]
 use crate::lua::module::preload_lua_module;
 use crate::{
     borrow_string,
@@ -420,7 +419,9 @@ impl PixelScript for LuaScripting {
         let code_object = pxs_Var::new_list();
         let list = code_object.get_list().unwrap();
 
-        list.add_item(engine.from_lua(chunk)?); // 0
+        // Push chunk
+        engine.push_value(chunk);
+        list.add_item(engine.from_lua(-1)?); // 0
         list.add_item(env_table_pxs);
 
         Ok(code_object)
@@ -438,7 +439,7 @@ impl PixelScript for LuaScripting {
         if !local_scope.is_null() {
             // Add local scope to global scope
             engine.push_pxs(global_scope)?;
-            add_variables_to_table(get_lua_state(), -1, local_scope.get_map().unwrap())?;
+            add_variables_to_table(get_lua_state(), engine.get_top(), local_scope.get_map().unwrap())?;
             // Pop global scope.
             engine.pop(1);
         }
@@ -452,7 +453,7 @@ impl PixelScript for LuaScripting {
         // Remove locals if necessary
         if !local_scope.is_null() {
             engine.push_pxs(global_scope)?;
-            remove_variables_from_table(get_lua_state(), -1, local_scope.get_map().unwrap())?;
+            remove_variables_from_table(get_lua_state(), engine.get_top(), local_scope.get_map().unwrap())?;
         }
 
         Ok(res)

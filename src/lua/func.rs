@@ -27,6 +27,7 @@ pub const LUA_MODULE_BRIDGE_FUNCTION: i32 = 1;
 pub const LUA_INDEX_BRIDGE_FUNCTION: i32 = 2;
 pub const LUA_NEWINDEX_BRIDGE_FUNCTION: i32 = 3;
 
+/// cbindgen:ignore
 #[unsafe(no_mangle)]
 unsafe extern "C" fn pxslua_free_ruststring(ptr: *mut core::ffi::c_char) {
     if !ptr.is_null() {
@@ -34,6 +35,7 @@ unsafe extern "C" fn pxslua_free_ruststring(ptr: *mut core::ffi::c_char) {
     }
 }
 
+/// cbindgen:ignore
 /// This is defined in libs/pxs_lua.h
 /// The idea is that we let C handle the lua_errors
 #[unsafe(no_mangle)]
@@ -69,27 +71,10 @@ unsafe extern "C" fn pxslua_rustbridge(
     }
 }
 
-/// Checks if the value is a function or a table.
-/// If so, then it pushes it to the top.
-/// This is specific for lua_bridege and lua_object_bridge because of how from_lua works.
-/// Which if you need to know: from_lua when it is a table or function, it creates a LuaReference which uses the top
-/// value on the stack.
-fn push_if_special(L: *mut lua::lua_State, index: i32) -> bool {
-    unsafe {
-        let t = lua::lua_type(L, index);
-        if t == lua::LUA_TFUNCTION as i32 || t == lua::LUA_TTABLE as i32 {
-            lua::lua_pushvalue(L, index);
-            true
-        } else {
-            false
-        }
-    }
-}
-
 fn lua_object_bridge(L: *mut lua::lua_State) -> PxsRes<i32> {
     unsafe {
         let argc = lua::lua_gettop(L);
-        let obj = 1; // object is always first
+        let obj = 1; // object is always first (IF actually passed.)
 
         // Get fn idx
         let fn_idx = lua::lua_tointegerx(L, lua_upvalueindex(2), core::ptr::null_mut());
@@ -110,11 +95,14 @@ fn lua_object_bridge(L: *mut lua::lua_State) -> PxsRes<i32> {
             lua::lua_pushstring(L, ptr_string);
             free_raw_string!(ptr_string);
             lua::lua_rawget(L, obj);
-            argv.push(from_lua(-1).unwrap());
+            argv.push(from_lua(-1)?);
             // pop
             lua_pop(L, 1);
         } else {
+            lua::lua_pushvalue(L, 1);
             argv.push(from_lua(1).unwrap());
+            // Pop pushed
+            lua_pop(L, 1);
         }
 
         for i in 2..=argc {

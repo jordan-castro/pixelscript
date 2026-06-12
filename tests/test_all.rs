@@ -76,6 +76,7 @@ mod tests {
         // Deref
         unsafe {
             let vars = pxs_Var::from_borrow(args);
+            println!("args: {:#?}", vars);
             let pixel_object_var = pxs_listget(args, 1);
             let host_ptr = pxs_gethost(pxs_listget(args, 0), pixel_object_var);
             let d = Diary::from_borrow(host_ptr as *mut Diary);
@@ -93,14 +94,10 @@ mod tests {
 
     extern "C" fn new_diary(args: pxs_VarT) -> pxs_VarT {
         unsafe {
-            println!("New diary for runtime: {:#?}", pxs_getint(pxs_listget(args, 0)));
             let len = pxs_listlen(args);
-            println!("len is: {len}");
             let owner_arg = pxs_listget(args, 1);
-            println!("owner_arg: {}", own_string!(pxs_debugvar(owner_arg)));
             let host_ptr = pxs_gethost(pxs_listget(args,0), owner_arg);
             let item_list = pxs_listget(args, 1);
-            println!("item list: {}", own_string!(pxs_debugvar(item_list)));
             let mut items = vec![];
             for i in 0..pxs_listlen(item_list) {
                 let var = pxs_listget(item_list, i);
@@ -111,10 +108,7 @@ mod tests {
                 let item = DiaryItem::from_borrow(ptr as *mut DiaryItem);
                 items.push(item.clone());
             }
-            println!("Length of items: {}", items.len());
             // let name_arg = pxs_Var::from_borrow(pxs_listget(args, 1));
-            println!("Name arg is: {:#?}", host_ptr);
-            println!("here 1");
             let p_name = DiaryOwner::from_borrow(host_ptr as *mut DiaryOwner);
             let p = Diary::new(p_name.clone(), items);
             let typename = create_raw_string!("Diary");
@@ -443,6 +437,9 @@ mod tests {
         free_raw_string!(sub_name);
         }
     }
+    fn print_helper(lang: &str) {
+        println!("====================== {lang} ===================");
+    }
 
     #[test]
     fn test_execute() {
@@ -454,6 +451,7 @@ mod tests {
         pxs_set_filereader(file_loader);
         pxs_set_dirreader(dir_reader);
 
+        print_helper("Python");
         // 5
         let py_code = r#"
 import pxs
@@ -509,8 +507,8 @@ print(pxs.call_function(get_pi))
         "#;
         let res = execute_code(py_code, "file_name", shared::pxs_Runtime::pxs_Python);
         assert!(res.is_null(), "Python Error is not empty: {:#?}", res);
-        println!("Here dayo");
         // 3
+        print_helper("Lua");
         let lua_code = r#"
 local pxs = require('pxs')
 local pxs_math = require('pxs.math')
@@ -533,7 +531,7 @@ pxs.print("Module result: " .. tostring(result))
         let res = execute_code(lua_code, "file_name", shared::pxs_Runtime::pxs_Lua);
         assert!(res.is_null(), "Lua Error is not empty: {:#?}", res);
 
-        println!("==== JS ====");
+        print_helper("JS");
         let js_code = r#"
 import * as pxs from 'pxs';
 import * as pxs_math from 'pxs.math';

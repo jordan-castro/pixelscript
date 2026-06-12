@@ -362,4 +362,8 @@ impl Engine {
         }
     }
 
+    /// Get type of current top
+    pub fn get_top_type(&self) -> i32 {
+        self.get_type(self.get_top())
+    }
 }

@@ -19,8 +19,7 @@ mod tests {
 
     use pixelscript::{
         lua::LuaScripting,
-        shared::{PixelScript, PtrMagic, object::pxs_PixelObject, pxs_Runtime, var::{pxs_Var, pxs_VarT},
-        utils::{execute_code}
+        shared::{PixelScript, PtrMagic, object::pxs_PixelObject, pxs_Runtime, utils::{CStringSafe, execute_code}, var::{pxs_Var, pxs_VarT, pxs_VarType}
 },
         *,
     };
@@ -252,12 +251,13 @@ mod tests {
     unsafe extern "C" fn call_function(
         args: pxs_VarT,
     ) -> pxs_VarT {
+        println!("{:#?}", borrow_var!(args));
+
         // Assume 1 is a function
         let func = pxs_listget(args, 1);
         // Check for args
         let argc = pxs_listlen(args);
         let res = if argc > 2 {
-            println!("{:#?} {argc}", borrow_var!(pxs_listget(args, 2)));
             // 2 is args
             pxs_varcall(pxs_listget(args, 0), func, pxs_newcopy(pxs_listget(args, 2)))
         } else {
@@ -268,7 +268,23 @@ mod tests {
         res
     }
 
+    unsafe extern "C" fn expect_table(
+        args: pxs_VarT
+    ) -> pxs_VarT {
+        println!("{:#?}", borrow_var!(args));
+        let table = pxs_listget(args, 1);
+
+        // println!("{:#?}", borrow_var!(table));
+
+        if !pxs_varis(table, pxs_VarType::pxs_List) {
+            pxs_Var::new_exception("Expected table").into_raw()
+        } else {
+            pxs_newnull()
+        }
+    }
+
     fn test_add_module() {
+        let mut cstring = CStringSafe::new();
         pxs_initialize();
         let module_name = create_raw_string!("pxs");
         let module = pxs_newmod(module_name);
@@ -277,6 +293,7 @@ mod tests {
         let n1_name = create_raw_string!("n1");
         let n2_name: *mut i8 = create_raw_string!("n2");
         pxs_addfunc(module, add_name, add_wrapper);
+        pxs_addfunc(module, cstring.new_string("expect_table"), expect_table);
         let n1 = pxs_newint(1);
         let n2 = pxs_newint(2);
         pxs_addvar(module, n1_name, n1);
@@ -343,19 +360,55 @@ mod tests {
         let lua_code = r#"
             local pxs = require('pxs')
             local pxs_math = require('pxs.math')
+            pxs.print("DDiary: " .. tostring(pxs_math.DDiary))
+
+            local ft_object = require('pad.ft_object')
+            ft_object.function_from_outside()
+
+            local msg = "Welcome, " .. pxs.name
+            pxs.print(msg)
+
+            local result = pxs.add(pxs.n1, pxs.n2)
+            pxs.print(tostring(pxs.n1))
+            pxs.print(tostring(pxs.n2))
+            pxs.print(tostring(result))
+            pxs.print("Module result: " .. tostring(result))
+
+            if result ~= 3 then
+                error("Math, Expected 3, got " .. tostring(result))
+            end
+
+            local res = pxs_math.sub(1, 2)
+
+            if res ~= 1 then
+                error("Math, Expected 1, got " .. tostring(res))
+            end
+
+            local zero = pxs_math.ZERO
+            if zero ~= 0 then
+                error("Math, Exptected 0, got " .. tostring(zero))
+            else
+                pxs.print("0 is all good my man")
+            end
+
+            local person = pxs.Person("Jordan")
+            pxs.print(person:get_name())
+            person:set_name("Jordan Castro")
+            pxs.print(person:get_name())
 
             -- Test calling function.
             function hadd(n1, n2)
-                pxs.print('hadd called')
                 return n1 + n2
             end
             -- Call it
-            pxs.print(tostring(pxs.call_function(hadd, 1,2)))
+            pxs.print(tostring(pxs.call_function(hadd, {1,2})))
             function get_pi()
-                pxs.print('get_pi')
                 return 3.145
             end 
             pxs.print(tostring(pxs.call_function(get_pi)))
+
+            local args = {name = "jordan", age = 25}
+            pxs.expect_table({1,2}, {name = "Jordan"}, {2,1})
         "#;
         let res = execute_code(lua_code, "<test>", pxs_Runtime::pxs_Lua);
         assert!(res.is_null(), "Lua Error is not empty: {:#?}", res);

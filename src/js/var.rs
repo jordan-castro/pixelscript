@@ -105,7 +105,6 @@ pub(super) fn pxs_into_js(context: *mut quickjs::JSContext, var: &pxs_Var) -> Px
                 let obj: SmartJSValue = create_object(context, idx, Arc::clone(&po));
                 // Box it
                 let container = JSPXSContainer::from_value(obj);
-                // let boxed = Box::into_raw(Box::new(obj)); 
                 po.update_lang_ptr(container.into_void());
                 po.update_pxs_free_method(js_deleter);
             }
