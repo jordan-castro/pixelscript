@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 // Pure Rust goes here
 use crate::{
-    borrow_string, lua::{LuaReference, get_lua_state, lua::{self, lua_createtable, lua_geti, lua_gettop, lua_rawseti, lua_settable}, lua_pop, object::create_object}, pxs_error, shared::{
+    borrow_string, lua::{LUA_TBOOLEAN, LUA_TFUNCTION, LUA_TNONE, LUA_TNUMBER, LUA_TSTRING, LUA_TTABLE, LuaReference, get_lua_state, lua::{self, lua_createtable, lua_geti, lua_gettop, lua_rawseti, lua_settable}, lua_pop, object::create_object}, pxs_error, shared::{
         PtrMagic, PxsRes, PxsResult, object::get_object, pxs_Opaque, pxs_Runtime, utils::CStringSafe, var::{pxs_Var, pxs_VarObject, pxs_VarType}
     }
 };
@@ -38,25 +38,25 @@ pub(super) fn from_lua(idx: i32) -> PxsResult {
 
         let lua_type = lua::lua_type(L, idx);
 
-        if lua_type == lua::LUA_TNUMBER as i32 {
+        if lua_type == LUA_TNUMBER {
             if lua::lua_isinteger(L, idx) == 1 {
                 Ok(pxs_Var::new_i64(lua::lua_tointegerx(L, idx, std::ptr::null_mut())))
             } else {
                 Ok(pxs_Var::new_f64(lua::lua_tonumberx(L, idx, std::ptr::null_mut())))
             }
-        } else if lua_type == lua::LUA_TBOOLEAN as i32 {
+        } else if lua_type == LUA_TBOOLEAN {
             let lua_bool = lua::lua_toboolean(L, idx);
             Ok(pxs_Var::new_bool(lua_bool == 1))
-        } else if lua_type == lua::LUA_TSTRING as i32 {
+        } else if lua_type == LUA_TSTRING {
             let lua_string = lua::lua_tolstring(L, idx, std::ptr::null_mut());
             let rust_string = borrow_string!(lua_string);
             Ok(pxs_Var::new_string(rust_string.to_string()))
-        } else if lua_type == lua::LUA_TFUNCTION as i32 {
+        } else if lua_type == LUA_TFUNCTION {
             // Register the lua value.
             let reference = LuaReference::new();
             reference.push();
             Ok(pxs_Var::new_function(reference.into_void(), Some(free_lua_mem)))
-        } else if lua_type == lua::LUA_TTABLE as i32 {
+        } else if lua_type == LUA_TTABLE {
             // Check length
             let t_length = lua::lua_rawlen(L, idx);
 
@@ -78,7 +78,7 @@ pub(super) fn from_lua(idx: i32) -> PxsResult {
                 // Convert into list
                 Ok(pxs_Var::new_list_with(values))
             }
-        } else if lua_type == lua::LUA_TNONE {
+        } else if lua_type == LUA_TNONE {
             pxs_error!("Reference does not exist.")
         } else {
             Ok(pxs_Var::new_null())

@@ -250,7 +250,6 @@ fn build_lua_bindings() {
         })
         .size_t_is_usize(true)
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
-        .default_macro_constant_type(bindgen::MacroTypeVariation::Signed)
         .allowlist_function("lua_.*")
         .allowlist_function("luaL_.*")
         .allowlist_type("lua_.*")

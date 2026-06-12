@@ -35,7 +35,7 @@ pub(super) fn compile_chunk(L: *mut lua::lua_State, code: &str, name: &str) -> P
             cstring.new_string(name),
             core::ptr::null_mut(),
         );
-        if res != lua::LUA_OK as i32 {
+        if res != LUA_OK {
             let lua_error = lua_get_error(L);
             return pxs_error!("{lua_error}");
         }

@@ -53,7 +53,20 @@ struct State {
 
 impl PtrMagic for State {}
 
-const LUA_REGISTRYINDEX: i32 = lua::LUA_REGISTRYINDEX;
+// Lua globals
+const LUA_REGISTRYINDEX: i32 = -(core::ffi::c_int::MAX / 2 + 1000);
+const LUA_OK: i32 = 0;
+const LUA_TNONE: i32 = -1;
+#[allow(unused)]
+const LUA_TNIL: i32 = 0;
+const LUA_TBOOLEAN: i32 = 1;
+// const LUA_TLIGHTUSERDATA: i32 = 2;
+const LUA_TNUMBER: i32 = 3;
+const LUA_TSTRING: i32 = 4;
+const LUA_TTABLE: i32 = 5;
+const LUA_TFUNCTION: i32 = 6;
+// const LUA_TUSERDATA: i32 = 7;
+// const LUA_TTHREAD: i32 = 8;
 
 /// Helper for safely referencing Lua table/functions.
 /// Once out of scope, it will drop.
@@ -224,7 +237,7 @@ pub(self) fn lua_call(L: *mut lua::lua_State, args: i32, results: i32) -> PxsRes
     unsafe {
         // 1
         let code = lua::lua_pcallk(L, args, results, 0, 0, None); // results
-        if code != lua::LUA_OK as i32 {
+        if code != LUA_OK {
             let lua_error = lua_get_error(L);
             return pxs_error!("{lua_error}");
         }
@@ -441,7 +454,11 @@ impl PixelScript for LuaScripting {
         if !local_scope.is_null() {
             // Add local scope to global scope
             engine.push_pxs(global_scope)?;
-            add_variables_to_table(get_lua_state(), engine.get_top(), local_scope.get_map().unwrap())?;
+            add_variables_to_table(
+                get_lua_state(),
+                engine.get_top(),
+                local_scope.get_map().unwrap(),
+            )?;
             // Pop global scope.
             engine.pop(1);
         }
@@ -455,7 +472,11 @@ impl PixelScript for LuaScripting {
         // Remove locals if necessary
         if !local_scope.is_null() {
             engine.push_pxs(global_scope)?;
-            remove_variables_from_table(get_lua_state(), engine.get_top(), local_scope.get_map().unwrap())?;
+            remove_variables_from_table(
+                get_lua_state(),
+                engine.get_top(),
+                local_scope.get_map().unwrap(),
+            )?;
         }
 
         Ok(res)
