@@ -7,7 +7,7 @@ import json
 
 # Get skipped tests
 included_tests = sys.argv[1:]
-skip_tests = ["test_repl.rs", "test_example.rs", "test_clearstate.rs"]
+skip_tests = ["test_repl.rs", "test_example.rs"]
 
 
 if len(included_tests) == 0:

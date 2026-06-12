@@ -14,10 +14,8 @@ use std::{
     ptr,
 };
 
-use anyhow::{Error, anyhow};
-
 use crate::{
-    borrow_string, create_raw_string, shared::{PtrMagic, func::pxs_Func, object::{apply_ref_count_alloc, apply_ref_count_delete, get_object}, pxs_Runtime}
+    borrow_string, create_raw_string, pxs_error, shared::{PtrMagic, PxsError, PxsRes, PxsResult, func::pxs_Func, object::{apply_ref_count_alloc, apply_ref_count_delete, get_object}, pxs_Runtime}
 };
 
 /// Macro for writing out the Var:: get methods.
@@ -25,13 +23,13 @@ macro_rules! write_func {
     ($ (($func_name:ident, $field_name:ident, $ret_type:ty, $tag_variant:path) ),* $(,)?) => {
         $(
             #[doc = concat!("Returns the ", stringify!($ret_type), " value if the tag is ", stringify!($tag_variant), ".")]
-            pub fn $func_name(&self) -> Result<$ret_type, Error> {
+            pub fn $func_name(&self) -> Result<$ret_type, PxsError> {
                 if self.tag == $tag_variant {
                     unsafe {
                         Ok(self.value.$field_name)
                     }
                 } else {
-                    Err(anyhow!("Var is not the expected type of {:#?}. It is instead a: {:#?}", $tag_variant, self.tag))
+                    Err(format!("Var is not the expected type of {:#?}. It is instead a: {:#?}", $tag_variant, self.tag))
                 }
             }
         )*
@@ -480,26 +478,26 @@ impl pxs_Var {
         }
     }
 
-    /// Get the Rust string from the Var.
+    /// Get A owned Rust string from the Var.
     ///
     /// Works for pxs_String and pxs_Exception
-    pub fn get_string(&self) -> Result<String, Error> {
+    pub fn get_string(&self) -> Result<String, PxsError> {
         if self.tag == pxs_VarType::pxs_String || self.tag == pxs_VarType::pxs_Exception {
             unsafe {
                 if self.value.string_val.is_null() {
-                    return Err(anyhow!("String pointer is null"));
+                    return Err(String::from("String pointer is null"));
                 }
 
                 let c_str = CStr::from_ptr(self.value.string_val);
                 let res = c_str.to_str();
                 if res.is_err() {
-                    return Err(anyhow!(res.err().unwrap()));
+                    return Err(res.err().unwrap().to_string());
                 }
 
                 Ok(res.unwrap().to_string())
             }
         } else {
-            Err(anyhow!("Var is not a string."))
+            pxs_error!("Var is not a string.")
         }
     }
 
@@ -1069,22 +1067,22 @@ impl pxs_Var {
 /// Methods for interacting with objects and callbacks from the runtime.
 pub trait ObjectMethods {
     /// Call a method on a object.
-    fn object_call(var: &pxs_Var, method: &str, args: &mut pxs_VarList) -> Result<pxs_Var, Error>;
+    fn object_call(var: &pxs_Var, method: &str, args: &mut pxs_VarList) -> PxsResult;
 
     /// Call a method and pass in args
-    fn call_method(method: &str, args: &mut pxs_VarList) -> Result<pxs_Var, Error>;
+    fn call_method(method: &str, args: &mut pxs_VarList) -> PxsResult;
 
     /// Call a pxs_Var function.
-    fn var_call(method: &pxs_Var, args: &mut pxs_VarList) -> Result<pxs_Var, Error>;
+    fn var_call(method: &pxs_Var, args: &mut pxs_VarList) -> PxsResult;
 
     /// Getter
-    fn get(var: &pxs_Var, key: &str) -> Result<pxs_Var, Error>;
+    fn get(var: &pxs_Var, key: &str) -> PxsResult;
 
     /// Setter
-    fn set(var: &pxs_Var, key: &str, value: &pxs_Var) -> Result<pxs_Var, Error>;
+    fn set(var: &pxs_Var, key: &str, value: &pxs_Var) -> PxsRes<()>;
 
     /// Get a object/function based off their name
-    fn get_from_name(name: &str) -> Result<pxs_Var, Error>;
+    fn get_from_name(name: &str) -> PxsResult;
 }
 
 /// Type Helper for a pxs_Var

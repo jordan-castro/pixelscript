@@ -7,22 +7,17 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 use std::{
-    collections::{HashMap, HashSet},
+    cell::Cell, collections::{HashMap, HashSet}, sync::LazyLock
 };
 
-use anyhow::{Result, anyhow};
-
 use crate::{
-    borrow_string, create_raw_string, free_raw_string, own_string, pxs_debug,
-    python::{
+    borrow_string, create_raw_string, free_raw_string, own_string, pxs_debug, pxs_error, python::{
         func::{get_builtin, pocketpy_bridge, py_assign},
         module::create_module,
         var::{PythonPointer, pocketpyref_to_var, var_to_pocketpyref},
-    },
-    shared::{
-        PixelScript, PtrMagic, ffi::ThreadLanguageState, read_file, read_file_dir, utils::CStringSafe, var::{ObjectMethods, pxs_Var, pxs_VarList}
-    },
-    with_feature,
+    }, shared::{
+        PixelScript, PtrMagic, PxsRes, PxsResult, ffi::ThreadLanguageState, read_file, read_file_dir, utils::CStringSafe, var::{ObjectMethods, pxs_Var, pxs_VarList}
+    }, with_feature
 };
 
 // Allow for the binidngs only
@@ -39,9 +34,34 @@ mod module;
 mod object;
 mod var;
 
+#[derive(PartialEq, Copy, Clone)]
+/// Enum for thread being Available or Occupied
+enum ThreadStatus {
+    Available = 0,
+    Occupied = 1
+}
+
+/// This is a simple wrapper for instancing on the first time.
+fn setup_python_state() -> ThreadLanguageState<State> {
+    ThreadLanguageState::new(new_state())
+}
+
+/// This sets up theh python thread pool
+fn setup_python_thread_pool() -> Vec<ThreadStatus> {
+    let mut vms = Vec::with_capacity(16);
+    for i in 0..16 {
+        vms.insert(i, ThreadStatus::Available);
+    }
+    vms[0] = ThreadStatus::Occupied;
+    vms
+}
+
+/// The Python State.
+static PYSTATE: LazyLock<ThreadLanguageState<State>> = LazyLock::new(setup_python_state);
 
 thread_local! {
-    static PYSTATE: ThreadLanguageState<State> = init_state();
+    /// Current thread idx
+    static THREAD_IDX: Cell<Option<u8>> = Cell::new(None);
 }
 
 /// _pxs_call
@@ -53,12 +73,50 @@ const PYTHON_MAIN_MODULE: &str = "__main__";
 struct State {
     /// Keep a list of defined PixelObject as class
     defined_objects: HashMap<i32, HashSet<String>>,
+    /// Thread pool 0-15
+    thread_pool: Vec<ThreadStatus>
+}
 
-    /// Current thread idx
-    thread_idx: i32,
+impl State {
+    pub fn update_thread_status(&mut self, idx: usize, val: ThreadStatus) {
+        self.thread_pool[idx] = val;
+    }
+
+    pub fn get_thread_status(&self, idx: usize) -> ThreadStatus {
+        self.thread_pool[idx]
+    }
+}
+
+fn new_state() -> *mut State {
+    State {
+        defined_objects: HashMap::new(),
+        thread_pool: setup_python_thread_pool()
+    }.into_raw()
+}
+
+fn init() {
+    unsafe {
+        python_setup();
+    }
+}
+
+fn clear(ptr: *mut State) {
+    unsafe {
+        let idx = get_thread_idx();
+        if let Some(v) = (*ptr).defined_objects.get_mut(&idx) {
+            v.clear();
+        }
+    }
 }
 
 impl PtrMagic for State {}
+
+/// Get the current VM (thread idx).
+pub(self) fn get_thread_idx() -> i32 {
+    unsafe {
+        pocketpy::py_currentvm()
+    }
+}
 
 /// Execute python code on a certain module.
 pub(self) fn exec_py(code: &str, name: &str, module: &str) -> String {
@@ -140,7 +198,8 @@ unsafe fn new_module(code: &str, name: &str) {
     let cname = create_raw_string!(name);
     let module = unsafe { pocketpy::py_getmodule(cname) };
     if !module.is_null() {
-        panic!("module: {} already exists.", name);
+        pxs_debug!("PYTHON module: {name} already exists.");
+        return;
     }
 
     let _ = unsafe { pocketpy::py_newmodule(cname) };
@@ -156,28 +215,16 @@ unsafe fn new_module(code: &str, name: &str) {
     }
 }
 
-/// Initialize Lua state per thread.
-fn init_state() -> ThreadLanguageState<State> {
-    let state = State {
-        defined_objects: HashMap::new(),
-        thread_idx: 0,
-    };
-
-    ThreadLanguageState::new(state.into_raw())
-}
-
 /// Get the state of Pocketpy.
 pub(self) fn get_py_state() -> *mut State {
-    PYSTATE.with(|mutex| {
-        mutex.get_ptr()
-    })
+    PYSTATE.get_ptr()
 }
 
 /// Add a new defined object
 pub(self) fn add_new_defined_object(name: &str) {
     let state = get_py_state();
     unsafe { 
-        let t = (*state).thread_idx;
+        let t = get_thread_idx();
         if let Some(names) = (*state).defined_objects.get_mut(&t) {
             names.insert(name.to_string());
         } else {
@@ -192,7 +239,7 @@ pub(self) fn add_new_defined_object(name: &str) {
 pub(self) fn is_object_defined(name: &str) -> bool {
     let state = get_py_state();
     unsafe { 
-        let t = (*state).thread_idx;
+        let t = get_thread_idx();
         if let Some(set) = (*state).defined_objects.get(&t) {
             set.contains(name)
         } else {
@@ -326,14 +373,14 @@ pub(self) fn python_pxs_remove_ref(idx: i32) {
 /// Do some python setup. This needs to be called for every thread too
 unsafe fn python_setup() {
     unsafe {
-        setup_module_loader();
-    }
-    
-    unsafe {
         // Setup function callbacks
         let mut cstr_safe = CStringSafe::new();
         let main = pocketpy::py_getmodule(cstr_safe.new_string(PYTHON_MAIN_MODULE));
         pocketpy::py_bindfunc(main, cstr_safe.new_string(PXS_CALL_METHOD), Some(pocketpy_bridge));
+
+        // Setup module loader.
+        let callbacks = pocketpy::py_callbacks();
+        (*callbacks).importfile = Some(import_file);
     }
 
     // Setup some python code
@@ -356,43 +403,33 @@ unsafe fn python_setup() {
     }
 }
 
-/// This needs to be called in every PKPY VM.
-unsafe fn setup_module_loader() {
-    unsafe {
-        let callbacks = pocketpy::py_callbacks();
-        (*callbacks).importfile = Some(import_file);
-    }
-}
-
 pub struct PythonScripting;
 
 impl PixelScript for PythonScripting {
     fn start() {
+        let _ = get_py_state();
         // py initialize here
-        // let pxs_globals: pocketpy::py_Ref;
         unsafe {
             pocketpy::py_initialize();
-            // Create _pxs_globals
-            // let pxs_name = create_raw_string!("_pxs_globals");
-            // pxs_globals = pocketpy::py_newmodule(pxs_name);
-            python_setup();
-            // setup_module_loader();
         }
-        // let _s = exec_main_py("1 + 1", "<init>");
-        let _state = get_py_state();
+        // Set the main thread to 0
+        THREAD_IDX.set(Some(0));
+        init();
     }
 
     fn stop() {
         unsafe {
+            pocketpy::py_resetallvm();
             pocketpy::py_finalize();
         }
+        clear(get_py_state());
     }
 
     fn add_module(source: std::sync::Arc<crate::shared::module::pxs_Module>) {
         create_module(&source);
     }
 
-    fn execute(code: &str, file_name: &str) -> Result<pxs_Var> {
+    fn execute(code: &str, file_name: &str) -> PxsResult {
         let res = exec_main_py(code, file_name);
         if res.is_empty() {
             Ok(pxs_Var::new_null())
@@ -403,42 +440,55 @@ impl PixelScript for PythonScripting {
     }
 
     fn start_thread() {
+        if THREAD_IDX.get().is_some() {
+            pxs_debug!("THREAD is already active.");
+        }
+
         unsafe {
-            let idx = pocketpy::py_currentvm() + 1;
-            pocketpy::py_switchvm(idx);
-            python_setup();
-            // setup_module_loader();
             let state = get_py_state();
-            (*state).thread_idx = idx;
+            for i in 0..(*state).thread_pool.len() {
+                let vm = (*state).get_thread_status(i);
+                if vm == ThreadStatus::Available {
+                    THREAD_IDX.set(Some(i as u8));
+                    pocketpy::py_switchvm(i as i32);
+                    python_setup();
+                    (*state).update_thread_status(i, ThreadStatus::Occupied);
+                    break;
+                }
+            }
+        }
+
+        if THREAD_IDX.get().is_none() {
+            pxs_debug!("THREAD was not set.");
         }
     }
 
     fn stop_thread() {
-        unsafe {
-            // clear current
-            Self::clear_state(true);
+        let state = get_py_state();
+        clear(state);
 
-            let idx = pocketpy::py_currentvm() - 1;
-            pocketpy::py_resetvm();
-            pocketpy::py_switchvm(idx);
-            let state = get_py_state();
-            (*state).thread_idx = idx;
-        }
-    }
-
-    fn clear_state(call_gc: bool) {
-        unsafe {
-            let state = get_py_state();
-            // Drop defined objects
-            (*state).defined_objects.clear();
-            if call_gc {
-                // Invoke GC
-                pocketpy::py_gc_collect();
+        let idx = THREAD_IDX.get();
+        if let Some(idx) = idx {
+            unsafe {
+                // mark thread as public.
+                (*state).update_thread_status(idx as usize, ThreadStatus::Available);
             }
+            THREAD_IDX.set(None);
+        } else {
+            pxs_debug!("There is not thread to stop");
         }
     }
 
-    fn eval(code: &str) -> Result<pxs_Var> {
+    fn clear() {
+        let state = get_py_state();
+        clear(state);
+        unsafe {
+            pocketpy::py_resetvm();
+        }
+        init();
+    }
+
+    fn eval(code: &str) -> PxsResult {
         let res = exec_main_py(code, "eval");
         Ok(if res.is_empty() {
             pocketpyref_to_var(unsafe { pocketpy::py_retval() })
@@ -447,7 +497,7 @@ impl PixelScript for PythonScripting {
         })
     }
 
-    fn compile(code: &str, scope: pxs_Var) -> Result<pxs_Var> {
+    fn compile(code: &str, scope: pxs_Var) -> PxsResult {
         let source = create_raw_string!(code);
         let file_name = create_raw_string!("<compile>");
         unsafe {
@@ -494,7 +544,7 @@ impl PixelScript for PythonScripting {
         }
     }
     
-    fn exec_object(code: pxs_Var, scope: pxs_Var) -> Result<pxs_Var> {
+    fn exec_object(code: pxs_Var, scope: pxs_Var) -> PxsResult {
         // Check if a list or a regular obj
         let code_obj = unsafe{pocketpy::py_pushtmp()};
         let code_scope = unsafe{pocketpy::py_pushtmp()};
@@ -562,11 +612,11 @@ impl PixelScript for PythonScripting {
             Ok(pocketpyref_to_var(pocketpy::py_retval()))            
         }
     }
-    
+
     fn debug() -> String {
         let state = get_py_state();
         unsafe { 
-            let current_thread = (*state).thread_idx;
+            let current_thread = get_thread_idx();
             let defined_objects = &(*state).defined_objects;
             let mut res = String::new();
             res.push_str("{");
@@ -577,15 +627,10 @@ impl PixelScript for PythonScripting {
         }
     }
 
-    fn reset() {
-        let state = get_py_state();
-        unsafe { 
-            (*state).defined_objects.clear();
-            pocketpy::py_resetallvm();
-            (*state).thread_idx = 0;
-            pocketpy::py_switchvm(0);
+    fn garbage_collect() {
+        unsafe {
+            pocketpy::py_gc_collect();
         }
-        Self::start();
     }
 }
 
@@ -603,7 +648,7 @@ impl ObjectMethods for PythonScripting {
         var: &crate::shared::var::pxs_Var,
         method: &str,
         args: &mut crate::shared::var::pxs_VarList,
-    ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
+    ) -> PxsResult {
         // Make a object ref
         let obj_ref = unsafe { pocketpy::py_pushtmp() };
         // Set it
@@ -644,7 +689,7 @@ impl ObjectMethods for PythonScripting {
     fn call_method(
         method: &str,
         args: &mut crate::shared::var::pxs_VarList,
-    ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
+    ) -> PxsResult {
         // Convert methods to pocketpy
         let method_name = create_raw_string!(method);
         unsafe {
@@ -657,7 +702,6 @@ impl ObjectMethods for PythonScripting {
                 } else {
                     // Look for in current module
                     let cmod = pocketpy::py_inspect_currentmodule();
-                    // TODO: does cmod need to be null checked.
                     // Then look for a method in current module
                     let found = pocketpy::py_getattr(cmod, pymethod_name);
                     if !found {
@@ -705,11 +749,11 @@ impl ObjectMethods for PythonScripting {
         }
     }
 
-    fn var_call(method: &pxs_Var, args: &mut pxs_VarList) -> Result<pxs_Var, anyhow::Error> {
+    fn var_call(method: &pxs_Var, args: &mut pxs_VarList) -> PxsResult {
         pxs_debug!("PYTHON VAR CALL IS GETTING CALLED");
         // Make sure it's a function!
         if !method.is_function() {
-            return Err(anyhow!("Expected Function, found: {:#?}", method.tag));
+            return pxs_error!("Expected Function, found: {:#?}", method.tag);
         }
 
         // Get ptr as py_ref
@@ -737,10 +781,10 @@ impl ObjectMethods for PythonScripting {
         Ok(pocketpyref_to_var(py_res))
     }
 
-    fn get(var: &pxs_Var, key: &str) -> Result<pxs_Var, anyhow::Error> {
+    fn get(var: &pxs_Var, key: &str) -> PxsResult {
         unsafe {
             if var.value.object_val.is_null() {
-                return Err(anyhow!("var.value.object_val is Null"));
+                return pxs_error!("var.value.object_val is Null");
             }
             // Deref
             let python_pointer = PythonPointer::from_borrow_void(var.get_object_ptr());
@@ -760,10 +804,10 @@ impl ObjectMethods for PythonScripting {
         }
     }
 
-    fn set(var: &pxs_Var, key: &str, value: &pxs_Var) -> Result<pxs_Var, anyhow::Error> {
+    fn set(var: &pxs_Var, key: &str, value: &pxs_Var) -> PxsRes<()> {
         unsafe {
             if var.value.object_val.is_null() {
-                return Err(anyhow!("var.value.object_val is Null"));
+                return pxs_error!("var.value.object_val is Null");
             }
 
             // Deref
@@ -778,14 +822,14 @@ impl ObjectMethods for PythonScripting {
             let res = pocketpy::py_setattr(object, py_key, tmp);
 
             if !res {
-                return Ok(pxs_Var::new_exception(consume_error()));
+                return pxs_error!("{}", consume_error());
             }
 
-            Ok(pocketpyref_to_var(pocketpy::py_retval()))
+            Ok(())
         }
     }
 
-    fn get_from_name(name: &str) -> Result<pxs_Var, anyhow::Error> {
+    fn get_from_name(name: &str) -> PxsResult {
         unsafe {
             let ref_name = create_raw_string!(name);
             let pyname = pocketpy::py_name(ref_name);
@@ -797,7 +841,6 @@ impl ObjectMethods for PythonScripting {
                 } else {
                     // Look for in current module
                     let cmod = pocketpy::py_inspect_currentmodule();
-                    // TODO: does cmod need to be null checked.
                     // Then look for a ref in current module
                     let found = pocketpy::py_getattr(cmod, pyname);
                     if !found {

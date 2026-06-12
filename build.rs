@@ -1,14 +1,21 @@
 extern crate cbindgen;
 
-use std::env;
 use std::path::PathBuf;
+use std::{env, fs};
+
+/// Read dir
+fn read_dir(path: PathBuf) -> Vec<String> {
+    let paths = fs::read_dir(path).unwrap();
+    paths
+        .map(|v| v.unwrap().path().to_str().unwrap().to_string())
+        .collect()
+}
 
 /// Build the pixelscript.h C bindings
 fn build_pixelscript_h() {
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let package_name = env::var("CARGO_PKG_NAME").unwrap();
-    let output_file = PathBuf::from(&crate_dir)
-        .join(format!("{}.h", package_name));
+    let output_file = PathBuf::from(&crate_dir).join(format!("{}.h", package_name));
 
     cbindgen::generate(crate_dir)
         .expect("Unable to generate bindings")
@@ -48,7 +55,9 @@ fn build_ph7_bindings() {
     let mut builder = bindgen::Builder::default()
         .header("libs/ph7/ph7.h")
         .clang_arg("-libs/ph7")
-        .default_enum_style(bindgen::EnumVariation::Rust { non_exhaustive: false })
+        .default_enum_style(bindgen::EnumVariation::Rust {
+            non_exhaustive: false,
+        })
         .size_t_is_usize(true)
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()));
 
@@ -57,13 +66,54 @@ fn build_ph7_bindings() {
         builder = builder.clang_arg(arg);
     }
 
-    let bindings = builder.generate().expect("Unable to build Pocketpy rust bindings");
- 
+    let bindings = builder
+        .generate()
+        .expect("Unable to build Pocketpy rust bindings");
+
     // Write bindings
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
     bindings
         .write_to_file(out_path.join("ph7_bindings.rs"))
-        .expect("Couldn't write ph7 bindings!");    
+        .expect("Couldn't write ph7 bindings!");
+}
+
+#[cfg(feature = "lua")]
+fn build_lua(target_os: &str, target_env: &str) {
+    let mut build = cc::Build::new();
+    build.warnings(false);
+
+    // Add sources
+    let paths = read_dir(PathBuf::from("libs/lua-5.5.0"));
+
+    for file in paths {
+        if !file.ends_with(".c") {
+            continue;
+        }
+        if file.contains("lua.c") || file.contains("luac.c") {
+            continue;
+        }
+        build.file(file);
+    }
+    build.file("libs/pxs_lua/pxs_lua.c");
+
+    build.include("libs/lua-5.5.0");
+    build.include("libs/pxs_lua");
+
+    if target_env == "msvc" {
+        build.static_crt(true);
+        build.flag("/utf-8");
+        build.std("c11");
+    } else {
+        build.flag("-O3");
+        build.flag("-fPIC");
+        build.std("c99");
+    }
+
+    if target_os == "linux" {
+        build.define("LUA_USE_LINUX", None);
+    }
+
+    build.compile("lua");
 }
 
 /// Build PocketPy library
@@ -132,13 +182,15 @@ fn build_quickjsng(_target_os: &str, target_env: &str) {
 #[cfg(feature = "python")]
 fn build_pocketpy_bindings() {
     // If using gcc on windows, we might need to find the gcc include paths
-    // let include_paths = 
+    // let include_paths =
 
     let builder = bindgen::Builder::default()
         .header("libs/pocketpy/pocketpy.h")
         .clang_arg("-DPK_IS_PUBLIC_INCLUDE")
         .clang_arg("-Ilibs/pocketpy")
-        .default_enum_style(bindgen::EnumVariation::Rust { non_exhaustive: false })
+        .default_enum_style(bindgen::EnumVariation::Rust {
+            non_exhaustive: false,
+        })
         .size_t_is_usize(true)
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .allowlist_function("py_.*")
@@ -149,14 +201,16 @@ fn build_pocketpy_bindings() {
     //     builder = builder.clang_arg(arg);
     // }
 
-    let bindings = builder.generate().expect("Unable to build Pocketpy rust bindings");
- 
+    let bindings = builder
+        .generate()
+        .expect("Unable to build Pocketpy rust bindings");
+
     // Write bindings
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
     bindings
         .write_to_file(out_path.join("pocketpy_bindings.rs"))
-        .expect("Couldn't write PocketPy bindings!");    
-} 
+        .expect("Couldn't write PocketPy bindings!");
+}
 
 /// Create QuickJS-NG Rust bindings
 #[cfg(feature = "js")]
@@ -173,7 +227,41 @@ fn build_quickjsng_bindings() {
         .expect("Could not generate QuickJS-NG bindings");
 
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-    bindings.write_to_file(out_path.join("quickjsng_bindings.rs")).expect("Couldn't write QuickJS-NG bindings!");
+    bindings
+        .write_to_file(out_path.join("quickjsng_bindings.rs"))
+        .expect("Couldn't write QuickJS-NG bindings!");
+}
+
+#[cfg(feature = "lua")]
+fn build_lua_bindings() {
+    let bindings = bindgen::Builder::default()
+        .header("libs/lua-5.5.0/lua.h")
+        .clang_args(vec![
+            "-include",
+            "libs/lua-5.5.0/lualib.h",
+            "-include",
+            "libs/lua-5.5.0/lauxlib.h",
+            "-include",
+            "libs/pxs_lua/pxs_lua.h",
+            "-Ilibs/lua-5.5.0",
+        ])
+        .default_enum_style(bindgen::EnumVariation::Rust {
+            non_exhaustive: false,
+        })
+        .size_t_is_usize(true)
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+        .allowlist_function("lua_.*")
+        .allowlist_function("luaL_.*")
+        .allowlist_type("lua_.*")
+        .allowlist_type("luaL_.*")
+        .allowlist_var("LUA_.*")
+        .allowlist_function("pxslua_.*")
+        .generate()
+        .expect("Could not generate Lua-5.5.0 bindings");
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    bindings
+        .write_to_file(out_path.join("lua_bindings.rs"))
+        .expect("Couldn't write Lua-5.5.0 bindings!");
 }
 
 fn main() {
@@ -185,8 +273,18 @@ fn main() {
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
 
+    // Compile lua
+    #[cfg(feature = "lua")]
+    {
+        build_lua(&target_os, &target_env);
+        build_lua_bindings();
+        println!("cargo:rerun-if-changed=libs/lua-5.5.0");
+        println!("cargo:rerun-if-changed=libs/pxs_lua/pxs_lua.c");
+        println!("cargo:rerun-if-changed=libs/pxs_lua/pxs_lua.h");
+    }
+
     // Compile pocketpy
-    #[cfg(feature = "python")] 
+    #[cfg(feature = "python")]
     {
         build_pocketpy(&target_os, &target_env);
         build_pocketpy_bindings();

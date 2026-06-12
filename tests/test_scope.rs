@@ -13,7 +13,7 @@
 mod tests {
     use std::{collections::HashMap, ffi::c_void};
 
-    use pixelscript::{borrow_var, create_raw_string, free_raw_string, own_string, own_var, pxs_clearstate, pxs_compile, pxs_exec, pxs_execobject, pxs_finalize, pxs_freearena, pxs_freevar, pxs_gethost, pxs_getstring, pxs_initialize, pxs_listget, pxs_map_addpair, pxs_new_shallowcopy, pxs_newarena, pxs_newcopy, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmap, pxs_newnull, pxs_newobject, pxs_newstring, pxs_object_addfunc, pxs_startthread, pxs_stopthread, pxs_tostring, shared::{PtrMagic, pxs_Runtime, utils::setup_pxs, var::{pxs_Var, pxs_VarT}}};
+    use pixelscript::{borrow_var, create_raw_string, free_raw_string, own_string, own_var, pxs_compile, pxs_exec, pxs_execobject, pxs_finalize, pxs_freearena, pxs_freevar, pxs_gethost, pxs_getstring, pxs_initialize, pxs_listget, pxs_map_addpair, pxs_new_shallowcopy, pxs_newarena, pxs_newcopy, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmap, pxs_newnull, pxs_newobject, pxs_newstring, pxs_object_addfunc, pxs_startthread, pxs_stopthread, pxs_tostring, shared::{PtrMagic, pxs_Runtime, utils::setup_pxs, var::{pxs_Var, pxs_VarT}}};
     fn print_helper(lang: &str) {
         println!("====================== {lang} ===================");
     }
@@ -206,8 +206,10 @@ pxs.print("Current loop idx: " .. tostring(loop_id))
         let code = r#"
 import * as pxs from 'pxs';
 
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 // JS requires wrapping in a function.
-export function __pxs__(globals, locals) {
+export async function __pxs__(globals, locals) {
     let self = globals.self;
     const init = () => {
         self.set_if_null('name', "Jordan");

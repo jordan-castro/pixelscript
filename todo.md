@@ -1,8 +1,5 @@
 # TODO
 
-- Add a LSP
-- Fix warnings (remove or ignore)
-
 ## v0.5 Memory and JS support
 - ~~JS support via quickjs-ng. *JS*~~ **DONE**
 - ~~Reference counting for PixelScript object.~~ **DONE**
@@ -18,24 +15,18 @@
     - ~~Check Factories... why are we not owning the args?~~ (We are)
     - ~~Mark functions as expected return type.~~
 - ~~Add properties to PixelObjects~~ **DONE**
-- Add anonyamous functions.
+- Add anonyamous functions. (Get sent to `pxs_anon` module?)
 - ~~Check that function calls that fail dont crash.~~
 - ~~Add `_pxs_delete` method to free internal memory at language level. (core lib)~~ (it's pxs_mem.memdel(obj))
 - ~~Add `arenas`~~
-- Add magic methods for memory management
-    - `pxs_mgk_newarena` Creates a new arena handled by the library.
-    - `pxs_mgk_freearena` Frees the most recent craeted arena by the lib.
-    - `pxs_mgk_newint` Allocates a new integer via the Arena. 
-    - * for all pxs_Var types.
-    - Can not be used for modules... i.e. adding vars to modules. Mgk vars are not accepted.
-- Add `strict` flag to panic when passing a arena owned variable to a function that transfrrs the mem.
+- Promises in JS.
+- Why (globals, locals) are null sometimes?
 
 ## v0.6 STD, Tests, Errors
-- Use libs/lua-5.5.0/* src instead of mlua.
-- Remove lua hacks (io, os, what else?)
+- ~~Use libs/lua-5.5.0/* src instead of mlua.~~
+- ~~Remove lua hacks (io, os, what else?)~~
 - pxs_time (Time functions)
 - pxs_os (OS functions like name, version)
-- pxs_io (IO functions like write, read, etc) | This will require that `file_loader` `file_reader` and `dir_reader` are setup. 
 - Tests
     - ~~test_vars (Test all types to and from scripting)~~
     - test_exec
@@ -46,12 +37,24 @@
     - Explicitly coming from PXS
     - Explicit which runtime
     - Fix JS nasty errors
+- Look into no_std
+- Bench marks
 
-## v0.7 Wren support, WASM, C support (libtcc)
+## v0.7 Wasm and Dynamic Language support
+- Migrate from `PixelScript` into `pxs_PixelScript` type which makes language backends dynamic.
+    - Lua into dynamic
+    - Python into dynamic
+    - JS into dynamic
+- Function for enabling each language
+    - `pxs_enablepython`
+    - `pxs_enablelua`
+    - `pxs_enablejs`
+    - `pxs_enablewren`
+    - `pxs_enablec`
+    - Will require that the language feature is also enabled.
 - Add Wren support
-- WASM support + Wasm web page similar to pocketpy live playground.
 - Add C support via libtcc
-- Add `unlock` feature which allows for running thread code unlocked. 
+- WASM support + Wasm web page similar to pocketpy live playground.
 
 ## v0.8
 - Cross language support. Calling JS from Python, Lua from JS, Python from JS, etc...

@@ -120,7 +120,7 @@ mod tests {
             }
             list
         } else {
-            // println!("{:#?}", borrow_var!(pxs_listget(args, 2)));
+            println!("{:#?}", borrow_var!(pxs_listget(args, 2)));
             // Update entries?
             let list = pxs_listget(args, 2);
             let mut items = vec![];

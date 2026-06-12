@@ -435,12 +435,6 @@ print(pxs.call_function(get_pi))
             free_raw_string!(code);
             free_raw_string!(file_name);
         }
-        // let err = PythonScripting::execute(py_code, "<test>");
-
-        pxs_startthread();
-        pxs_startthread();
-        pxs_stopthread();
-        pxs_stopthread();
 
         pxs_finalize();
         assert!(err.is_null(), "Python Error is not empty: {}", err.get_string().unwrap());

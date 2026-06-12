@@ -6,178 +6,334 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
+#![allow(non_snake_case)]
+
+mod engine;
 pub mod func;
 pub mod module;
 pub mod object;
 pub mod var;
 
-use anyhow::{Result, anyhow};
-use mlua::prelude::*;
-use std::collections::HashMap;
-
+use crate::lua::module::preload_lua_module;
 use crate::{
-    lua::var::{from_lua, into_lua}, shared::{PixelScript, PtrMagic, ffi::ThreadLanguageState, read_file, var::{ObjectMethods, pxs_Var, pxs_VarMap}}, with_feature
+    borrow_string,
+    lua::{
+        engine::Engine,
+        module::compile_chunk,
+        var::{from_lua, push_lua_stack},
+    },
+    pxs_error,
+    shared::{
+        PixelScript, PtrMagic, PxsRes, PxsResult,
+        ffi::ThreadLanguageState,
+        read_file,
+        utils::CStringSafe,
+        var::{ObjectMethods, pxs_Var, pxs_VarMap},
+    },
+    with_feature,
 };
 
+#[allow(unused)]
+#[allow(non_camel_case_types)]
+#[allow(non_upper_case_globals)]
+#[allow(dead_code)]
+pub(self) mod lua {
+    include!(concat!(env!("OUT_DIR"), "/lua_bindings.rs"));
+}
+
 thread_local! {
-    static LUASTATE: ThreadLanguageState<State> = init_state();
+    static LUASTATE: ThreadLanguageState<State> = ThreadLanguageState::new(new_state());
 }
 
 /// This is the Lua state. Each language gets it's own private state
 struct State {
     /// The lua engine.
-    engine: Lua,
-    /// Cached Tables
-    tables: HashMap<String, LuaTable>,
+    engine: *mut lua::lua_State,
 }
 
 impl PtrMagic for State {}
 
-/// Preload a lua source code as a module.
-fn preload_lua_module(lua: &Lua, code: &str, name: &str) -> Result<(), anyhow::Error> {
-    let package: LuaTable = lua.globals().get("package")?;
-    let preload: LuaTable = package.get("preload")?;
+const LUA_REGISTRYINDEX: i32 = lua::LUA_REGISTRYINDEX;
 
-    let owned_code = String::from(code);
-    let owned_name = String::from(name);
-
-    let loader = lua.create_function(move |lua, _: ()| {
-        let res: LuaTable = lua.load(&owned_code).set_name(format!("pxs_internal_{}", &owned_name)).eval()?;
-        Ok(res)
-    })?;
-
-    preload.set(name, loader)?;
-    Ok(())
+/// Helper for safely referencing Lua table/functions.
+/// Once out of scope, it will drop.
+///
+/// Can `clone`.
+pub(self) struct LuaReference {
+    pub idx: i32,
 }
 
-/// Initialize Lua state per thread.
-fn init_state() -> ThreadLanguageState<State> {
-    // Define a global function in engine
-    let engine = Lua::new();
+impl PtrMagic for LuaReference {}
 
-    let mut lua_globals = String::new();
-    lua_globals.push_str(include_str!("../../core/lua/main.lua"));
+impl Drop for LuaReference {
+    fn drop(&mut self) {
+        let state = get_lua_state();
+        unsafe {
+            lua::luaL_unref((*state).engine, LUA_REGISTRYINDEX, self.idx);
+        }
+    }
+}
 
-    // with_feature!("pxs_utils", {
-    //     // Load in the pxs_utils methods into GLOBAL scope.
-    //     lua_globals.push_str(include_str!("../../core/lua/pxs_utils.lua"));
-    // });
+impl Clone for LuaReference {
+    fn clone(&self) -> Self {
+        let state = get_lua_state();
+        self.push();
+        let new_idx = unsafe { lua::luaL_ref((*state).engine, -1) };
 
-    with_feature!("pxs_json", {
-        // Load dkjson module
-        let _ = preload_lua_module(&engine, include_str!("../../libs/dkjson.lua"), "__dkjson__");
-        // Load in the pxs_json module
-        let _ = preload_lua_module(&engine, include_str!("../../core/lua/pxs_json.lua"), "pxs_json");
-        // Import it globally
-        lua_globals.push_str("\npxs_json = require('pxs_json')\n");
-    });
-    let _ = engine.load(lua_globals).set_name("<lua_globals>").exec();
+        LuaReference { idx: new_idx }
+    }
+}
 
-    let s = State {
-        engine: engine,
-        tables: HashMap::new(),
-    };
+impl LuaReference {
+    /// New reference based off position
+    pub fn new() -> Self {
+        let state = get_lua_state();
+        let idx = unsafe { lua::luaL_ref((*state).engine, LUA_REGISTRYINDEX) };
 
-    ThreadLanguageState::<State>::new(s.into_raw())
+        LuaReference { idx }
+    }
+
+    /// Push value to Lua stack
+    pub fn push(&self) {
+        let state = get_lua_state();
+        unsafe {
+            lua::lua_rawgeti((*state).engine, LUA_REGISTRYINDEX, self.idx as i64);
+        }
+    }
+}
+
+/// Push a string to lua
+pub(self) fn push_string(L: *mut lua::lua_State, contents: &str) {
+    let mut cstring = CStringSafe::new();
+    unsafe {
+        lua::lua_pushstring(L, cstring.new_string(contents));
+    }
+}
+
+pub(self) fn lua_error(L: *mut lua::lua_State, contents: &str) -> std::ffi::c_int {
+    unsafe {
+        push_string(L, contents);
+        lua::lua_error(L);
+
+        0
+    }
+}
+
+/// Pop the stack
+pub(self) fn lua_pop(L: *mut lua::lua_State, amount: core::ffi::c_int) {
+    // #define lua_pop(L,n)		lua_settop(L, -(n)-1)
+    unsafe {
+        lua::lua_settop(L, -(amount) - 1);
+    }
+}
+
+#[allow(unused)]
+/// #define lua_replace(L,idx)	(lua_copy(L, -1, (idx)), lua_pop(L, 1))
+pub(self) fn lua_replace(L: *mut lua::lua_State, idx: core::ffi::c_int) {
+    unsafe {
+        lua::lua_copy(L, -1, idx);
+    }
+    lua_pop(L, 1);
+}
+
+/// #define lua_upvalueindex(i)	(LUA_REGISTRYINDEX - (i))
+pub(self) fn lua_upvalueindex(i: core::ffi::c_int) -> core::ffi::c_int {
+    LUA_REGISTRYINDEX - i
+}
+
+/// #define lua_remove(L,idx)	(lua_rotate(L, (idx), -1), lua_pop(L, 1))
+pub(self) fn lua_remove(L: *mut lua::lua_State, idx: core::ffi::c_int) {
+    unsafe {
+        lua::lua_rotate(L, idx, -1);
+        lua_pop(L, 1);
+    }
+}
+
+/// Get the error as a string (handle it in PXS)
+pub(self) fn lua_get_error(L: *mut lua::lua_State) -> String {
+    unsafe {
+        let lua_error = borrow_string!(lua::lua_tolstring(L, -1, core::ptr::null_mut()));
+        // Pop the error obvio
+        lua_pop(L, 1);
+        lua_error.to_string()
+    }
+}
+
+fn new_state() -> *mut State {
+    unsafe {
+        State {
+            engine: lua::luaL_newstate(),
+        }
+        .into_raw()
+    }
+}
+
+fn init(ptr: *mut State) {
+    unsafe {
+        let all_libs = !0;
+        let safe_libs = all_libs & !(lua::LUA_IOLIBK | lua::LUA_OSLIBK | lua::LUA_DBLIBK);
+        lua::luaL_openselectedlibs((*ptr).engine, safe_libs as i32, 0);
+
+        let mut lua_globals = String::new();
+        lua_globals.push_str(include_str!("../../core/lua/main.lua"));
+
+        with_feature!("pxs_json", {
+            // Load dkjson module
+            let _ = preload_lua_module(
+                (*ptr).engine,
+                include_str!("../../libs/dkjson.lua"),
+                "__dkjson__",
+            );
+            // Load in the pxs_json module
+            let _ = preload_lua_module(
+                (*ptr).engine,
+                include_str!("../../core/lua/pxs_json.lua"),
+                "pxs_json",
+            );
+            // Import it globally
+            lua_globals.push_str("\npxs_json = require('pxs_json')\n");
+        });
+        let _ = execute(ptr, &lua_globals, "<lua_globals>");
+
+        setup_module_loader((*ptr).engine);
+    }
+}
+
+fn clear(ptr: *mut State) {
+    unsafe {
+        let L = (*ptr).engine;
+        lua::lua_close(L);
+
+        (*ptr).engine = lua::luaL_newstate();
+    }
 }
 
 /// Get the state of LUA.
 fn get_lua_state() -> *mut State {
-    LUASTATE.with(|mutex| {
-        mutex.get_ptr()
-    })
+    LUASTATE.with(|mutex| mutex.get_ptr())
 }
 
-/// Get a cached metatable from lua.
-pub(self) fn get_metatable(state: *mut State, name: &str) -> Option<LuaTable> {
-    unsafe { (*state).tables.get(name).cloned() }
+/// Get a Engine wrapper of `LUASTATE`
+fn get_lua_engine() -> Engine {
+    unsafe { Engine::new((*get_lua_state()).engine) }
 }
 
-/// Cahce a metatable.
-pub(self) fn store_metatable(state: *mut State, name: &str, table: LuaTable) {
+/// Will execute a lua function or chunk on -1 stack.
+/// Will add result to stack if not error. If error, its popped from stack.
+pub(self) fn lua_call(L: *mut lua::lua_State, args: i32, results: i32) -> PxsRes<()> {
     unsafe {
-        (*state).tables.insert(name.to_string(), table);
+        // 1
+        let code = lua::lua_pcallk(L, args, results, 0, 0, None); // results
+        if code != lua::LUA_OK as i32 {
+            let lua_error = lua_get_error(L);
+            return pxs_error!("{lua_error}");
+        }
+        Ok(())
+    }
+}
+
+/// #define lua_pushglobaltable(L)  \
+///	   ((void)lua_rawgeti(L, LUA_REGISTRYINDEX, LUA_RIDX_GLOBALS))
+pub(self) fn lua_push_globals(L: *mut lua::lua_State) {
+    unsafe {
+        lua::lua_rawgeti(L, LUA_REGISTRYINDEX, lua::LUA_RIDX_GLOBALS as i64);
     }
 }
 
 /// Execute some orbituary lua code.
 /// Returns a String. Empty means no error happened and was successful!
 pub(self) fn execute(state: *mut State, code: &str, file_name: &str) -> String {
-    let res = unsafe {
-        (*state).engine.load(code).set_name(file_name).exec()
-    };
-    if res.is_err() {
-        return res.unwrap_err().to_string();
-    }
+    unsafe {
+        let L = (*state).engine;
+        let chunk_res = compile_chunk(L, code, file_name); // 1
+        if chunk_res.is_err() {
+            return chunk_res.unwrap_err().to_string();
+        }
 
+        let call_res = lua_call(L, 0, 0); // 0
+        if call_res.is_err() {
+            return call_res.unwrap_err().to_string();
+        }
+    }
+    // Otherwise we are good to go!
     String::from("")
 }
 
+/// package.searchers[] add this loader function to that table.
+unsafe extern "C" fn module_loader_func(L: *mut lua::lua_State) -> core::ffi::c_int {
+    unsafe {
+        let path_idx = 1; // stack = 1
+        // Change path from 'path.to.file' into 'path/to/file.lua'
+        let path =
+            borrow_string!(lua::lua_tolstring(L, path_idx, core::ptr::null_mut())).to_string();
+        let path = path.replace(".", "/");
+        let path = if !path.ends_with(".lua") {
+            format!("{path}.lua")
+        } else {
+            path
+        };
+        let contents = read_file(&path);
+        if contents.is_empty() {
+            lua::lua_pushnil(L);
+            return 1;
+        }
+
+        // Compile to chunk
+        let chunk_res = compile_chunk(L, &contents, &path); // stack = 2
+        if chunk_res.is_err() {
+            return lua_error(L, &chunk_res.unwrap_err().to_string());
+        }
+
+        // Donezo!
+        1
+    }
+}
+
 /// Custom moduile loader function
-fn setup_module_loader(lua: &Lua) -> Result<()> {
-    // Get package.searchers
-    let package: LuaTable = lua
-        .globals()
-        .get("package")?;
-    let searchers: LuaTable = package
-        .get("searchers")?;
+fn setup_module_loader(L: *mut lua::lua_State) {
+    let mut engine = Engine::new(L);
+    // Get package
+    engine.get_global("package");
+    let package_idx = engine.get_top();
 
-    // Custom loader function
-    let loader = lua
-        .create_function(|lua, name: String| {
-            let path = name.replace(".", "/");
-            let path = if !path.ends_with(".lua") {
-                format!("{path}.lua").to_string()
-            } else {
-                path
-            };
-            let contents = read_file(path.as_str());
+    // Get searchers
+    engine.push_string("searchers");
+    engine.raw_get(package_idx);
+    let s_idx = engine.get_top();
+    let len = engine.len(s_idx);
+    // remove len from stack
+    engine.pop(1);
 
-            if contents.is_empty() {
-                return Ok(LuaNil);
-            }
-
-            // Compile into chunk
-            match lua.load(contents).set_name(&path).into_function() {
-                Ok(func) => Ok(LuaValue::Function(func)),
-                Err(_) => Ok(LuaNil),
-            }
-        })?;
-
-    // Set our loader in searchers list
-    let len = searchers
-        .len()?;
-    searchers
-        .set(len + 1, loader)?;
-
-    Ok(())
+    // Push module loader
+    engine.push_function(module_loader_func, 0);
+    // Add to table
+    engine.set_index(s_idx, (len + 1) as i32);
 }
 
 /// Add variables to a Table from a Map
-fn add_variables_to_table(state: *mut State, table: &LuaTable, map: &pxs_VarMap) -> Result<()> {
+fn add_variables_to_table(state: *mut State, table: i32, map: &pxs_VarMap) -> PxsRes<()> {
     let keys = map.keys();
+    let mut engine = Engine::from_state(state);
     for k in keys {
-        // Convert to lua
-        let lkey = into_lua(state, k)?;
-        let value = map.get_item(k);
-        if let Some(v) = value {
-            // convert to lua
-            let lval = into_lua(state, v)?;
-            // Set in table
-            table.set(lkey, lval)?;
-        }
+        // Push key to lua
+        engine.push_pxs(k)?;
+        let value = map.get_item(k).unwrap();
+        engine.push_pxs(value)?;
+        engine.set_table(table);
     }
 
     Ok(())
 }
 
 /// Remove variables from a Table.
-fn remove_variables_from_table(state: *mut State, table: &LuaTable, map: &pxs_VarMap) -> Result<()> {
+fn remove_variables_from_table(state: *mut State, table: i32, map: &pxs_VarMap) -> PxsRes<()> {
     let keys = map.keys();
+    let mut engine = Engine::from_state(state);
     for k in keys {
         // Convert to lua
-        let lkey = into_lua(state, k)?;
-        table.set(lkey, LuaNil)?;
+        engine.push_pxs(k)?;
+        engine.push_nil();
+        engine.set_table(table);
     }
 
     Ok(())
@@ -194,7 +350,7 @@ impl PixelScript for LuaScripting {
         }
     }
 
-    fn execute(code: &str, file_name: &str) -> Result<pxs_Var> {
+    fn execute(code: &str, file_name: &str) -> PxsResult {
         let state = get_lua_state();
         let err = execute(state, code, file_name);
         if err.is_empty() {
@@ -206,15 +362,11 @@ impl PixelScript for LuaScripting {
 
     fn start() {
         // Initalize the state
-        let state = get_lua_state();
-        let res = unsafe { setup_module_loader(&(*state).engine) };
-        if res.is_err() {
-            panic!("{:#?}", res);
-        }
+        init(get_lua_state());
     }
 
     fn stop() {
-        Self::clear_state(true);
+        clear(get_lua_state());
     }
 
     fn start_thread() {
@@ -225,133 +377,111 @@ impl PixelScript for LuaScripting {
         Self::stop();
     }
 
-    fn clear_state(call_gc: bool) {
+    fn clear() {
         let state = get_lua_state();
-
-        unsafe {
-            (*state).tables.clear();
-
-            if call_gc {
-                (*state).engine.gc_collect().unwrap();
-            }
-        }
+        clear(state);
+        init(state);
     }
-    
-    fn eval(code: &str) -> Result<pxs_Var> {
-        let state = get_lua_state();
-        let res: LuaValue = unsafe { (*state).engine.load(code).set_name("<lua_eval>").call(())? };
-        Ok(from_lua(res)?)   
-    }
-    
-    fn compile(code: &str, global_scope: pxs_Var) -> Result<pxs_Var> {
-        let state = get_lua_state();
 
-        unsafe {
-        let globals = (*state).engine.globals();
-        // Linking table between scope and globals
-        let mt = (*state).engine.create_table()?;
-        mt.set("__index", globals)?;
-        let scope_table: LuaTable;
-        // Check that scope if a map
-        if global_scope.is_map() {
-            let res = into_lua(state, &global_scope)?;
-            scope_table = res.as_table().unwrap().to_owned();
-        } else if global_scope.is_null() {
-            let res = (*state).engine.create_table()?;
-            scope_table = res;
+    fn eval(code: &str) -> PxsResult {
+        let state = get_lua_state();
+        let mut engine = Engine::from_state(state);
+        engine.compile_chunk(code, "<lua_eval>")?;
+        engine.call(0, 1)?;
+        engine.from_lua(-1)
+    }
+
+    fn compile(code: &str, global_scope: pxs_Var) -> PxsResult {
+        let state = get_lua_state();
+        let mut engine = Engine::from_state(state);
+        // Compile chunk
+        let chunk = engine.compile_chunk(code, "<lua_chunk>")?;
+        // Create a scope table and set a meta table that has __index == globals
+        let env_table = if global_scope.is_map() {
+            // 2
+            engine.push_pxs(&global_scope)?
         } else {
-            return Ok(pxs_Var::new_exception("Expected Map or Null for global scope."));
-        }
+            engine.create_table(0, 0)
+        };
+        let mt_table = engine.create_table(0, 0);
 
-        scope_table.set_metatable(Some(mt))?;
+        // Get globals
+        engine.push_globals();
+        // Assign to mt
+        engine.set_field(mt_table, "__index");
+        // Assign mt_table to env_table
+        engine.set_meta(env_table);
+        // save env_table
+        let env_table_pxs = engine.from_lua(env_table)?; // 1
+        // push back to stack
+        engine.push_pxs(&env_table_pxs)?;
+        // Set as _ENV
+        engine.set_upvalue(chunk, 1);
+        // Create Code Object
+        let code_object = pxs_Var::new_list();
+        let list = code_object.get_list().unwrap();
 
-        // Compile code
-        let chunk = (*state).engine.load(code);
-        let chunk = chunk.set_environment(scope_table).set_name("<lua_code_block>");
-        let our_scope_table = chunk.environment().unwrap().to_owned();
+        // Push chunk
+        engine.push_value(chunk);
+        list.add_item(engine.from_lua(-1)?); // 0
+        list.add_item(env_table_pxs);
 
-        let func = chunk.into_function()?;
-
-        // Now lets return our [CodeObject, Global Scope reference]
-        let result = pxs_Var::new_list();
-        let list = result.get_list().unwrap();
-
-        // Code Object
-        list.add_item(from_lua(mlua::Value::Function(func))?);
-        // Global Scope
-        list.add_item(from_lua(mlua::Value::Table(our_scope_table))?);
-        
-        Ok(result)
+        Ok(code_object)
     }
-    }
-    
-    fn exec_object(code: pxs_Var, local_scope: pxs_Var) -> Result<pxs_Var> {
-        let state = get_lua_state();
 
-        // We have to get the CodeObject and the Global Scope first
+    fn exec_object(code: pxs_Var, local_scope: pxs_Var) -> PxsResult {
+        let mut engine = get_lua_engine();
+        // Get code object and globals
         let (code_object, global_scope) = {
             let list = code.get_list().unwrap();
             (list.get_item(1).unwrap(), list.get_item(2).unwrap())
         };
 
-        // Now add local scope to global scope...
-        let binding = into_lua(state, global_scope)?;
-        let potential_table: Option<&LuaTable> = binding.as_table();
-        if potential_table.is_none() {
-            return Ok(pxs_Var::new_exception("Globals is not a Table."));
-        }
-        let global_table: LuaTable = potential_table.unwrap().to_owned();
-        
-        // Set local scope if not null
+        // Add locals if necessary.
         if !local_scope.is_null() {
-            let map = local_scope.get_map().unwrap();
-            add_variables_to_table(state, &global_table, map)?;
+            // Add local scope to global scope
+            engine.push_pxs(global_scope)?;
+            add_variables_to_table(get_lua_state(), engine.get_top(), local_scope.get_map().unwrap())?;
+            // Pop global scope.
+            engine.pop(1);
         }
 
-        // Get the object as a function and call it
-        let binding = into_lua(state, code_object)?;
-        let potential_func: Option<&LuaFunction> = binding.as_function();
-        if potential_func.is_none() {
-            return Ok(pxs_Var::new_exception("Code Object is not a function."));
-        }
-        let func = potential_func.unwrap();
-        let res: LuaValue = func.call(())?;
-        let pxs_res = from_lua(res)?;
+        // Push code object
+        engine.push_pxs(code_object)?;
+        engine.call(0, 1)?;
 
-        // Now remove the local_state
+        let res = engine.get_top_pxs()?;
+
+        // Remove locals if necessary
         if !local_scope.is_null() {
-            let map = local_scope.get_map().unwrap();
-            remove_variables_from_table(state, &global_table, map)?;
+            engine.push_pxs(global_scope)?;
+            remove_variables_from_table(get_lua_state(), engine.get_top(), local_scope.get_map().unwrap())?;
         }
 
-        Ok(pxs_res)
+        Ok(res)
     }
-    
+
     fn debug() -> String {
-        let state = get_lua_state();
-        let tables = unsafe { &(*state).tables };
-        format!("{{tables: {:#?}}}", tables)
+        String::new()
+        // let state = get_lua_state();
+        // let tables = unsafe { &(*state).tables };
+        // format!("{{tables: {:#?}}}", tables)
     }
-    
-    fn reset() {
-        Self::clear_state(true);
+
+    fn garbage_collect() {
+        let state = get_lua_state();
+        unsafe {
+            lua::lua_gc((*state).engine, lua::LUA_GCCOLLECT as i32);
+        }
     }
 }
 
-/// Convert args for ObjectMethods into LuaMutliValue
-fn args_to_lua(args: &Vec<pxs_Var>) -> LuaMultiValue {
-    let mut lua_args = vec![];
-    let state = get_lua_state();
+/// Push args to lua stack.
+fn args_to_lua(engine: &mut Engine, args: &Vec<pxs_Var>) -> PxsRes<()> {
     for arg in args.iter() {
-        let lua_arg = into_lua(state, arg);
-        if lua_arg.is_err() {
-            lua_args.push(into_lua(state, &pxs_Var::new_exception(lua_arg.unwrap_err().to_string())).unwrap_or(LuaNil));
-        }
-        lua_args.push(into_lua(state, arg).unwrap_or(LuaNil));
+        engine.push_pxs(arg)?;
     }
-
-    // Pack lua args
-    LuaMultiValue::from_vec(lua_args)
+    Ok(())
 }
 
 impl ObjectMethods for LuaScripting {
@@ -359,93 +489,65 @@ impl ObjectMethods for LuaScripting {
         var: &crate::shared::var::pxs_Var,
         method: &str,
         args: &mut crate::shared::var::pxs_VarList,
-    ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
-        // Get the lua table.
-        let table = unsafe {
-            // Just grab it from the ptr itself
-            let table_ptr = var.get_object_ptr() as *const LuaTable;
-            (&*table_ptr).clone()
-        };
-
-        let lua_args = args_to_lua(&args.vars);
-        let res = table
-            .call_function(method, lua_args)?;
-
-        let pixel_res = from_lua(res)?;
-
-        Ok(pixel_res)
-        // Drop state
+    ) -> PxsResult {
+        let mut engine = get_lua_engine();
+        engine.push_pxs(var)?;
+        engine.get_field(-1, method);
+        args_to_lua(&mut engine, &args.vars)?;
+        engine.call(args.len() as i32, 1)?;
+        engine.get_top_pxs()
     }
 
-    fn call_method(
-        method: &str,
-        args: &mut crate::shared::var::pxs_VarList,
-    ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
-        // Get args as lua args
-        let lua_args = args_to_lua(&args.vars);
-        let state = get_lua_state();
-
-        let function: LuaFunction = unsafe { (*state) .engine.globals().get(method)? };
-        let res: LuaValue = function
-            .call(lua_args)?;
-
-        from_lua(res)
+    fn call_method(method: &str, args: &mut crate::shared::var::pxs_VarList) -> PxsResult {
+        let mut engine = get_lua_engine();
+        engine.push_globals();
+        engine.get_field(-1, method);
+        args_to_lua(&mut engine, &args.vars)?;
+        engine.call(args.len() as i32, 1)?;
+        engine.get_top_pxs()
     }
 
     fn var_call(
         method: &crate::shared::var::pxs_Var,
         args: &mut crate::shared::var::pxs_VarList,
-    ) -> Result<crate::shared::var::pxs_Var, anyhow::Error> {
-        if !method.is_function() {
-            return Err(anyhow!("Expected a Function, found a: {:#?}", method.tag));
-        }
-
-        // Get the pointer and convert it into a LuaFunction
-        let fn_ptr = method.get_function().unwrap();
-        let lua_function = fn_ptr as *const LuaFunction;
-
-        // Convert  the methods into lua args
-        let lua_args = args_to_lua(&args.vars);
-
-        // Call function
-        let res: LuaValue = (unsafe { &*lua_function }).call(lua_args)?;
-
-        // Convert into pxs
-        from_lua(res)
+    ) -> PxsResult {
+        let mut engine = get_lua_engine();
+        engine.push_pxs(method)?;
+        args_to_lua(&mut engine, &args.vars)?;
+        engine.call(args.len() as i32, 1)?;
+        engine.get_top_pxs()
     }
 
-    fn get(var: &pxs_Var, key: &str) -> Result<pxs_Var, anyhow::Error> {
-        // Get object from lua
-        let table = unsafe {
-            // Just grab it from the ptr itself
-            let table_ptr = var.get_object_ptr() as *const LuaTable;
-            (&*table_ptr).clone()
-        };
-
-        let value: LuaValue = table.raw_get(key)?;
-        from_lua(value)
+    fn get(var: &pxs_Var, key: &str) -> PxsResult {
+        let mut engine = get_lua_engine();
+        engine.push_pxs(var)?;
+        engine.get_field(-1, key);
+        let result = engine.get_top_pxs()?;
+        Ok(result)
     }
-    
-    fn set(var: &pxs_Var, key: &str, value: &pxs_Var) -> Result<pxs_Var, anyhow::Error> {
-        // Get object from lua
-        let table = unsafe {
-            // Just grab it from the ptr itself
-            let table_ptr = var.get_object_ptr() as *const LuaTable;
-            (&*table_ptr).clone()
-        };
 
-        let state = get_lua_state();
-        let res = table.raw_set(key, into_lua(state, value)?);
-        Ok(match res {
-            Ok(_) => pxs_Var::new_bool(true),
-            Err(_) => pxs_Var::new_bool(false),
-        })
+    fn set(var: &pxs_Var, key: &str, value: &pxs_Var) -> PxsRes<()> {
+        let mut engine = get_lua_engine();
+
+        // push object to lua
+        let table = engine.push_pxs(var)?;
+
+        // Set key
+        engine.push_string(key);
+        engine.push_pxs(value)?;
+
+        engine.set_table(table);
+
+        Ok(())
     }
-    
-    fn get_from_name(name: &str) -> Result<pxs_Var, anyhow::Error> {
-        let state = get_lua_state();
 
-        let res: LuaValue = unsafe { (*state).engine.globals().get(name)? };
-        from_lua(res)
+    fn get_from_name(name: &str) -> PxsResult {
+        let mut engine = get_lua_engine();
+        // Push the global table
+        engine.push_globals();
+        // Get field
+        engine.get_field(-1, name);
+        // result
+        engine.from_lua(-1)
     }
 }

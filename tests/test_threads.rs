@@ -41,7 +41,7 @@ pxs.print('Working Lua')
         let script = r#"
 import * as pxs from 'pxs';
 
-pxs.print('Working JS');
+ pxs.print('Working JS');
 "#;
         let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_JavaScript);
         assert!(res.is_null(), "JS error is not null: {:#?}", res);
@@ -53,20 +53,22 @@ pxs.print('Working JS');
         pxs_initialize();
         utils::setup_pxs();
 
-        let handle = std::thread::spawn(|| {
-            pxs_startthread();
-            utils::setup_pxs();
+        for i in 0..26 {
+            let handle = std::thread::spawn(|| {
+                pxs_startthread();
+                utils::setup_pxs();
 
-            print_helper("THREAD PYTHON");
-            test_python();
-            print_helper("THREAD LUA");
-            test_lua();
-            print_helper("THREAD JS");
-            test_js();
-            pxs_stopthread();
-        });
+                // print_helper("THREAD PYTHON");
+                test_python();
+                // print_helper("THREAD LUA");
+                test_lua();
+                // print_helper("THREAD JS");
+                test_js();
+                pxs_stopthread();
+            });
 
-        handle.join().unwrap();
+            handle.join().unwrap();
+        }
 
         print_helper("PYTHON");
         test_python();

@@ -1,11 +1,7 @@
-use anyhow::{Result, anyhow};
-
 use crate::{
-    borrow_string,
-    js::quickjs::{
+    borrow_string, js::quickjs::{
             self, JS_IsArray, JS_IsError, JS_IsFunction, JS_IsPromise, JS_PromiseResult
-        },
-    shared::utils::CStringSafe,
+        }, pxs_error, shared::{PxsRes, utils::CStringSafe}
 };
 
 /// Macro for writing out the JS_Is functions
@@ -294,17 +290,30 @@ impl SmartJSValue {
         }
     }
 
+    /// Await if promise and update value
+    pub fn await_if_promise(&mut self) {
+        if !self.is_promise() {
+            return;
+        }
+        // Drop old value
+        unsafe {
+            quickjs::JS_FreeValue(self.context, self.value);
+        }
+        // Set new value
+        self.value = self.await_value().dupped_value();
+    }
+
     /// Get As String (only works on strings)
-    pub fn as_string(&self) -> Result<String> {
+    pub fn as_string(&self) -> PxsRes<String> {
         if !self.is_string() {
-            return Err(anyhow!("JSValue is not a string"));
+            return pxs_error!("JSValue is not a string");
         }
 
         unsafe {
             let cstring =
                 quickjs::JS_ToCStringLen2(self.context, std::ptr::null_mut(), self.value, false);
             if cstring.is_null() {
-                Err(anyhow!("String result is NULL"))
+                pxs_error!("String result is NULL")
             } else {
                 let val = borrow_string!(cstring).to_string();
                 quickjs::JS_FreeCString(self.context, cstring);
@@ -314,9 +323,9 @@ impl SmartJSValue {
     }
 
     /// Get as i32 (only works on numbers)
-    pub fn as_i32(&self) -> Result<i32> {
+    pub fn as_i32(&self) -> PxsRes<i32> {
         if !self.is_number() {
-            return Err(anyhow!("JSValue is not a i32"));
+            return pxs_error!("JSValue is not a i32");
         }
 
         unsafe {
@@ -327,9 +336,9 @@ impl SmartJSValue {
     }
 
     /// Get as f64 (only works on numbers)
-    pub fn as_f64(&self) -> Result<f64> {
+    pub fn as_f64(&self) -> PxsRes<f64> {
         if !self.is_number() {
-            return Err(anyhow!("JSValue is not a f64"));
+            return pxs_error!("JSValue is not a f64");
         }
         
         unsafe {

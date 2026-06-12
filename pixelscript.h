@@ -8,6 +8,14 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#define LUA_OBJECT_BRIDGE_FUNCTION 0
+
+#define LUA_MODULE_BRIDGE_FUNCTION 1
+
+#define LUA_INDEX_BRIDGE_FUNCTION 2
+
+#define LUA_NEWINDEX_BRIDGE_FUNCTION 3
+
 /**
  * This represents the variable type that is being read or created.
  */
@@ -317,11 +325,6 @@ typedef void *pxs_Opaque;
  * Function Type for Loading a file.
  */
 typedef char *(*pxs_LoadFileFn)(const char *file_path);
-
-/**
- * Function Type for writing a file.
- */
-typedef void (*pxs_WriteFileFn)(const char *file_path, const char *contents);
 
 /**
  * Function Type for reading a Dir. Should return a `pxs_List`
@@ -640,13 +643,6 @@ bool pxs_varis(struct pxs_Var *var, enum pxs_VarType var_type);
 void pxs_set_filereader(pxs_LoadFileFn func);
 
 /**
- * Set a function for writing a file.
- *
- * This is used to write files via pxs_json
- */
-void pxs_set_filewriter(pxs_WriteFileFn func);
-
-/**
  * Set a function for reading a directory.
  *
  * This is used to read a dir.
@@ -677,7 +673,7 @@ void pxs_stopthread(void);
  *
  * Optionally, if you want to run the garbage collector.
  */
-void pxs_clearstate(bool gc_collect);
+void pxs_clear(void);
 
 /**
  * Call a method within a specifed runtime.
@@ -1027,11 +1023,9 @@ pxs_VarT pxs_arenaput(struct pxs_PixelArena *arena, pxs_VarT var);
 char *pxs_debugstate(enum pxs_Runtime runtime);
 
 /**
- * Reset the PXS runtime.
- *
- * You will have to re-define any host modules.
+ * Call GC for all backends.
  */
-void pxs_reset(void);
+void pxs_garbagecollect(void);
 
 /**
  * Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.

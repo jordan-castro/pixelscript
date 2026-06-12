@@ -7,13 +7,12 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 use crate::shared::{
-    PtrMagic
+    PtrMagic, ffi::ThreadLanguageState
 };
 
 use super::var::pxs_Var;
-use std::{
-    collections::HashMap, sync::{Mutex, OnceLock}
-};
+use std::collections::HashMap
+;
 
 /// Function reference used in C.
 ///
@@ -43,6 +42,8 @@ pub struct FunctionLookup {
     pub function_hash: HashMap<i32, Function>,
 }
 
+impl PtrMagic for FunctionLookup {}
+
 impl FunctionLookup {
     pub fn get_function(&self, idx: i32) -> Option<&Function> {
         self.function_hash.get(&idx)
@@ -61,39 +62,37 @@ impl FunctionLookup {
     }
 }
 
-/// The function lookup!
-static FUNCTION_LOOKUP: OnceLock<Mutex<FunctionLookup>> = OnceLock::new();
+thread_local! {
+    static FUNCTION_LOOKUP: ThreadLanguageState<FunctionLookup> = ThreadLanguageState::new(new_function_lookup());
+}
+
+/// Create a new function lookup.
+fn new_function_lookup() -> *mut FunctionLookup {
+    FunctionLookup {
+        function_hash: HashMap::new(),
+    }.into_raw()
+}
 
 /// Get the function lookup global state. Shared between all runtimes.
-fn get_function_lookup() -> std::sync::MutexGuard<'static, FunctionLookup> {
-    FUNCTION_LOOKUP
-        .get_or_init(|| {
-            Mutex::new(FunctionLookup {
-                function_hash: HashMap::new(),
-            })
-        })
-        .lock()
-        .unwrap()
+fn get_function_lookup() -> *mut FunctionLookup {
+    FUNCTION_LOOKUP.with(|mutex| {
+        mutex.get_ptr()
+    })
 }
 
 /// Add a function to the lookup
 pub fn lookup_add_function(name: &str, func: pxs_Func) -> i32 {
-    let mut lookup = get_function_lookup();
-    let idx = lookup.function_hash.len();
-    lookup.function_hash.insert(
-        idx as i32,
-        Function {
-            name: name.to_string(),
-            func,
-        },
-    );
-    idx as i32
+    let lookup = get_function_lookup();
+    unsafe {
+        (*lookup).add_function(name, func)
+    }
 }
 
 /// Clear function lookup hash
 pub fn clear_function_lookup() {
-    let mut lookup = get_function_lookup();
-    lookup.function_hash.clear();
+    unsafe {
+        (*get_function_lookup()).function_hash.clear();
+    }
 }
 
 /// Call a function that is saved in the lookup by a idx.
@@ -102,7 +101,7 @@ pub fn clear_function_lookup() {
 pub unsafe fn call_function(fn_idx: i32, args: Vec<pxs_Var>) -> pxs_Var {
     let func = {
         let fl = get_function_lookup();
-        let function = fl.get_function(fn_idx);
+        let function = unsafe { (*fl).get_function(fn_idx) };
         if function.is_none() {
             return pxs_Var::new_null();
         }

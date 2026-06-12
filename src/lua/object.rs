@@ -6,156 +6,189 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use crate::{
-    lua::{State, from_lua, get_metatable, into_lua, store_metatable},
-    shared::{
-        ffi::ThreadSafePointer, func::call_function, object::{ObjectCallback, ObjectFlags, pxs_PixelObject}, pxs_Runtime, var::pxs_Var
-    },
+    borrow_string, lua::{
+        State, engine::Engine, func::{LUA_INDEX_BRIDGE_FUNCTION, LUA_NEWINDEX_BRIDGE_FUNCTION, LUA_OBJECT_BRIDGE_FUNCTION}, lua
+    }, pxs_error, shared::{
+        PXS_PTR_NAME, PxsRes, object::{ObjectFlags, pxs_PixelObject}, utils::create_private_name
+    }
 };
-use anyhow::{Result, anyhow};
-use mlua::prelude::*;
 
-fn create_object_callback(state: *mut State, fn_idx: i32, flags: u8) -> Result<LuaFunction> {
-    let thread_safe_state = ThreadSafePointer::<State>::new(state);
-    let func = unsafe { (*state).engine.create_function(
-        move |_, (internal_obj, args): (LuaTable, LuaMultiValue)| -> Result<LuaValue, LuaError> {
-            let mut argv = vec![];
+/// __index
+pub(super) fn lua_index(L: *mut lua::lua_State) -> PxsRes<i32> {
+    let table = 1;
+    let key = 2;
 
-            // Add runtime
-            argv.push(pxs_Var::new_i64(pxs_Runtime::pxs_Lua as i64));
-
-            // Check whether to pass id or not
-            if flags & (ObjectFlags::UsesId as u8) != 0 {
-                // Get obj id
-                let obj_id: i64 = internal_obj.get("_pxs_ptr")?;
-
-                // Add object id
-                argv.push(pxs_Var::new_i64(obj_id));
-            } else {
-                let obj_value = from_lua(internal_obj.to_value());
-                if obj_value.is_err() {
-                    return Err(LuaError::RuntimeError(obj_value.unwrap_err().to_string()));
-                }
-                argv.push(obj_value.unwrap());
-            }
-            // Add args
-            for arg in args {
-                let lua_arg = from_lua(arg);
-                if lua_arg.is_err() {
-                    return Err(LuaError::RuntimeError(lua_arg.unwrap_err().to_string()));
-                }
-                argv.push(lua_arg.unwrap());
-            }
-
-            // Call
-            let res = call_function(fn_idx, argv);
-            // Convert into lua
-            let lua_val = into_lua(thread_safe_state.get_ptr(), &res);
-            lua_val
-        },
-    ) };
-
-    if func.is_err() {
-        Err(anyhow!("{:#}", func.unwrap_err()))
-    } else {
-        Ok(func.unwrap())
-    }
-}
-
-/// The __index function
-fn lua_index(source: &LuaTable, table: &LuaTable, key: String, callbacks: HashMap<String, ObjectCallback>) -> LuaResult<LuaValue> {
-    // Oki dok, here we need to go through callback names
-    let method = callbacks.get(&key);
-    if let Some(method) = method {
-        // Check if it is a property
-        if method.flags & ObjectFlags::IsProp as u8 != 0 {
-            let func_name = format!("__pxs_{}__", method.cbk.name);
-            let func: LuaFunction = source.raw_get(func_name)?;
-            let res: LuaValue = func.call((table,))?;
-            return Ok(res);
-        } else {
-            let value: LuaValue = source.raw_get(key.clone())?;
-            if !value.is_nil() {
-                return Ok(value);
-            }
-        }
-    }
-
-    Ok(LuaNil)
-}
-
-/// The __newindex function
-fn lua_newindex(source: &LuaTable, table: &LuaTable, key: String, value: &LuaValue, callbacks: HashMap<String, ObjectCallback>) -> LuaResult<LuaValue> {
-    let method = callbacks.get(&key);
-    if let Some(method) = method {
-        // Check if it is a property
-        if method.flags & ObjectFlags::IsProp as u8 != 0 {
-            let func_name = format!("__pxs_{}__", method.cbk.name);
-            let func: LuaFunction = source.raw_get(func_name)?;
-            let res: LuaValue = func.call((table, value))?;
-            return Ok(res);
-        } else {
-            let value: LuaValue = source.raw_get(key.clone())?;
-            if !value.is_nil() {
-                return Ok(value);
-            }
-        }
-    }
-
-    Ok(LuaNil)
-}
-
-pub(super) fn create_object(state: *mut State, idx: i32, source: Arc<pxs_PixelObject>) -> Result<LuaTable> {
-    let table = unsafe { (*state).engine.create_table()? };
-    table.set("_pxs_ptr", LuaValue::Integer(idx as i64))?;
-
-    let metatable = get_metatable(state, &source.type_name);
-
-    // let mut state = get_state();
-    let metatable = if let Some(mt) = metatable {
-        mt.clone()
-    } else {
-        // Create new metatable
-        let mt = unsafe { (*state).engine.create_table()? };
-
-        // HashMap of String -> ObjectCallbackc
-        let mut map: HashMap<String, ObjectCallback> = HashMap::new();
-
-        // Add methods
-        for method in source.callbacks.iter() {
-            map.insert(method.cbk.name.clone(), method.clone());
-            let func = create_object_callback(state, method.cbk.idx, method.flags)?;
-
-            // Name needs to be warped potentially.
-            let name = if method.flags & ObjectFlags::IsProp as u8 != 0 {
-                format!("__pxs_{}__", method.cbk.name)
-            } else {
-                method.cbk.name.clone()
-            };
-            mt.set(name.clone(), func)?;
-        }
-
-        // Our custom index function
-        let index_source_clone = mt.clone();
-        let newindex_source_clone = mt.clone();
-        let index_callbacks_clone = map.clone();
-        let newindex_callbacks_clone = map.clone();
-        let custom_index = unsafe { (*state).engine.create_function(move |_lua, (table, key): (LuaTable, String) | {
-            Ok(lua_index(&index_source_clone, &table, key, index_callbacks_clone.clone())?)
-        })? };
-        let custom_newindex = unsafe { (*state).engine.create_function(move |_lua, (table, key, value): (LuaTable, String, LuaValue) | {
-            Ok(lua_newindex(&newindex_source_clone, &table, key, &value, newindex_callbacks_clone.clone())?)
-        })? };
-
-        mt.set("__index", custom_index)?;
-        mt.set("__newindex", custom_newindex)?;
-        // save it
-        store_metatable(state, &source.type_name, mt.clone());
-        mt
+    let function_name = unsafe {
+        borrow_string!(lua::lua_tolstring(L, key, core::ptr::null_mut())).to_string()
     };
+    // Possible private name.
+    let private_name = create_private_name(&function_name);
 
-    table.set_metatable(Some(metatable))?;
-    Ok(table)
+    let mut engine = Engine::without_alloc(L);
+
+    // Check on regular table first. (_pxs_ptr) or user assigned values.
+    engine.push_value(key);
+    engine.raw_get(table);
+    
+    if engine.get_type(-1) != lua::LUA_TNIL as i32 {
+        // We got something, return it.
+        return Ok(1);
+    } 
+    // Pop nil from the stack
+    engine.pop(1);
+
+    // Get the meta table because that is what has the values
+    engine.get_meta(table); // 1 (3)
+    let mt = engine.get_top();
+
+    // Check for non private name first
+    engine.push_string(&function_name); // 2 (4)
+    engine.raw_get(mt); // 2 (4)
+
+    if engine.get_type(engine.get_top()) != lua::LUA_TNIL as i32 {
+        // We have our result!
+        engine.remove(3); // remove MT
+        return Ok(1);
+    }
+
+    // We may have a property
+    engine.pop(1); // 1 (3) Now only MT is on top.
+
+    // Check private name
+    engine.push_string(&private_name); // 2 (4)
+    engine.raw_get(mt); // 2 (4)
+
+    if engine.get_type(engine.get_top()) != lua::LUA_TFUNCTION as i32 {
+        // Who knows what this is, just return it
+        engine.remove(3); // remove MT
+        return Ok(1);
+    }
+
+    // We have our function on top!
+    // Lets push the table
+    engine.push_value(table); // 3 (5)
+    let res = engine.call(1, 1); // if successfull 3 (5)
+    if res.is_err() {
+        engine.pop(1); // MT 
+        return pxs_error!("{}", res.unwrap_err().to_string());
+    }
+
+    // We got a value!
+    // Just need to return it
+    // I need to remove MT only
+    engine.remove(3);
+    // Done
+    Ok(1)
+}
+
+/// __newindex
+pub(super) fn lua_newindex(L: *mut lua::lua_State) -> PxsRes<i32> {
+    let table = 1;
+    let key = 2;
+    let value = 3;
+
+    let mut engine = Engine::new(L);
+
+    // Property 
+    let property_name = engine.to_string(key);
+    let private_name = create_private_name(&property_name);
+
+    // Get MT
+    engine.get_meta(table);
+    let mt = engine.get_top();
+
+    // Check if MT has private name
+    engine.push_string(&private_name);
+    engine.raw_get(mt);
+
+    if engine.get_type(engine.get_top()) != lua::LUA_TFUNCTION as i32 {
+        // Set it like you would normally
+        engine.push_value(key);
+        engine.push_value(value);
+        engine.raw_set(table);
+    } else {
+        // This is a function!
+        // Push table, value
+        engine.push_value(table);
+        engine.push_value(value);
+        let res = engine.call(2, 1); // this should always be nil
+        if res.is_err() {
+            return pxs_error!("{}", res.unwrap_err().to_string());
+        }
+    }
+
+    drop(engine);
+    Ok(0)
+}
+
+/// Create a new lua table and push it to stack. It's position on stack is returned.
+pub(super) fn create_object(
+    state: *mut State,
+    idx: i32,
+    source: Arc<pxs_PixelObject>,
+) {
+    let mut engine = Engine::from_state(state);
+
+    let callback_count = source.callbacks.len();
+    // Create the table off the `engine` tracked stack.
+    unsafe {
+        lua::lua_createtable((*state).engine, 0, callback_count as i32);
+    }
+    let table = engine.get_top();
+
+    // Set the "_pxs_ptr"
+    engine.push_string(PXS_PTR_NAME);
+    engine.push_integer(idx);
+    engine.raw_set(table);
+
+    // Create a new meta table
+    let created = engine.new_meta(&source.type_name);
+    if created == 0 {
+        // Alaready exists
+        engine.set_meta(table);
+    }
+
+    // Create a new meta table.
+    let mt = engine.get_top();
+
+    // Add callbacks
+    for method in source.callbacks.iter() {
+        // The method name changes if a prop _pxs{name}_.
+        let method_name = if method.flags & ObjectFlags::IsProp as u8 != 0 {
+            create_private_name(&method.cbk.name)
+        } else {
+            method.cbk.name.clone()
+        };
+
+        // Setup the function up values
+        engine.push_integer(LUA_OBJECT_BRIDGE_FUNCTION);
+        engine.push_integer(method.cbk.idx);
+        engine.push_integer(method.flags as i32);
+        engine.push_function(lua::pxslua_callback, 3);
+        // engine.push_function(lua_object_bridge, 2);
+
+        // Add to metatable
+        engine.set_field(mt, &method_name);
+    }
+
+    // Bind __index
+    engine.push_string("__index");
+    engine.push_integer(LUA_INDEX_BRIDGE_FUNCTION);
+    engine.push_function(lua::pxslua_callback, 1);
+    engine.raw_set(mt);
+
+    // Bind __newindex
+    engine.push_string("__newindex");
+    engine.push_integer(LUA_NEWINDEX_BRIDGE_FUNCTION);
+    engine.push_function(lua::pxslua_callback, 1);
+    engine.raw_set(mt);
+
+    // Just put it on the top
+    engine.push_value(mt);
+
+    // Assign MT to table
+    engine.set_meta(table);
 }

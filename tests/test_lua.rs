@@ -19,8 +19,7 @@ mod tests {
 
     use pixelscript::{
         lua::LuaScripting,
-        shared::{PixelScript, PtrMagic, object::pxs_PixelObject, pxs_Runtime, var::{pxs_Var, pxs_VarT},
-        utils::{execute_code}
+        shared::{PixelScript, PtrMagic, object::pxs_PixelObject, pxs_Runtime, utils::{CStringSafe, execute_code}, var::{pxs_Var, pxs_VarT, pxs_VarType}
 },
         *,
     };
@@ -252,6 +251,8 @@ mod tests {
     unsafe extern "C" fn call_function(
         args: pxs_VarT,
     ) -> pxs_VarT {
+        println!("{:#?}", borrow_var!(args));
+
         // Assume 1 is a function
         let func = pxs_listget(args, 1);
         // Check for args
@@ -267,7 +268,23 @@ mod tests {
         res
     }
 
+    unsafe extern "C" fn expect_table(
+        args: pxs_VarT
+    ) -> pxs_VarT {
+        println!("{:#?}", borrow_var!(args));
+        let table = pxs_listget(args, 1);
+
+        // println!("{:#?}", borrow_var!(table));
+
+        if !pxs_varis(table, pxs_VarType::pxs_List) {
+            pxs_Var::new_exception("Expected table").into_raw()
+        } else {
+            pxs_newnull()
+        }
+    }
+
     fn test_add_module() {
+        let mut cstring = CStringSafe::new();
         pxs_initialize();
         let module_name = create_raw_string!("pxs");
         let module = pxs_newmod(module_name);
@@ -276,6 +293,7 @@ mod tests {
         let n1_name = create_raw_string!("n1");
         let n2_name: *mut i8 = create_raw_string!("n2");
         pxs_addfunc(module, add_name, add_wrapper);
+        pxs_addfunc(module, cstring.new_string("expect_table"), expect_table);
         let n1 = pxs_newint(1);
         let n2 = pxs_newint(2);
         pxs_addvar(module, n1_name, n1);
@@ -388,6 +406,9 @@ mod tests {
                 return 3.145
             end 
             pxs.print(tostring(pxs.call_function(get_pi)))
+
+            local args = {name = "jordan", age = 25}
+            pxs.expect_table({1,2}, {name = "Jordan"}, {2,1})
         "#;
         let res = execute_code(lua_code, "<test>", pxs_Runtime::pxs_Lua);
         assert!(res.is_null(), "Lua Error is not empty: {:#?}", res);

@@ -10,8 +10,6 @@ use std::{
     ffi::{CString, c_char, c_void}, panic::Location, sync::{Arc, LazyLock}
 };
 
-use anyhow::Result;
-
 use crate::{
     own_string, own_var, shared::{ffi::ThreadLanguageState, var::{pxs_Var, pxs_VarT}}
 };
@@ -34,20 +32,24 @@ pub mod arena;
 pub type pxs_LoadFileFn = unsafe extern "C" fn(file_path: *const c_char) -> *mut c_char;
 
 #[allow(non_camel_case_types)]
-/// Function Type for writing a file.
-pub type pxs_WriteFileFn = unsafe extern "C" fn(file_path: *const c_char, contents: *const c_char);
-
-#[allow(non_camel_case_types)]
 /// Function Type for reading a Dir. Should return a `pxs_List`
 pub type pxs_ReadDirFn = unsafe extern "C" fn(dir_path: *const c_char) -> pxs_VarT;
 
 #[allow(non_camel_case_types)]
 pub type pxs_Opaque = *mut c_void;
 
+/// Error type in PXS
+pub(crate) type PxsError = String;
+
+/// Generic Result type in PXS
+pub(crate) type PxsRes<T> = Result<T, PxsError>;
+
+/// Main Result type in PXS
+pub(crate) type PxsResult = PxsRes<pxs_Var>;
+
 /// This is the PixelScript state.
 pub(crate) struct PixelState {
     pub load_file: Option<pxs_LoadFileFn>,
-    pub write_file: Option<pxs_WriteFileFn>,
     pub read_dir: Option<pxs_ReadDirFn>,
 }
 
@@ -58,10 +60,17 @@ static PIXEL_STATE: LazyLock<ThreadLanguageState<PixelState>> = LazyLock::new(||
     ThreadLanguageState::<PixelState>::new(init_state())
 });
 
+/// This is a internal macro to create a PxsError type.
+#[macro_export]
+macro_rules! pxs_error {
+    ($($arg:tt)*) => {
+        Err(format!("{}", format_args!($($arg)*)))
+    }
+}
+
 fn init_state() -> *mut PixelState {
     PixelState{
         load_file: None,
-        write_file: None,
         read_dir: None
     }.into_raw()
 }
@@ -70,13 +79,6 @@ fn init_state() -> *mut PixelState {
 pub(crate) fn set_read_file(func: pxs_LoadFileFn) {
     unsafe { 
         (*PIXEL_STATE.get_ptr()).load_file = Some(func);
-    }
-}
-
-/// Set `write_file` function in PixelState global.
-pub(crate) fn set_write_file(func: pxs_WriteFileFn) {
-    unsafe {
-        (*PIXEL_STATE.get_ptr()).write_file = Some(func);
     }
 }
 
@@ -105,23 +107,6 @@ pub fn read_file(file_path: &str) -> String {
     // Convet *mut c_char into String
     let res_owned = own_string!(res);
     res_owned
-}
-
-/// Write a file using pxs api.
-/// This must be set by host language.
-pub fn write_file(file_path: &str, contents: &str) {
-    // Get callback
-    let cbk = unsafe { (*PIXEL_STATE.get_ptr()).write_file };
-    if cbk.is_none() {
-        return;
-    }
-    let cbk = cbk.unwrap();
-    // Convert to *const c_char
-    let c_file_path = CString::new(file_path).unwrap();
-    let c_contents = CString::new(contents).unwrap();
-
-    // Call it
-    unsafe { cbk(c_file_path.as_ptr(), c_contents.as_ptr()) };
 }
 
 /// Read a Directory using pxs api.
@@ -211,44 +196,45 @@ pub trait PtrMagic: Sized {
 pub trait PixelScript {
     /// Start the runtime.
     fn start();
+
     /// Stop the runtime.
     fn stop();
 
     /// Add a global module to the runtime.
     fn add_module(source: Arc<module::pxs_Module>);
-    
+
     /// Execute a script in this runtime.
-    fn execute(code: &str, file_name: &str) -> Result<pxs_Var>;
-    
+    fn execute(code: &str, file_name: &str) -> PxsResult;
+
     /// Evaluate a script in this runtime. Returns a pxs_Var.
-    fn eval(code: &str) -> Result<pxs_Var>;
-    
+    fn eval(code: &str) -> PxsResult;
+
     /// Some langauges (pocketpy) need to be explicitly told that a new thread is starting.
     /// For most languages this is NOT needed.
     fn start_thread();
-    
+
     /// Some languages (pocketpy) need to be expliclity told that a recent thread has stopped.
     /// For most languages this is NOT needed.
     fn stop_thread();
-    
-    /// Clear the current threads state. Optionally calls garbage collector.
-    fn clear_state(call_gc: bool);
-    
+
+    /// Clear the current threads state.
+    fn clear();
+
     /// Compile and save for future use.
     /// Pass in a optional global scope, if null, defaults to empty Map.
     /// Result will be a list with: [Runtime, Compiled Object, ...]
-    fn compile(code: &str, global_scope: pxs_Var) -> Result<pxs_Var>;
-    
+    fn compile(code: &str, global_scope: pxs_Var) -> PxsResult;
+
     /// Execute a code object.
     /// The code variable will always be a List with: [Runtime, Compiled Object, ...].
     /// Pass in optional local scope that will be included along with the compiled scope.
-    fn exec_object(code: pxs_Var, local_scope: pxs_Var) -> Result<pxs_Var>;
-    
+    fn exec_object(code: pxs_Var, local_scope: pxs_Var) -> PxsResult;
+
     /// For debugging purposes. Return a string which explains the current state.
     fn debug() -> String;
-    
-    /// Reset the Scripting runtime.
-    fn reset();
+
+    /// Call the garbage collector. Will also free internal types.
+    fn garbage_collect();
 }
 
 /// Public enum for supported runtimes.

@@ -9,73 +9,104 @@
 use std::sync::Arc;
 
 use crate::{
-    lua::{State, func::internal_add_callback, into_lua},
-    shared::{ffi::ThreadSafePointer, module::pxs_Module},
+    lua::{
+        State, engine::Engine, func::LUA_MODULE_BRIDGE_FUNCTION, lua, lua_get_error, lua_upvalueindex
+    },
+    pxs_error,
+    shared::{PxsRes, module::pxs_Module, utils::CStringSafe},
 };
-use anyhow::Result;
-use mlua::prelude::*;
 
-/// Create the module table.
-fn create_module(state: *mut State, module: &pxs_Module) -> Result<LuaTable> {
-    // let bstate = borrow_lua!(state);
-    let module_table = unsafe { (*state).engine.create_table()? };
+/// Load function
+unsafe extern "C" fn module_loader(L: *mut lua::lua_State) -> core::ffi::c_int {
+    unsafe {
+        lua::lua_pushvalue(L, lua_upvalueindex(1));
+        1
+    }
+}
+
+/// Compile a Lua chunk of code
+pub(super) fn compile_chunk(L: *mut lua::lua_State, code: &str, name: &str) -> PxsRes<i32> {
+    let mut cstring = CStringSafe::new();
+    unsafe {
+        let res = lua::luaL_loadbufferx(
+            L,
+            cstring.new_string(code),
+            code.len(),
+            cstring.new_string(name),
+            core::ptr::null_mut(),
+        );
+        if res != lua::LUA_OK as i32 {
+            let lua_error = lua_get_error(L);
+            return pxs_error!("{lua_error}");
+        }
+
+        Ok(lua::lua_gettop(L))
+    }
+}
+
+/// Preload a lua source code as a module.
+pub(super) fn preload_lua_module(L: *mut lua::lua_State, code: &str, name: &str) -> PxsRes<()> {
+    let mut engine = Engine::new(L);
+    // Get package
+    engine.get_global("package");
+    engine.get_field(-1, "preload");
+    let preload_idx = engine.get_top();
+
+    // Compile code
+    engine.compile_chunk(code, name)?;
+    // run it
+    engine.call(0, 1)?;
+
+    // Pass result ito upvalue
+    engine.push_function(module_loader, 1);
+    engine.set_field(preload_idx, name);
+
+    Ok(())
+}
+
+pub(super) fn add_module(state: *mut State, module: Arc<pxs_Module>) -> PxsRes<()> {
+    let mut engine = Engine::from_state(state);
+
+    // Create module table
+    let table = engine.create_table(0, (module.variables.len() +module.callbacks.len()) as i32);
 
     // Add variables
-    for variable in module.variables.iter() {
-        module_table
-            .set(
-            variable.name.to_owned(),
-            into_lua(state, &variable.var)?
-            )?;
+    for var in module.variables.iter() {
+        engine.push_string(&var.name);
+        engine.push_pxs(&var.var)?;
+        engine.raw_set(table);
     }
 
     // Add callbacks
-    for callback in module.callbacks.iter() {
-        // Create lua function
-        let lua_function = internal_add_callback(state, callback.idx);
-        module_table
-            .set(callback.name.as_str(), lua_function?)?;
+    for cbk in module.callbacks.iter() {
+        engine.push_string(&cbk.name);
+        engine.push_integer(LUA_MODULE_BRIDGE_FUNCTION);
+        engine.push_integer(cbk.idx); // add idx to upvalue.
+        engine.push_function(lua::pxslua_callback, 2);
+        engine.raw_set(table);
     }
 
-    Ok(module_table)
-}
+    // Setup loader
 
-/// Add a module to Lua!
-pub(super) fn add_module(state:*mut State, module: Arc<pxs_Module>) -> Result<()> {
-    let module_for_lua = Arc::clone(&module);
+    // Get preload
+    engine.get_global("package");
+    engine.push_string("preload");
+    engine.raw_get(-2);
+    let preload_idx = engine.get_top();
 
-    // Let's create a table
-    let package: LuaTable = unsafe { (*state)
-        .engine
-        .globals()
-        .get("package")? };
-    let preload: LuaTable = package
-        .get("preload")?;
+    // Now we actually have the preload module
+    // module stuff
+    engine.push_string(&module.name);
+    engine.push_value(table); // add table to upvalues
+    engine.push_function(module_loader, 1);
+    engine.raw_set(preload_idx);
 
-    // Add internal modules.
+    // Drop the engine to clean stack.
+    drop(engine);
+
     for child in module.modules.iter() {
-        let child_module = child.clone();
-        add_module(state, Arc::clone(&child_module))?;
+        add_module(state, Arc::clone(&child))?;
     }
-
-    let thread_safe_pointer = ThreadSafePointer::<State>::new(state);
-
-    // create the loader function for require()
-    let loader = unsafe { (*state)
-        .engine
-        .create_function(move |_, _: ()| {
-            let module_table = create_module(thread_safe_pointer.get_ptr(), &module_for_lua);
-            if module_table.is_err() {
-                Err(LuaError::RuntimeError(module_table.unwrap_err().to_string()))
-            } else {
-                // Return module
-                Ok(module_table.unwrap())
-            }
-        })? };
-
-    // Pre-load it
-    preload
-        .set(module.name.clone(), loader)?;
 
     Ok(())
 }

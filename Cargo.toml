@@ -1,6 +1,6 @@
 [package]
 name = "pixelscript"
-version = "0.5.14"
+version = "0.6.0"
 edition = "2024"
 license = "Apache-2.0"
 authors = ["Jordan Castro jordan@grupojvm.com"]
@@ -11,8 +11,6 @@ repository = "https://github.com/jordan-castro/pixelscript"
 crate-type = ["staticlib", "rlib"]
 
 [dependencies]
-mlua = { version = "0.11", features = ["lua54", "vendored", "send"], optional = true }
-anyhow = "1.0.100"
 
 [build-dependencies]
 cbindgen = "0.29.2"
@@ -23,13 +21,13 @@ bindgen = "0.72.1"
 # Default includes all languages and cores.
 default = ["lua", "python", "js", "include-core"]
 # Include LUA scripting.
-lua = ["dep:mlua"]
+lua = []
 # Include Python scripting. Via pocketpy
 python = []
 # Include PHP scripting. v5.3 Via PH7
 php = []
 # luajit uses the same lua engine but with JIT flags
-luajit = ["lua"]
+luajit = []
 js = []
 
 # Core libs
