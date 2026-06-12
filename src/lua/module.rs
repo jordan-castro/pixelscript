@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use crate::{
     lua::{
-        State, engine::Engine, func::LUA_MODULE_BRIDGE_FUNCTION, lua, lua_get_error, lua_upvalueindex
+        State, engine::Engine, func::LUA_MODULE_BRIDGE_FUNCTION, lua, lua_get_error, lua_upvalueindex, LUA_OK
     },
     pxs_error,
     shared::{PxsRes, module::pxs_Module, utils::CStringSafe},
