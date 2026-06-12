@@ -21,7 +21,7 @@ Because most games pick only one language for scripting. PixelScript gives modde
 Each language runtime uses the same PixelScript bindings.
 
 ## Version
-pixelscript crate is currently at version 0.5.14.
+pixelscript crate is currently at version 0.6.0.
 
 ## How to use
 pixelscript can be used within a rust application or via ffi.
@@ -42,8 +42,8 @@ This will build the project and place the necessary *static* libraries in a `/px
 ## Supported languages
 | Feature flag     | Language          | Engine                | Notes                           |
 |------------------|-------------------|-----------------------|---------------------------------|
-| `lua`            | Lua               | [mlua](https://github.com/mlua-rs/mlua)                 | Fast, battle tested, v5.4       |
-| `python`         | Python            | [pocketpy](https://github.com/pocketpy/pocketpy)        | Requires MSVC on Windows        |
+| `lua`            | Lua               | [lua](https://lua.org/)                                 | v5.5, requires a small shim in `libs/pxs_lua`.       |
+| `python`         | Python            | [pocketpy](https://github.com/pocketpy/pocketpy)        | May require MSVC on Windows        |
 | `js`             | JavaScript        | [quickjs-ng](https://github.com/quickjs-ng/quickjs)     | QuickJS-NG small library. Supports ES2027 |
 <!-- | `easyjs`         | easyjs            | [easyjs](https://github.com/jordan-castro/easyjs)       | Modern syntax, compiles to JS   | -->
 <!-- | `php`            | PHP               | PH7                   | Only supports v5.3 and the engine is not maintained anymore | -->
@@ -143,3 +143,11 @@ It's not quite ready to be used in production for anyone other than myself and e
 something or open issues, I will be responding and merging. Feel free to add a language, just check out /lua or /python for examples on how to use Var, Func, Module, PixelObject, and PixelScripting.
 
 Made with ❤️ by [@epochtechgames](https://x.com/epochtechgames)
+
+## Changelog (since 0.6.0)
+
+### 0.6.0
+- Removed runtime dependencies (anyhow, mlua).
+- Use C lua bindings via ffi.
+- Each thread gets its own language state (including pixelscript state).
+- Remove (os, io, debug) from lua runtime.

@@ -23,8 +23,8 @@
 - Why (globals, locals) are null sometimes?
 
 ## v0.6 STD, Tests, Errors
-- Use libs/lua-5.5.0/* src instead of mlua.
-- Remove lua hacks (io, os, what else?)
+- ~~Use libs/lua-5.5.0/* src instead of mlua.~~
+- ~~Remove lua hacks (io, os, what else?)~~
 - pxs_time (Time functions)
 - pxs_os (OS functions like name, version)
 - Tests
