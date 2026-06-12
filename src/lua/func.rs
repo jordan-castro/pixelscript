@@ -11,10 +11,7 @@
 use crate::{
     create_raw_string, free_raw_string,
     lua::{
-        engine::Engine,
-        from_lua, lua, lua_pop, lua_upvalueindex,
-        object::{lua_index, lua_newindex},
-        var::push_lua_stack,
+        engine::Engine, from_lua, lua, lua_pop, lua_upvalueindex, module_loader_func, object::{lua_index, lua_newindex}, var::push_lua_stack
     },
     own_string, pxs_error,
     shared::{
@@ -26,6 +23,7 @@ pub const LUA_OBJECT_BRIDGE_FUNCTION: i32 = 0;
 pub const LUA_MODULE_BRIDGE_FUNCTION: i32 = 1;
 pub const LUA_INDEX_BRIDGE_FUNCTION: i32 = 2;
 pub const LUA_NEWINDEX_BRIDGE_FUNCTION: i32 = 3;
+pub const LUA_MODULE_LOADER_BRIDGE_FUNCTION: i32 = 4;
 
 /// cbindgen:ignore
 #[unsafe(no_mangle)]
@@ -55,6 +53,8 @@ unsafe extern "C" fn pxslua_rustbridge(
         lua_index(L)
     } else if function_type == LUA_NEWINDEX_BRIDGE_FUNCTION {
         lua_newindex(L)
+    } else if function_type == LUA_MODULE_LOADER_BRIDGE_FUNCTION {
+        module_loader_func(L)
     } else {
         Ok(0)
     };

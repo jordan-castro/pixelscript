@@ -14,6 +14,7 @@ pub mod module;
 pub mod object;
 pub mod var;
 
+use crate::lua::func::LUA_MODULE_LOADER_BRIDGE_FUNCTION;
 use crate::lua::module::preload_lua_module;
 use crate::{
     borrow_string,
@@ -120,15 +121,6 @@ pub(self) fn push_string(L: *mut lua::lua_State, contents: &str) {
     let mut cstring = CStringSafe::new();
     unsafe {
         lua::lua_pushstring(L, cstring.new_string(contents));
-    }
-}
-
-pub(self) fn lua_error(L: *mut lua::lua_State, contents: &str) -> std::ffi::c_int {
-    unsafe {
-        push_string(L, contents);
-        lua::lua_error(L);
-
-        0
     }
 }
 
@@ -273,33 +265,28 @@ pub(self) fn execute(state: *mut State, code: &str, file_name: &str) -> String {
 }
 
 /// package.searchers[] add this loader function to that table.
-unsafe extern "C" fn module_loader_func(L: *mut lua::lua_State) -> core::ffi::c_int {
-    unsafe {
-        let path_idx = 1; // stack = 1
-        // Change path from 'path.to.file' into 'path/to/file.lua'
-        let path =
-            borrow_string!(lua::lua_tolstring(L, path_idx, core::ptr::null_mut())).to_string();
-        let path = path.replace(".", "/");
-        let path = if !path.ends_with(".lua") {
-            format!("{path}.lua")
-        } else {
-            path
-        };
-        let contents = read_file(&path);
-        if contents.is_empty() {
-            lua::lua_pushnil(L);
-            return 1;
-        }
+pub(self) fn module_loader_func(L: *mut lua::lua_State) -> PxsRes<i32> {
+    let path_idx = 1;
+    let mut engine = Engine::without_alloc(L);
+    let path = engine.to_string(path_idx);
 
-        // Compile to chunk
-        let chunk_res = compile_chunk(L, &contents, &path); // stack = 2
-        if chunk_res.is_err() {
-            return lua_error(L, &chunk_res.unwrap_err().to_string());
-        }
+    // Path mut be grand.parent.child
+    if path.contains("/") {
+        return pxs_error!("Cannot have '/' in lua path.");
+    } 
+    let path = path.replace(".", "/");
+    let path = format!("{path}.lua");
 
-        // Donezo!
-        1
+    let contents = read_file(&path);
+    if contents.is_empty() {
+        return pxs_error!("{path} was not found.");
     }
+
+    // Compile chunk
+    let _ = engine.compile_chunk(&contents, &path)?;
+
+    // Donezo!
+    Ok(1)
 }
 
 /// Custom moduile loader function
@@ -313,14 +300,21 @@ fn setup_module_loader(L: *mut lua::lua_State) {
     engine.push_string("searchers");
     engine.raw_get(package_idx);
     let s_idx = engine.get_top();
-    let len = engine.len(s_idx);
-    // remove len from stack
-    engine.pop(1);
 
+    // Pass Function type
+    engine.push_integer(LUA_MODULE_LOADER_BRIDGE_FUNCTION);
     // Push module loader
-    engine.push_function(module_loader_func, 0);
-    // Add to table
-    engine.set_index(s_idx, (len + 1) as i32);
+    engine.push_function(lua::pxslua_callback, 1);
+    // Add to table (redefine path searcher)
+    engine.set_index(s_idx, 2 as i32);
+
+    // Remove C Path searcher
+    engine.push_nil();
+    engine.set_index(s_idx, 3);
+    
+    // Remove all in one submodule searcher.
+    engine.push_nil();
+    engine.set_index(s_idx, 4);
 }
 
 /// Add variables to a Table from a Map

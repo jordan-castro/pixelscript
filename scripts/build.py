@@ -1,8 +1,5 @@
 # This builds the crate and moves around the libs to a folder called pxsb (pixelscript build)
 # To be the safest cross platform solution:
-# When running for MSVC set these variables in your env first:
-# set CFLAGS=/MT && set CXXFLAGS=/MT
-# This will force MLUA to compile lua5.lib to a static library.
 
 from glob import glob
 import os
@@ -85,27 +82,6 @@ Arguments:
 - help; print this message
 """)
         exit(0)
-
-# Check for env flags
-# CFLAGS=/MT && set CXXFLAGS=/MT
-if platform.system() == 'Windows' and (defaults or 'lua' in features.split(',')):
-    cflags = os.environ.get('CFLAGS', None)
-    cxxflags = os.environ.get('CXXFLAGS', None)
-
-    flags = []
-    needs_exit = False
-    if not cflags or cflags.strip() != '/MT':
-        flags.append("set CFLAGS=/MT")
-        needs_exit = True
-        # exit(1)
-    if not cxxflags or cxxflags.strip() != '/MT':
-        flags.append("set CXXFLAGS=/MT")
-        needs_exit = True
-
-    if needs_exit:
-        print('Please run ', " && ".join(flags), ' first.')
-        exit(1)
-        # exit(1)
 
 build_mode = "release" if not debug else "debug"
 build_flag = "--release" if not debug else ""
