@@ -136,6 +136,7 @@ int main() {
 
 ## Used in
 - Pixel Ai Dash
+- [Yoyo](https://github.com/jordan-castro/yoyo)
 
 ## Future
 This will ideally be used by all future epochtech games since it allows for modding in multiple languages. 
