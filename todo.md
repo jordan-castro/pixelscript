@@ -25,8 +25,8 @@
 ## v0.6 STD, Tests, Errors
 - ~~Use libs/lua-5.5.0/* src instead of mlua.~~
 - ~~Remove lua hacks (io, os, what else?)~~
-- pxs_time (Time functions)
-- pxs_os (OS functions like name, version)
+- Add file_name to `pxs_eval`.
+- Support commonJS.
 - Tests
     - ~~test_vars (Test all types to and from scripting)~~
     - test_exec

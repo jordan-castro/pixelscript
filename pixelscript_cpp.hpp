@@ -24,6 +24,7 @@ namespace pxs {
     public:
         Var() : rt(nullptr), ptr(pxs_newnull()), owned(true) {}
         Var(pxs_Var* ptr) : rt(nullptr), ptr(ptr), owned(false) {}
+        Var(pxs_Var* ptr, bool owned) : rt(nullptr), ptr(ptr), owned(owned) {}
         Var(pxs_Var* rt, pxs_Var* ptr, bool owned=false) : rt(rt), ptr(ptr), owned(owned) {}
         ~Var() {
             if (owned && ptr != nullptr) {

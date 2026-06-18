@@ -11,7 +11,7 @@ use std::{
 };
 
 use crate::{
-    own_string, own_var, shared::{ffi::ThreadLanguageState, var::{pxs_Var, pxs_VarT}}
+    own_string, own_var, shared::{ffi::ThreadLanguageState, utils::CStringSafe, var::{pxs_Var, pxs_VarT}}
 };
 
 /// Helper methods/macros for using PixelScript
@@ -29,7 +29,7 @@ pub mod arena;
 
 #[allow(non_camel_case_types)]
 /// Function Type for Loading a file.
-pub type pxs_LoadFileFn = unsafe extern "C" fn(file_path: *const c_char) -> *mut c_char;
+pub type pxs_LoadFileFn = unsafe extern "C" fn(file_path: *const c_char) -> pxs_VarT;
 
 #[allow(non_camel_case_types)]
 /// Function Type for reading a Dir. Should return a `pxs_List`
@@ -90,7 +90,7 @@ pub(crate) fn set_read_dir(func: pxs_ReadDirFn) {
 }
 
 /// Read a file using pxs api.
-/// This must be set by host anguage.
+/// This must be set by host language.
 pub fn read_file(file_path: &str) -> String {
     // Get callback
     let cbk = unsafe { (*PIXEL_STATE.get_ptr()).load_file };
@@ -99,14 +99,18 @@ pub fn read_file(file_path: &str) -> String {
     }
     let cbk = cbk.unwrap();
 
-    // convert to *const c_char
-    let c_str = CString::new(file_path).unwrap();
-    let file_path_cstr = c_str.as_ptr();
-    // Call it
-    let res = unsafe { cbk(file_path_cstr) };
-    // Convet *mut c_char into String
-    let res_owned = own_string!(res);
-    res_owned
+    let mut cstring = CStringSafe::new();
+    let res = unsafe { cbk(cstring.new_string(file_path)) };
+    if res.is_null() {
+        return String::new();
+    }
+
+    let var = own_var!(res);
+    if !var.is_string() {
+        return String::new();
+    }
+
+    var.get_string().unwrap()
 }
 
 /// Read a Directory using pxs api.

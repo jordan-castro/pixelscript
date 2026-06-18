@@ -1000,6 +1000,9 @@ pub extern "C" fn pxs_tostring(runtime_var: *mut pxs_Var, var: *mut pxs_Var) -> 
         pxs_VarType::pxs_Float64 => {
             return pxs_Var::new_string(b_var.get_f64().unwrap().to_string()).into_raw();
         }
+        pxs_VarType::pxs_Null => {
+            return pxs_Var::new_string("null".to_string()).into_raw();
+        }
         _ => {
             // Do nothing
         }

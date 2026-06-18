@@ -326,7 +326,7 @@ typedef void *pxs_Opaque;
 /**
  * Function Type for Loading a file.
  */
-typedef char *(*pxs_LoadFileFn)(const char *file_path);
+typedef pxs_VarT (*pxs_LoadFileFn)(const char *file_path);
 
 /**
  * Function Type for reading a Dir. Should return a `pxs_List`

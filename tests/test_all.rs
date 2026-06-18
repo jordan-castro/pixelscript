@@ -278,24 +278,24 @@ mod tests {
         }
     }
 
-    unsafe extern "C" fn file_loader(file_path: *const c_char) -> *mut c_char {
+    unsafe extern "C" fn file_loader(file_path: *const c_char) -> pxs_VarT {
         let file_path = unsafe { CStr::from_ptr(file_path).to_str().unwrap() };
 
         if file_path.is_empty() {
-            return create_raw_string!("");
+            return pxs_newnull();
         }
 
         let file_exists = std::fs::exists(file_path).unwrap();
 
         if !file_exists {
-            return create_raw_string!("");
+            return pxs_newnull();
         }
 
         // Read file
         let contents = std::fs::read_to_string(file_path).unwrap();
 
         // Return contents
-        create_raw_string!(contents)
+        pxs_Var::new_string(contents).into_raw()
     }
 
     unsafe extern "C" fn dir_reader(dir_path: *const c_char) -> pxs_VarT {

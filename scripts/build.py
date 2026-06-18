@@ -1,5 +1,4 @@
 # This builds the crate and moves around the libs to a folder called pxsb (pixelscript build)
-# To be the safest cross platform solution:
 
 from glob import glob
 import os
@@ -7,7 +6,6 @@ import shutil
 from pathlib import Path
 import subprocess
 import sys
-import platform
 
 
 # Config

@@ -155,7 +155,7 @@ pub fn setup_pxs() {
 
 /// CString maker
 pub struct CStringSafe {
-    ptrs: Vec<*mut c_char>
+    ptrs: Vec<*mut c_char>,
 }
 
 impl Drop for CStringSafe {
