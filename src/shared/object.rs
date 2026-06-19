@@ -152,6 +152,7 @@ impl pxs_PixelObject {
             lang_ptr: Mutex::new(ptr::null_mut()),
             type_name: type_name.to_string(),
             pxs_free_method: Mutex::new(default_deleter),
+            // TODO: Do I need to set this to 0?
             ref_count: Mutex::new(1)
         }
     }

@@ -1,8 +1,8 @@
 #include "lua.h"
 #include "lauxlib.h"
 #include <stdlib.h>
-#include <string.h>
 #include "pxs_lua.h"
+#include "pxs_utils.h"
 
 // C Callback.
 // Push this to lua stack instead of unsafe rust code.
@@ -20,7 +20,7 @@ int pxslua_callback(lua_State* L) {
             lua_pushstring(L, "Unknown error.");
         } else {
             lua_pushstring(L, err_buf);
-            pxslua_free_ruststring(err_buf);
+            pxsutils_freestring(err_buf);
         }
         return lua_error(L);
     }

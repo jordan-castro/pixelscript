@@ -98,6 +98,7 @@ fn build_lua(target_os: &str, target_env: &str) {
 
     build.include("libs/lua-5.5.0");
     build.include("libs/pxs_lua");
+    build.include("libs/pxs_utils");
 
     if target_env == "msvc" {
         build.static_crt(true);
@@ -124,8 +125,11 @@ fn build_pocketpy(_target_os: &str, target_env: &str) {
 
     // Add sorce
     build.file("libs/pocketpy/pocketpy.c");
+    build.file("libs/pxs_python/pxs_python.c");
     // Add header location
     build.include("libs/pocketpy");
+    build.include("libs/pxs_python");
+    build.include("libs/pxs_utils");
 
     // Set c11
     build.std("c11");
@@ -186,6 +190,7 @@ fn build_pocketpy_bindings() {
 
     let builder = bindgen::Builder::default()
         .header("libs/pocketpy/pocketpy.h")
+        .header("libs/pxs_python/pxs_python.h")
         .clang_arg("-DPK_IS_PUBLIC_INCLUDE")
         .clang_arg("-Ilibs/pocketpy")
         .default_enum_style(bindgen::EnumVariation::Rust {
@@ -195,7 +200,9 @@ fn build_pocketpy_bindings() {
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .allowlist_function("py_.*")
         .allowlist_type("py_.*")
-        .allowlist_var("py_.*");
+        .allowlist_var("py_.*")
+        .allowlist_function("pxspython_.*")
+        .allowlist_var("PXSPYTHON_.*");
 
     // for arg in find_gnu_include_path() {
     //     builder = builder.clang_arg(arg);
@@ -281,6 +288,7 @@ fn main() {
         println!("cargo:rerun-if-changed=libs/lua-5.5.0");
         println!("cargo:rerun-if-changed=libs/pxs_lua/pxs_lua.c");
         println!("cargo:rerun-if-changed=libs/pxs_lua/pxs_lua.h");
+        println!("cargo:rerun-if-changed=libs/pxs_utils");
     }
 
     // Compile pocketpy
@@ -290,6 +298,8 @@ fn main() {
         build_pocketpy_bindings();
         println!("cargo:rerun-if-changed=libs/pocketpy/pocketpy.c");
         println!("cargo:rerun-if-changed=libs/pocketpy/pocketpy.h");
+        println!("cargo:rerun-if-changed=libs/pxs_python");
+        println!("cargo:rerun-if-changed=libs/pxs_utils");
     }
 
     // Compile quickjs-ng

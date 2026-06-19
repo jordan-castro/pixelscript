@@ -248,13 +248,19 @@ pub(self) fn is_object_defined(name: &str) -> bool {
     }
 }
 
+#[unsafe(no_mangle)]
+/// cbindgen:ignore
 /// This is the import overrider
-unsafe extern "C" fn import_file(
-    arg1: *const std::ffi::c_char,
-    _data_size: *mut std::ffi::c_int,
-) -> *mut std::ffi::c_char {
-    // Borrow string
-    let b = borrow_string!(arg1);
+unsafe extern "C" fn pxspython_importfile(
+    buffer: *mut *mut core::ffi::c_char,
+    file_path: *const core::ffi::c_char
+) -> core::ffi::c_int {
+    if buffer.is_null() || file_path.is_null() {
+        return pocketpy::PXSPYTHON_NOT_FOUND; // -1 is a specific flag so that C knows that it did not work.
+    }
+
+    // Borrow file_path
+    let b = borrow_string!(file_path);
     // Remove .py and check if this is a directory
     let file_path = {
         let pos_dir = &b[0..b.len() - 3];
@@ -264,22 +270,26 @@ unsafe extern "C" fn import_file(
             // Ok just use that then
             format!("{pos_dir}__import__.py")
         } else {
-            // TODO: check this actually works dayo
             // No __import__.py so let's see first if there is any .py so we can return a pseudo type
             for _ in files.iter() {
-                return create_raw_string!("");
+                return pocketpy::PXSPYTHON_IS_DIR; // -2 is a specific thingy to return a empty string in C.
             }
             b.to_string()
         }
     };
 
     let contents = read_file(&file_path);
-
-    if contents.is_empty() {
-        std::ptr::null_mut()
-    } else {
-        create_raw_string!(contents)
+    let size = contents.len() as core::ffi::c_int;
+    if size == 0 {
+        return pocketpy::PXSPYTHON_NOT_FOUND;
     }
+    let raw_contents = create_raw_string!(contents);
+
+    unsafe {
+        *buffer = raw_contents;
+    }
+
+    size
 }
 
 /// Keep a reference to a python object/function.
@@ -380,7 +390,7 @@ unsafe fn python_setup() {
 
         // Setup module loader.
         let callbacks = pocketpy::py_callbacks();
-        (*callbacks).importfile = Some(import_file);
+        (*callbacks).importfile = Some(pocketpy::pxspython_import);
     }
 
     // Setup some python code

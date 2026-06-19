@@ -8,16 +8,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define LUA_OBJECT_BRIDGE_FUNCTION 0
-
-#define LUA_MODULE_BRIDGE_FUNCTION 1
-
-#define LUA_INDEX_BRIDGE_FUNCTION 2
-
-#define LUA_NEWINDEX_BRIDGE_FUNCTION 3
-
-#define LUA_MODULE_LOADER_BRIDGE_FUNCTION 4
-
 /**
  * This represents the variable type that is being read or created.
  */

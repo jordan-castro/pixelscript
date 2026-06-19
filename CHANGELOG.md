@@ -18,3 +18,9 @@
 - Cleaned `scripts/build.py`
 - Created `pixelscript_cpp.hpp` header.
 - Updated `pxs_LoadFileFn` to return `pxs_VarT`
+
+## 0.6.3
+- Fixed `LUA_*` being added to `pixelscript.h`
+- Created `pxs_utils` in libs
+- Created `pxs_python` in libs.
+- Added `pxspython_importfile` and `pxspython_import` for safe rust interop.

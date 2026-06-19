@@ -11,7 +11,7 @@ use std::{
 };
 
 use crate::{
-    own_string, own_var, shared::{ffi::ThreadLanguageState, utils::CStringSafe, var::{pxs_Var, pxs_VarT}}
+    own_var, shared::{ffi::ThreadLanguageState, utils::CStringSafe, var::{pxs_Var, pxs_VarT}}
 };
 
 /// Helper methods/macros for using PixelScript
@@ -26,6 +26,15 @@ pub mod utils;
 /// The internal PixelScript Var logic.
 pub mod var;
 pub mod arena;
+
+/// cbindgen:ignore
+/// This is a internal function used in `pxs_utils.h` to allow bridge code to work with rust strings.
+#[unsafe(no_mangle)]
+unsafe extern "C" fn pxsutils_freestring(ptr: *mut core::ffi::c_char) {
+    if !ptr.is_null() {
+        let _ = crate::own_string!(ptr);
+    }
+}
 
 #[allow(non_camel_case_types)]
 /// Function Type for Loading a file.

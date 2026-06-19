@@ -13,25 +13,17 @@ use crate::{
     lua::{
         engine::Engine, from_lua, lua, lua_pop, lua_upvalueindex, module_loader_func, object::{lua_index, lua_newindex}, var::push_lua_stack
     },
-    own_string, pxs_error,
+    pxs_error,
     shared::{
         PXS_PTR_NAME, PxsRes, func::call_function, object::ObjectFlags, pxs_Runtime,
     },
 };
 
-pub const LUA_OBJECT_BRIDGE_FUNCTION: i32 = 0;
-pub const LUA_MODULE_BRIDGE_FUNCTION: i32 = 1;
-pub const LUA_INDEX_BRIDGE_FUNCTION: i32 = 2;
-pub const LUA_NEWINDEX_BRIDGE_FUNCTION: i32 = 3;
-pub const LUA_MODULE_LOADER_BRIDGE_FUNCTION: i32 = 4;
-
-/// cbindgen:ignore
-#[unsafe(no_mangle)]
-unsafe extern "C" fn pxslua_free_ruststring(ptr: *mut core::ffi::c_char) {
-    if !ptr.is_null() {
-        let _ = own_string!(ptr);
-    }
-}
+pub(super) const LUA_OBJECT_BRIDGE_FUNCTION: i32 = 0;
+pub(super) const LUA_MODULE_BRIDGE_FUNCTION: i32 = 1;
+pub(super) const LUA_INDEX_BRIDGE_FUNCTION: i32 = 2;
+pub(super) const LUA_NEWINDEX_BRIDGE_FUNCTION: i32 = 3;
+pub(super) const LUA_MODULE_LOADER_BRIDGE_FUNCTION: i32 = 4;
 
 /// cbindgen:ignore
 /// This is defined in libs/pxs_lua.h
