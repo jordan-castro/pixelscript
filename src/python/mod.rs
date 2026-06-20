@@ -11,12 +11,12 @@ use std::{
 };
 
 use crate::{
-    borrow_string, create_raw_string, free_raw_string, own_string, pxs_debug, pxs_error, python::{
+    borrow_string, create_raw_string, free_raw_string, pxs_debug, pxs_error, python::{
         func::{get_builtin, pocketpy_bridge, py_assign},
         module::create_module,
         var::{PythonPointer, pocketpyref_to_var, var_to_pocketpyref},
     }, shared::{
-        PixelScript, PtrMagic, PxsRes, PxsResult, ffi::ThreadLanguageState, read_file, read_file_dir, utils::CStringSafe, var::{ObjectMethods, pxs_Var, pxs_VarList}
+        PixelScript, PtrMagic, PxsRes, PxsResult, ffi::ThreadLanguageState, pxs_Opaque, read_file, read_file_dir, utils::CStringSafe, var::{ObjectMethods, pxs_Var, pxs_VarList}
     }, with_feature
 };
 
@@ -163,8 +163,8 @@ pub(self) fn consume_error() -> String {
         if err.is_null() {
             return String::new();
         }
-
-        let res = own_string!(err);
+        let res = borrow_string!(err).to_string();
+        pocketpy::py_free(err as pxs_Opaque);
 
         // Clear
         pocketpy::py_clearexc(std::ptr::null_mut());
