@@ -24,3 +24,4 @@
 - Created `pxs_utils` in libs
 - Created `pxs_python` in libs.
 - Added `pxspython_importfile` and `pxspython_import` for safe rust interop.
+- Include `pixelscript_m.h` in `pixelscript_cpp.hpp`

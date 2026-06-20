@@ -3,6 +3,7 @@
 
 // Expects this to be a SYSTEM library
 #include <pixelscript.h>
+#include <pixelscript_m.h>
 
 #include <string>
 #include <vector>
