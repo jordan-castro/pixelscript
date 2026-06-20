@@ -289,7 +289,7 @@ unsafe extern "C" fn pxspython_importfile(
         *buffer = raw_contents;
     }
 
-    size
+    size + 1
 }
 
 /// Keep a reference to a python object/function.

@@ -33,6 +33,7 @@ char* pxspython_import(const char* file_path, int* data_size) {
     }
     if(data_size) *data_size = (int)size;
 
+    // Copies memory from rust string.
     memcpy(result, buffer, size);
 
     // Now free buffer
