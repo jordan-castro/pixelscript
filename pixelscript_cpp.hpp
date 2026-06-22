@@ -533,15 +533,15 @@ namespace pxs {
 namespace pxs::type {
     // pixelscript does not know what a HostObject type is. It is just a void* passed around the host to the caller.
     // So to enforce that what we are receiving is correct. We need to attach a "TYPE" to it. Without the type, UB is possible.
-    class HWrapper {
+    class Wrapper {
         pxs_Opaque data;
         pxs_DeleterFn deleter;
         // -1 means unkown/unset.
         int32_t type_tag = -1;
 
         public:
-            HWrapper(pxs_Opaque data, pxs_DeleterFn deleter, int32_t tt) : data(data), deleter(deleter), type_tag(tt) {}
-            ~HWrapper() {
+            Wrapper(pxs_Opaque data, pxs_DeleterFn deleter, int32_t tt) : data(data), deleter(deleter), type_tag(tt) {}
+            ~Wrapper() {
                 if (this->data != nullptr) {
                     this->deleter(this->data);
                     this->data = nullptr;
@@ -551,7 +551,7 @@ namespace pxs::type {
 
             template<typename T>
             static T* get(const pxs::Var& var, int32_t expected_type) {
-                auto wrapper = var.get_object<HWrapper>();
+                auto wrapper = var.get_object<Wrapper>();
                 if (!wrapper) {
                     return nullptr;
                 }
@@ -564,4 +564,14 @@ namespace pxs::type {
                 return static_cast<T*>(wrapper->data);
             }
     };
+
+    // A `Wrapper` free method
+    inline void free_wrapper(pxs_Opaque wrapper) {
+        if (wrapper == nullptr) {
+            return;
+        }
+
+        auto val = static_cast<Wrapper*>(wrapper);
+        delete val;
+    }
 };
