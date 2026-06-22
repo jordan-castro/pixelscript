@@ -528,3 +528,40 @@ namespace pxs {
 #define PXS_ARGC_LT(expected) if (PXS_ARGC() > expected) return pxs::Var::new_exception(std::string("Expected at most ") + std::to_string(expected) + std::string(" args. Found ") + std::to_string(PXS_ARGC())).raw()
 
 #define PXS_ARG_IS_TYPE(arg, expected) if (!pxs_varis(arg, expected)) return pxs::Var::new_exception(std::string("Expected " + pxs::string_type(expected) + " but found " + pxs::string_type(arg))).raw();
+
+
+namespace pxs::type {
+    // pixelscript does not know what a HostObject type is. It is just a void* passed around the host to the caller.
+    // So to enforce that what we are receiving is correct. We need to attach a "TYPE" to it. Without the type, UB is possible.
+    class HWrapper {
+        pxs_Opaque data;
+        pxs_DeleterFn deleter;
+        // -1 means unkown/unset.
+        int32_t type_tag = -1;
+
+        public:
+            HWrapper(pxs_Opaque data, pxs_DeleterFn deleter, int32_t tt) : data(data), deleter(deleter), type_tag(tt) {}
+            ~HWrapper() {
+                if (this->data != nullptr) {
+                    this->deleter(this->data);
+                    this->data = nullptr;
+                    this->type_tag = -1;
+                }
+            }
+
+            template<typename T>
+            static T* get(const pxs::Var& var, int32_t expected_type) {
+                auto wrapper = var.get_object<HWrapper>();
+                if (!wrapper) {
+                    return nullptr;
+                }
+
+                // Check type match
+                if (wrapper->type_tag != expected_type) {
+                    return nullptr;
+                }
+
+                return static_cast<T*>(wrapper->data);
+            }
+    };
+};

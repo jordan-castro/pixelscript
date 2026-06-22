@@ -25,3 +25,5 @@
 - Created `pxs_python` in libs.
 - Added `pxspython_importfile` and `pxspython_import` for safe rust interop.
 - Include `pixelscript_m.h` in `pixelscript_cpp.hpp`
+- Free the error message in `consume_error`.
+- Add `HWrapper` to `pixelscript_cpp.hpp` wrapper.
