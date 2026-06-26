@@ -10,6 +10,7 @@
 #include <cstring>
 #include <cstdlib>
 #include <optional>
+#include <variant>
 
 // The pixel script namespace
 namespace pxs {
@@ -349,7 +350,41 @@ namespace pxs {
         return pxs::Var(rt, res, true);
     }
 
-    // Wrapper around `pxs_PixelObject`.
+    using PXSVariant = std::variant<
+        std::string,
+        int,
+        unsigned int,
+        float,
+        bool,
+        pxs_VarT,
+        std::vector<pxs_VarT>,
+        pxs::Var,
+    >;
+
+    // Convert a PXSVariant into a pxs_VarT
+    [[nodiscard]] inline pxs_VarT from_variant(const PXSVariant& v) {
+        std::visit([](auto&& arg) {
+
+        }, v);
+    }
+
+    // Call a PXS function without going through the runtime.
+    // This calls the C/C++ function.
+    [[nodiscard]] inline pxs_VarT call(pxs_Func fun, const std::vector<PXSVariant>& arguments) {
+        auto list = pxs::Var::new_list();
+        list.add(pxs_newint(0));
+        // Drop the list at the end of the function.
+        list.set_owned(true);
+        for (const auto& arg : arguments) {
+            list.add(from_variant(arg));
+        }
+        // Call function
+        return fun(list.raw());
+    }
+
+    // Wrapper for creating `pxs_PixelObject`.
+    // This should not be copied.
+    // This should not be moved.
     class Object {
         pxs_PixelObject* obj;
         char* type;
@@ -441,44 +476,11 @@ namespace pxs {
         return runtime_from_var(var.raw());
     }
 
-    // // Get runtime from file extension
-    // inline std::optional<pxs_Runtime> runtime_from_file_extension(const std::string& file_path) {
-    //     if (utils::ends_with(file_path, ".lua")) {
-    //         return pxs_Lua;
-    //     } else if (utils::ends_with(file_path, ".py")) {
-    //         return pxs_Python;
-    //     } else if (utils::ends_with(file_path, ".js")) {
-    //         return pxs_JavaScript;
-    //     } else {
-    //         return std::nullopt;
-    //     }
-    // }
-
     // Compile a script into a code object. Runtime is not inferred.
     inline Var compile(pxs_Runtime runtime, const std::string& code, pxs_VarT global_scope) {
         auto res = pxs_compile(runtime, code.c_str(), global_scope);
         return pxs::Var(pxs_newint(static_cast<int>(runtime)), res);
     }
-
-    // // Compile a script file into a code object. Runtime is inferred.
-    // inline Var compile(const std::string& file_path, pxs_VarT global_scope) {
-    //     // Check runtime from file path
-    //     auto runtime = runtime_from_file_extension(file_path);
-    //     if (!runtime.has_value()) {
-    //         return Var::new_exception("Runtime not found for file").raw();
-    //     }
-    //     // Get value
-    //     auto rt = runtime.value();
-
-    //     // Check file contents
-    //     auto contents = readFile(file_path.c_str());
-
-    //     if (contents.empty()) {
-    //         return Var::new_exception("File path is empty").raw();
-    //     }
-
-    //     return compile(rt, contents, global_scope);
-    // }
 
     inline std::string string_type(pxs_VarType var_type) {
         switch(var_type) {

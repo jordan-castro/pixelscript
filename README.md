@@ -21,7 +21,7 @@ Because most games pick only one language for scripting. PixelScript gives modde
 Each language runtime uses the same PixelScript bindings.
 
 ## Version
-pixelscript crate is currently at version 0.6.1.
+pixelscript crate is currently at version 0.6.2.
 
 ## How to use
 pixelscript can be used within a rust application or via ffi.
@@ -138,10 +138,10 @@ int main() {
 - Pixel Ai Dash
 - [Yoyo](https://github.com/jordan-castro/yoyo)
 
-## Future
-This will ideally be used by all future epochtech games since it allows for modding in multiple languages. 
+<!-- ## Future -->
+<!-- This will ideally be used by all future epochtech games since it allows for modding in multiple languages. 
 It's not quite ready to be used in production for anyone other than myself and epochtech. But if you make PRs to fix
-something or open issues, I will be responding and merging. Feel free to add a language, just check out /lua or /python for examples on how to use Var, Func, Module, PixelObject, and PixelScripting.
+something or open issues, I will be responding and merging. Feel free to add a language, just check out /lua or /python for examples on how to use Var, Func, Module, PixelObject, and PixelScripting. -->
 
 Made with ❤️ by [@epochtechgames](https://x.com/epochtechgames)
 
