@@ -13,12 +13,24 @@
 mod tests {
     use std::ffi::CStr;
 
-use pixelscript::{create_raw_string, free_raw_string, pxs_addvar, pxs_clear, pxs_finalize, pxs_freearena, pxs_gethost, pxs_getint, pxs_getuint, pxs_initialize, pxs_listadd, pxs_listget, pxs_newarena, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmod, pxs_newobject, pxs_newuint, shared::{PtrMagic, module::pxs_Module, pxs_Opaque, pxs_Runtime, utils::{self, CStringSafe}, var::pxs_VarT}};
-    
+    use pixelscript::{
+        pxs_addvar, pxs_clear, pxs_finalize, pxs_freearena,
+        pxs_gethost, pxs_getint, pxs_getuint, pxs_initialize, pxs_listadd, pxs_listget,
+        pxs_newarena, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmod,
+        pxs_newobject, pxs_newuint,
+        shared::{
+            module::pxs_Module,
+            pxs_Opaque, pxs_Runtime,
+            utils::{self},
+            var::pxs_VarT,
+        },
+    };
+    use etffi::{cstring::CStringSafe, borrow_string, create_raw_string, free_raw_string, own_string, ptr_magic::PtrMagic};
+
     #[derive(Clone)]
     struct Vector2 {
         x: i32,
-        y: i32
+        y: i32,
     }
 
     impl PtrMagic for Vector2 {}
@@ -32,7 +44,10 @@ use pixelscript::{create_raw_string, free_raw_string, pxs_addvar, pxs_clear, pxs
         let y = pxs_getint(pxs_listget(args, 2));
 
         let mut cstrgen = CStringSafe::new();
-        let v2 = Vector2{x: x as i32,y: y as i32};
+        let v2 = Vector2 {
+            x: x as i32,
+            y: y as i32,
+        };
         let obj = pxs_newobject(v2.into_void(), free_v2, cstrgen.new_string("Vector2"));
         pxs_newhost(obj)
     }
@@ -49,7 +64,7 @@ use pixelscript::{create_raw_string, free_raw_string, pxs_addvar, pxs_clear, pxs
     struct Tile {
         atlas: Vector2,
         alt: u32,
-        layer: u32
+        layer: u32,
     }
 
     impl PtrMagic for Tile {}
@@ -60,10 +75,19 @@ use pixelscript::{create_raw_string, free_raw_string, pxs_addvar, pxs_clear, pxs
 
     extern "C" fn new_tile(args: pxs_VarT) -> pxs_VarT {
         let mut cstgen = CStringSafe::new();
-        let atlas = unsafe {Vector2::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))};
+        let atlas = unsafe {
+            Vector2::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))
+        };
         let alt = pxs_getuint(pxs_listget(args, 2));
         let layer = pxs_getuint(pxs_listget(args, 3));
-        let tile = Tile{atlas: Vector2 { x: atlas.x, y: atlas.y }, alt: alt as u32, layer: layer as u32};
+        let tile = Tile {
+            atlas: Vector2 {
+                x: atlas.x,
+                y: atlas.y,
+            },
+            alt: alt as u32,
+            layer: layer as u32,
+        };
         let obj = pxs_newobject(tile.into_void(), free_tile, cstgen.new_string("Tile"));
         pxs_newhost(obj)
     }
@@ -122,16 +146,20 @@ pxs.print('Working JS');
 
     fn setup_module() {
         let mut cstr_safe = CStringSafe::new();
-        
+
         let module = pxs_newmod(cstr_safe.new_string("module"));
 
-        let tile = Tile{
+        let tile = Tile {
             alt: 0,
             layer: 0,
-            atlas: Vector2 { x: 1, y: 1 }
+            atlas: Vector2 { x: 1, y: 1 },
         };
         for i in 0..50 {
-            pxs_addvar(module, cstr_safe.new_string(&format!("contents{i}")), factory_tile(tile.clone()));
+            pxs_addvar(
+                module,
+                cstr_safe.new_string(&format!("contents{i}")),
+                factory_tile(tile.clone()),
+            );
         }
     }
 
@@ -158,7 +186,6 @@ pxs.print('Working JS');
             test_js();
             pxs_clear();
         }
-
 
         pxs_finalize();
     }

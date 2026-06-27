@@ -10,7 +10,9 @@ use std::{
     collections::HashMap, ops::{BitAnd, BitOr}, os::raw::c_void, ptr, sync::{Arc, Mutex}
 };
 
-use crate::{shared::{PtrMagic, ffi::ThreadLanguageState, module::ModuleCallback, var::{default_deleter, pxs_DeleterFn}}};
+use etffi::ptr_magic::ThreadSafePointer;
+
+use crate::{shared::{PtrMagic, module::ModuleCallback, var::{default_deleter, pxs_DeleterFn}}};
 
 /// Flags for `ObjectCallback`.
 /// 
@@ -241,7 +243,7 @@ impl PtrMagic for ObjectLookup {}
 
 thread_local! {
     /// The object lookup!
-    static OBJECT_LOOKUP: ThreadLanguageState<ObjectLookup> = ThreadLanguageState::new(new_object_lookup());
+    static OBJECT_LOOKUP: ThreadSafePointer<ObjectLookup> = ThreadSafePointer::new_owned(new_object_lookup());
 }
 
 fn new_object_lookup() -> *mut ObjectLookup {

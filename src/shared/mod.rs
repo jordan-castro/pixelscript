@@ -7,11 +7,13 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 use std::{
-    ffi::{CString, c_char, c_void}, panic::Location, sync::{Arc, LazyLock}
+    ffi::{CString, c_char, c_void}, sync::{Arc, LazyLock}
 };
 
+use etffi::{ptr_magic::{PtrMagic, ThreadSafePointer}, cstring::CStringSafe};
+
 use crate::{
-    own_var, shared::{ffi::ThreadLanguageState, utils::CStringSafe, var::{pxs_Var, pxs_VarT}}
+    own_var, shared::{var::{pxs_Var, pxs_VarT}}
 };
 
 /// Helper methods/macros for using PixelScript
@@ -32,7 +34,7 @@ pub mod arena;
 #[unsafe(no_mangle)]
 unsafe extern "C" fn pxsutils_freestring(ptr: *mut core::ffi::c_char) {
     if !ptr.is_null() {
-        let _ = crate::own_string!(ptr);
+        let _ = etffi::own_string!(ptr);
     }
 }
 
@@ -65,8 +67,8 @@ pub(crate) struct PixelState {
 impl PtrMagic for PixelState {}
 
 /// The State static variable for PixelScript.
-static PIXEL_STATE: LazyLock<ThreadLanguageState<PixelState>> = LazyLock::new(|| {
-    ThreadLanguageState::<PixelState>::new(init_state())
+static PIXEL_STATE: LazyLock<ThreadSafePointer<PixelState>> = LazyLock::new(|| {
+    ThreadSafePointer::<PixelState>::new_owned(init_state())
 });
 
 /// This is a internal macro to create a PxsError type.
@@ -157,52 +159,6 @@ pub fn read_file_dir(dir_path: &str) -> Vec<String> {
         .iter()
         .map(|v| v.get_string().unwrap_or(String::new()).clone())
         .collect()
-}
-
-// /// Get current Arena var count
-// pub fn get_current_arena_var_count() -> usize {
-//     let id = get_current_arena_id();
-//     let state = get_pixel_state();
-//     let arenas = state.arenas.borrow();
-//     let arena: &PixelArena = arenas.get(id as usize).unwrap();
-//     arena.num_of_args()
-// }
-
-/// A shared trait for converting from/to a pointer. Specifically a (* mut Self)
-pub trait PtrMagic: Sized {
-    /// Moves the object to the heap and returns a raw pointer.
-    /// Caller owns this memory but don't worry about freeing it. The library frees it somewhere.
-    fn into_raw(self) -> *mut Self {
-        Box::into_raw(Box::new(self))
-    }
-
-    /// Get a direct *mut c_void
-    fn into_void(self) -> *mut c_void {
-        self.into_raw() as *mut c_void
-    }
-
-    #[track_caller]
-    /// Safety: Only call this on a pointer created via `into_raw`.
-    fn from_raw(ptr: *mut Self) -> Self {
-        let location = Location::caller();
-        assert!(!ptr.is_null(), "Attempted to own a null pointer. Stack: {}:{}:{}", location.file(), location.line(), location.column());
-        unsafe { *Box::from_raw(ptr) }
-    }
-
-    #[track_caller]
-    /// Build from a Ptr but only get a reference, this means that the caller will still own the memory
-    unsafe fn from_borrow<'a>(ptr: *mut Self) -> &'a mut Self {
-        let location = Location::caller();
-        assert!(!ptr.is_null(), "Attempted to borrow a null pointer. Stack: {}:{}:{}", location.file(), location.line(), location.column());
-        unsafe {
-            &mut *ptr
-        }
-    }
-
-    /// Completely unsafe and should only be used when cerrtain that type can be cast to Self
-    unsafe fn from_borrow_void<'a>(ptr: *mut c_void) -> &'a mut Self {
-        unsafe { Self::from_borrow(ptr as *mut Self) }
-    }
 }
 
 /// The trait to use for PixelScrpipting

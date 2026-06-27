@@ -24,9 +24,13 @@ namespace pxs {
         bool owned;
 
     public:
+        // Null variable. Owned
         Var() : rt(nullptr), ptr(pxs_newnull()), owned(true) {}
+        // Null runtime, set pointer, not owned.
         Var(pxs_Var* ptr) : rt(nullptr), ptr(ptr), owned(false) {}
+        // Ptr and owned option.
         Var(pxs_Var* ptr, bool owned) : rt(nullptr), ptr(ptr), owned(owned) {}
+        // Runtime, pointer, owned = false.
         Var(pxs_Var* rt, pxs_Var* ptr, bool owned=false) : rt(rt), ptr(ptr), owned(owned) {}
         ~Var() {
             if (owned && ptr != nullptr) {
@@ -240,14 +244,25 @@ namespace pxs {
             return Var(rt, result, true);
         }
 
+        // Copy dont own
+        [[nodiscard]] Var copy() const {
+            return Var(rt, pxs_newcopy(ptr), false);
+        }
+
         // Easily return a copy of the current Var.
+        // Owned
         [[nodiscard]] Var copy_owned() const {
             return Var(rt, pxs_newcopy(ptr), true);
         }
 
-        // Copy current var but dont own
-        [[nodiscard]] Var copy() const {
+        // Shallow copy, and own.
+        [[nodiscard]] Var shallow_owned() const {
             return Var(rt, pxs_new_shallowcopy(ptr), true);
+        }
+
+        // Shallow copy current var.
+        [[nodiscard]] Var shallow() const {
+            return Var(rt, pxs_new_shallowcopy(ptr), false);
         }
 
         // For lists, get at specific index.

@@ -8,12 +8,20 @@
 //
 // cargo test --test test_core --lib --no-default-features --features "lua,python,js,include-core,testing,pxs-debug" -- --nocapture --test-threads=1
 #[allow(unused)]
-
 #[cfg(test)]
 mod tests {
     use pixelscript::{
-        create_raw_string, free_raw_string, own_string, own_var, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_exec, pxs_finalize, pxs_freearena, pxs_freevar, pxs_getstring, pxs_initialize, pxs_json_decode, pxs_json_encode, pxs_listadd, pxs_listget, pxs_listlen, pxs_meminit, pxs_new_shallowcopy, pxs_newarena, pxs_newcopy, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_tostring, shared::{PtrMagic, pxs_Runtime, utils, var::{pxs_Var, pxs_VarT}}
+        own_var, pxs_addfunc, pxs_addmod, pxs_call,
+        pxs_debugvar, pxs_exec, pxs_finalize, pxs_freearena, pxs_freevar, pxs_getstring,
+        pxs_initialize, pxs_json_decode, pxs_json_encode, pxs_listadd, pxs_listget, pxs_listlen,
+        pxs_meminit, pxs_new_shallowcopy, pxs_newarena, pxs_newcopy, pxs_newint, pxs_newlist,
+        pxs_newmod, pxs_newnull, pxs_tostring,
+        shared::{
+            pxs_Runtime, utils,
+            var::{pxs_Var, pxs_VarT},
+        },
     };
+    use etffi::{cstring::CStringSafe, borrow_string, create_raw_string, free_raw_string, own_string, ptr_magic::PtrMagic};
 
     extern "C" fn call_pxs_json_encode(args: pxs_VarT) -> pxs_VarT {
         let rt = pxs_listget(args, 0);
@@ -23,7 +31,7 @@ mod tests {
         pxs_listadd(nargs, pxs_new_shallowcopy(obj));
         let res = pxs_json_encode(rt, nargs);
         res
-    } 
+    }
 
     extern "C" fn call_pxs_json_decode(args: pxs_VarT) -> pxs_VarT {
         let rt = pxs_listget(args, 0);
@@ -149,7 +157,11 @@ mem_delall(ps);
 
         let raw_pyscript = create_raw_string!(pyscript);
         let raw_file_name = create_raw_string!("<globals_test>");
-        let err = own_var!(pxs_exec(pxs_Runtime::pxs_Python, raw_pyscript, raw_file_name));
+        let err = own_var!(pxs_exec(
+            pxs_Runtime::pxs_Python,
+            raw_pyscript,
+            raw_file_name
+        ));
         unsafe {
             free_raw_string!(raw_pyscript);
         };
@@ -157,7 +169,11 @@ mem_delall(ps);
             unsafe { free_raw_string!(raw_file_name) };
         }
 
-        assert!(err.is_null(), "Python error is not empty{}", err.get_string().unwrap());
+        assert!(
+            err.is_null(),
+            "Python error is not empty{}",
+            err.get_string().unwrap()
+        );
         println!("====================== CHANGING TO LUA ========================");
 
         let raw_luascript = create_raw_string!(luascript);
@@ -168,18 +184,30 @@ mem_delall(ps);
         if !err.is_null() {
             unsafe { free_raw_string!(raw_file_name) };
         }
-        assert!(err.is_null(), "Lua error is not empty {}", err.get_string().unwrap());
+        assert!(
+            err.is_null(),
+            "Lua error is not empty {}",
+            err.get_string().unwrap()
+        );
 
         println!("====================== CHANGING TO JS ========================");
         let raw_jsscript = create_raw_string!(jsscript);
-        let err = own_var!(pxs_exec(pxs_Runtime::pxs_JavaScript, raw_jsscript, raw_file_name));
+        let err = own_var!(pxs_exec(
+            pxs_Runtime::pxs_JavaScript,
+            raw_jsscript,
+            raw_file_name
+        ));
         unsafe {
             free_raw_string!(raw_jsscript);
         }
         if !err.is_null() {
-            unsafe {free_raw_string!(raw_file_name)};
+            unsafe { free_raw_string!(raw_file_name) };
         }
-        assert!(err.is_null(), "JS error is not empty {}", err.get_string().unwrap());
+        assert!(
+            err.is_null(),
+            "JS error is not empty {}",
+            err.get_string().unwrap()
+        );
 
         unsafe {
             free_raw_string!(raw_file_name);

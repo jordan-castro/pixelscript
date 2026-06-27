@@ -28,3 +28,4 @@
 - Free the error message in `consume_error`.
 - Add `HWrapper` to `pixelscript_cpp.hpp` wrapper.
 - Added `PXSVariant` to `pixelscript_cpp.hpp` wrapper.
+- Added internal `etffi` dep.

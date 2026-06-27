@@ -11,8 +11,13 @@
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
-    use pixelscript::{create_raw_string, free_raw_string, pxs_finalize, pxs_freearena, pxs_initialize, pxs_newarena, pxs_newmod, shared::{module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT}};
-    
+    use pixelscript::{
+        pxs_finalize, pxs_freearena, pxs_initialize,
+        pxs_newarena, pxs_newmod,
+        shared::{module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT},
+    };
+    use etffi::{cstring::CStringSafe, borrow_string, create_raw_string, free_raw_string, own_string, ptr_magic::PtrMagic};
+
     fn print_helper(lang: &str) {
         println!("====================== {lang} ===================");
     }

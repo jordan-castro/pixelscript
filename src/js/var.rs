@@ -3,8 +3,10 @@
 
 use std::{ffi::c_void, sync::Arc};
 
+use etffi::ptr_magic::PtrMagic;
+
 use crate::{js::{SmartJSValue, object::create_object, quickjs}, pxs_error, shared::{
-    PtrMagic, PxsRes, PxsResult, object::get_object, pxs_Runtime, var::{pxs_Var, pxs_VarObject}
+    PxsRes, PxsResult, object::get_object, pxs_Runtime, var::{pxs_Var, pxs_VarObject}
 }};
 
 /// JS PXS Container.

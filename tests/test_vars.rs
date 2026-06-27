@@ -11,7 +11,20 @@
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
-    use pixelscript::{borrow_var, create_raw_string, free_raw_string, own_string, pxs_addfunc, pxs_addmod, pxs_finalize, pxs_freearena, pxs_getbool, pxs_getfloat, pxs_getint, pxs_getstring, pxs_getuint, pxs_initialize, pxs_listadd, pxs_listget, pxs_map_addpair, pxs_newarena, pxs_newbool, pxs_newexception, pxs_newfloat, pxs_newint, pxs_newlist, pxs_newmap, pxs_newmod, pxs_newnull, pxs_newstring, pxs_newuint, pxs_varcall, pxs_varis, shared::{PtrMagic, module::pxs_Module, pxs_Runtime, utils::{self, CStringSafe}, var::{pxs_Var, pxs_VarT, pxs_VarType}}};
+    use pixelscript::{
+        borrow_var, pxs_addfunc, pxs_addmod, pxs_finalize, pxs_freearena, pxs_getbool,
+        pxs_getfloat, pxs_getint, pxs_getstring, pxs_getuint, pxs_initialize, pxs_listadd,
+        pxs_listget, pxs_map_addpair, pxs_newarena, pxs_newbool, pxs_newexception, pxs_newfloat,
+        pxs_newint, pxs_newlist, pxs_newmap, pxs_newmod, pxs_newnull, pxs_newstring, pxs_newuint,
+        pxs_varcall, pxs_varis,
+        shared::{
+            module::pxs_Module,
+            pxs_Runtime,
+            utils::{self},
+            var::{pxs_Var, pxs_VarT, pxs_VarType},
+        },
+    };
+    use etffi::{cstring::CStringSafe, borrow_string, create_raw_string, free_raw_string, own_string, ptr_magic::PtrMagic};
 
     // We explicitly skip Object, HostObject, Factory, and Exception because those are tested in test_objects.rs
 
@@ -22,7 +35,7 @@ mod tests {
         pxs_newint(-1)
     }
 
-    extern "C" fn test_u64(args: pxs_VarT) ->pxs_VarT {
+    extern "C" fn test_u64(args: pxs_VarT) -> pxs_VarT {
         let num = pxs_getuint(pxs_listget(args, 1));
         println!("num: {num}");
 
@@ -33,7 +46,7 @@ mod tests {
         let str = own_string!(pxs_getstring(pxs_listget(args, 1)));
         println!("Str: {str}");
 
-        let mut cstgen =  CStringSafe::new();
+        let mut cstgen = CStringSafe::new();
         pxs_newstring(cstgen.new_string("Test"))
     }
 
@@ -81,7 +94,11 @@ mod tests {
 
         let new_map = pxs_newmap();
         let mut cstrgen = CStringSafe::new();
-        pxs_map_addpair(new_map, pxs_newstring(cstrgen.new_string("name")), pxs_newstring(cstrgen.new_string("Jordan dayo!")));
+        pxs_map_addpair(
+            new_map,
+            pxs_newstring(cstrgen.new_string("name")),
+            pxs_newstring(cstrgen.new_string("Jordan dayo!")),
+        );
         new_map
     }
 
@@ -94,7 +111,7 @@ mod tests {
         }
         pxs_newnull()
     }
-    
+
     fn print_helper(lang: &str) {
         println!("====================== {lang} ===================");
     }

@@ -11,16 +11,19 @@
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
-    use pixelscript::{create_raw_string, free_raw_string, pxs_addmod, pxs_exec, pxs_finalize, pxs_freearena, pxs_initialize, pxs_newarena, pxs_newexception, pxs_newmod, shared::{module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT} 
+    use pixelscript::{
+        pxs_addmod, pxs_exec, pxs_finalize, pxs_freearena,
+        pxs_initialize, pxs_newarena, pxs_newexception, pxs_newmod,
+        shared::{module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT},
     };
+    use etffi::{cstring::CStringSafe, borrow_string, create_raw_string, free_raw_string, own_string, ptr_magic::PtrMagic};
+
     // pub fn add_function(module: *mut pxs_Module, name: &str, function: pxs_Func) {
 
     extern "C" fn call(args: pxs_VarT) -> pxs_VarT {
         let msg = create_raw_string!("You no good dayo!!");
         let res = pxs_newexception(msg);
-        unsafe {
-            free_raw_string!(msg)
-        };
+        unsafe { free_raw_string!(msg) };
 
         res
     }
@@ -41,9 +44,9 @@ test_raise.call()
 raise Exception("We should not get here")
 "#;
 
-    let res = utils::execute_code(py_script, "<test>", pxs_Runtime::pxs_Python);
-    assert!(res.is_exception(), "Res is not exeception: {:#?}", res);
-    println!("Res: {:#?}", res);
+        let res = utils::execute_code(py_script, "<test>", pxs_Runtime::pxs_Python);
+        assert!(res.is_exception(), "Res is not exeception: {:#?}", res);
+        println!("Res: {:#?}", res);
     }
 
     fn test_lua() {
@@ -56,12 +59,11 @@ test_raise.call()
 error('we should not get here')
 "#;
 
-    let res = utils::execute_code(lua_script, "<test>", pxs_Runtime::pxs_Lua);
-    assert!(res.is_exception(), "Res is not exeception: {:#?}", res);
-    println!("Res: {:#?}", res);
-
+        let res = utils::execute_code(lua_script, "<test>", pxs_Runtime::pxs_Lua);
+        assert!(res.is_exception(), "Res is not exeception: {:#?}", res);
+        println!("Res: {:#?}", res);
     }
-    
+
     fn test_js() {
         let script = r#"
 import * as pxs from 'pxs';

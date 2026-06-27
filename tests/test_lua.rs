@@ -17,10 +17,19 @@ mod tests {
         sync::Arc,
     };
 
+    use etffi::{
+        borrow_string, create_raw_string, cstring::CStringSafe, free_raw_string, own_string,
+        ptr_magic::PtrMagic,
+    };
     use pixelscript::{
         lua::LuaScripting,
-        shared::{PixelScript, PtrMagic, object::pxs_PixelObject, pxs_Runtime, utils::{CStringSafe, execute_code}, var::{pxs_Var, pxs_VarT, pxs_VarType}
-},
+        shared::{
+            PixelScript,
+            object::pxs_PixelObject,
+            pxs_Runtime,
+            utils::execute_code,
+            var::{pxs_Var, pxs_VarT, pxs_VarType},
+        },
         *,
     };
 
@@ -122,10 +131,7 @@ mod tests {
         let _ = unsafe { Person::from_raw(ptr as *mut Person) };
     }
 
-    pub extern "C" fn set_name(
-        args: *mut pxs_Var,
-        
-    ) -> *mut pxs_Var {
+    pub extern "C" fn set_name(args: *mut pxs_Var) -> *mut pxs_Var {
         unsafe {
             // Get ptr
             let pixel_object_var = pxs_listget(args, 1);
@@ -148,10 +154,7 @@ mod tests {
         }
     }
 
-    pub extern "C" fn get_name(
-        args: *mut pxs_Var,
-        
-    ) -> *mut pxs_Var {
+    pub extern "C" fn get_name(args: *mut pxs_Var) -> *mut pxs_Var {
         unsafe {
             // Get ptr
             let pixel_object_var = pxs_listget(args, 1);
@@ -162,9 +165,7 @@ mod tests {
         }
     }
 
-    pub extern "C" fn new_person(
-        args: *mut pxs_Var,
-    ) -> *mut pxs_Var {
+    pub extern "C" fn new_person(args: *mut pxs_Var) -> *mut pxs_Var {
         unsafe {
             let p_name = pxs_Var::from_borrow(pxs_listget(args, 1));
             let p_name = p_name.get_string().unwrap();
@@ -188,10 +189,7 @@ mod tests {
     }
 
     // Testing callbacks
-    pub extern "C" fn print_wrapper(
-        args: *mut pxs_Var,
-        
-    ) -> *mut pxs_Var {
+    pub extern "C" fn print_wrapper(args: *mut pxs_Var) -> *mut pxs_Var {
         unsafe {
             let var_ptr = pxs_Var::from_borrow(pxs_listget(args, 1));
 
@@ -203,10 +201,7 @@ mod tests {
         pxs_Var::new_null().into_raw()
     }
 
-    pub extern "C" fn add_wrapper(
-        args: *mut pxs_Var,
-        
-    ) -> *mut pxs_Var {
+    pub extern "C" fn add_wrapper(args: *mut pxs_Var) -> *mut pxs_Var {
         // Assumes n1 and n2
         unsafe {
             let n1 = pxs_Var::from_borrow(pxs_listget(args, 1));
@@ -215,10 +210,7 @@ mod tests {
             pxs_Var::new_i64(n1.value.i64_val + n2.value.i64_val).into_raw()
         }
     }
-    pub extern "C" fn sub_wrapper(
-        args: *mut pxs_Var,
-        
-    ) -> *mut pxs_Var {
+    pub extern "C" fn sub_wrapper(args: *mut pxs_Var) -> *mut pxs_Var {
         // Assumes n1 and n2
         unsafe {
             let n1 = pxs_Var::from_borrow(pxs_listget(args, 1));
@@ -248,9 +240,7 @@ mod tests {
         pxs_Var::new_string(contents).into_raw()
     }
 
-    unsafe extern "C" fn call_function(
-        args: pxs_VarT,
-    ) -> pxs_VarT {
+    unsafe extern "C" fn call_function(args: pxs_VarT) -> pxs_VarT {
         println!("{:#?}", borrow_var!(args));
 
         // Assume 1 is a function
@@ -259,7 +249,11 @@ mod tests {
         let argc = pxs_listlen(args);
         let res = if argc > 2 {
             // 2 is args
-            pxs_varcall(pxs_listget(args, 0), func, pxs_newcopy(pxs_listget(args, 2)))
+            pxs_varcall(
+                pxs_listget(args, 0),
+                func,
+                pxs_newcopy(pxs_listget(args, 2)),
+            )
         } else {
             pxs_varcall(pxs_listget(args, 0), func, pxs_newlist())
         };
@@ -268,9 +262,7 @@ mod tests {
         res
     }
 
-    unsafe extern "C" fn expect_table(
-        args: pxs_VarT
-    ) -> pxs_VarT {
+    unsafe extern "C" fn expect_table(args: pxs_VarT) -> pxs_VarT {
         println!("{:#?}", borrow_var!(args));
         let table = pxs_listget(args, 1);
 
@@ -309,7 +301,7 @@ mod tests {
         let object_name = create_raw_string!("Person");
         pxs_addobject(module, object_name, new_person);
 
-        // Add call 
+        // Add call
         let call_name = create_raw_string!("call_function");
         pxs_addfunc(module, call_name, call_function);
         free_raw_string!(call_name);

@@ -10,13 +10,15 @@ use std::{
     cell::Cell, collections::{HashMap, HashSet}, sync::LazyLock
 };
 
+use etffi::{borrow_string, create_raw_string, cstring::CStringSafe, free_raw_string, ptr_magic::{PtrMagic, ThreadSafePointer}};
+
 use crate::{
-    borrow_string, create_raw_string, free_raw_string, pxs_debug, pxs_error, python::{
+    pxs_debug, pxs_error, python::{
         func::{get_builtin, pocketpy_bridge, py_assign},
         module::create_module,
         var::{PythonPointer, pocketpyref_to_var, var_to_pocketpyref},
     }, shared::{
-        PixelScript, PtrMagic, PxsRes, PxsResult, ffi::ThreadLanguageState, pxs_Opaque, read_file, read_file_dir, utils::CStringSafe, var::{ObjectMethods, pxs_Var, pxs_VarList}
+        PixelScript, PxsRes, PxsResult, pxs_Opaque, read_file, read_file_dir, var::{ObjectMethods, pxs_Var, pxs_VarList}
     }, with_feature
 };
 
@@ -42,8 +44,8 @@ enum ThreadStatus {
 }
 
 /// This is a simple wrapper for instancing on the first time.
-fn setup_python_state() -> ThreadLanguageState<State> {
-    ThreadLanguageState::new(new_state())
+fn setup_python_state() -> ThreadSafePointer<State> {
+    ThreadSafePointer::new_owned(new_state())
 }
 
 /// This sets up theh python thread pool
@@ -57,7 +59,7 @@ fn setup_python_thread_pool() -> Vec<ThreadStatus> {
 }
 
 /// The Python State.
-static PYSTATE: LazyLock<ThreadLanguageState<State>> = LazyLock::new(setup_python_state);
+static PYSTATE: LazyLock<ThreadSafePointer<State>> = LazyLock::new(setup_python_state);
 
 thread_local! {
     /// Current thread idx

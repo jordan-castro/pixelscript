@@ -8,10 +8,12 @@
 //
 use std::sync::Arc;
 
+use etffi::cstring::CStringSafe;
+
 use crate::{
     pxs_debug, python::{
         PXS_CALL_METHOD, add_new_defined_object, eval_py, exec_py, func::get_from_obj, is_object_defined, pocketpy, pocketpy_bridge
-    }, shared::{object::{ObjectFlags, pxs_PixelObject}, utils::CStringSafe}
+    }, shared::{object::{ObjectFlags, pxs_PixelObject}}
 };
 
 /// Create a object type in the Python Runtime.

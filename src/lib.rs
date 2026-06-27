@@ -12,6 +12,7 @@
 // TRANSFER: the value is transfered from host to library.
 // BORROW: the value is borrowed by the library.
 
+use etffi::{borrow_string, create_raw_string, free_raw_string, ptr_magic::PtrMagic};
 use shared::{func::pxs_Func, var::pxs_Var};
 use std::{
     ffi::{CString, c_char, c_void},
@@ -27,7 +28,7 @@ use crate::lua::LuaScripting;
 use crate::python::PythonScripting;
 
 use crate::shared::{
-    PXS_PTR_NAME, PixelScript, PtrMagic,
+    PXS_PTR_NAME, PixelScript,
     arena::pxs_PixelArena,
     func::{clear_function_lookup, lookup_add_function},
     module::pxs_Module,

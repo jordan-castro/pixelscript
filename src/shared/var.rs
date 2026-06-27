@@ -14,8 +14,10 @@ use std::{
     ptr,
 };
 
+use etffi::{create_raw_string, borrow_string, ptr_magic::PtrMagic};
+
 use crate::{
-    borrow_string, create_raw_string, pxs_error, shared::{PtrMagic, PxsError, PxsRes, PxsResult, func::pxs_Func, object::{apply_ref_count_alloc, apply_ref_count_delete, get_object}, pxs_Runtime}
+    pxs_error, shared::{PxsError, PxsRes, PxsResult, func::pxs_Func, object::{apply_ref_count_alloc, apply_ref_count_delete, get_object}, pxs_Runtime}
 };
 
 /// Macro for writing out the Var:: get methods.

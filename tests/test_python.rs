@@ -19,10 +19,12 @@ mod tests {
     use pixelscript::{
         python::PythonScripting,
         shared::{
-            PixelScript, PtrMagic, func::pxs_Func, pxs_Runtime, var::{pxs_Var, pxs_VarT}
+            PixelScript, func::pxs_Func, pxs_Runtime, var::{pxs_Var, pxs_VarT}
         },
         *,
     };
+    use etffi::{cstring::CStringSafe, borrow_string, create_raw_string, free_raw_string, own_string, ptr_magic::PtrMagic};
+
     /// Create a raw string from &str.
     ///
     /// Remember to FREE THIS!

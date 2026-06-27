@@ -1,7 +1,9 @@
+use etffi::cstring::CStringSafe;
+
 use crate::{
     borrow_string, js::quickjs::{
             self, JS_IsArray, JS_IsError, JS_IsFunction, JS_IsPromise, JS_PromiseResult
-        }, pxs_error, shared::{PxsRes, utils::CStringSafe}
+        }, pxs_error, shared::PxsRes
 };
 
 /// Macro for writing out the JS_Is functions

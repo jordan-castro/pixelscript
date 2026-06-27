@@ -198,6 +198,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "etffi"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61bea38cd649f814905011fafc3781d1df5f1bb9b51299c453662f5364671e9c"
+
+[[package]]
 name = "fastrand"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -339,6 +345,7 @@ dependencies = [
  "bindgen",
  "cbindgen",
  "cc",
+ "etffi",
 ]
 
 [[package]]

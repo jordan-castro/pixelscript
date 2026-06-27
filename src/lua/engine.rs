@@ -1,10 +1,19 @@
 #![allow(unused)]
-use crate::{borrow_string, lua::{State, compile_chunk, from_lua, lua, lua_call, lua_pop, lua_push_globals, lua_remove, lua_upvalueindex, push_lua_stack, push_string}, shared::{PxsRes, PxsResult, utils::CStringSafe, var::pxs_Var}};
+use etffi::cstring::CStringSafe;
+
+use crate::{
+    borrow_string,
+    lua::{
+        State, compile_chunk, from_lua, lua, lua_call, lua_pop, lua_push_globals, lua_remove,
+        lua_upvalueindex, push_lua_stack, push_string,
+    },
+    shared::{PxsRes, PxsResult, var::pxs_Var},
+};
 
 /// Engine that handles all Lua calls.
-/// 
+///
 /// Keeps track of allocations.
-/// 
+///
 /// You should instance this in every function using lua callbacks. It will clear the stack when it goes out of scope.
 pub struct Engine {
     /// The internal engine
@@ -12,7 +21,7 @@ pub struct Engine {
     /// The number of allocations
     num_allocated: u32,
     /// Uses allocation tracking
-    use_allocation_tracking: bool
+    use_allocation_tracking: bool,
 }
 
 impl Drop for Engine {
@@ -23,18 +32,24 @@ impl Drop for Engine {
 
 impl Engine {
     pub fn new(L: *mut lua::lua_State) -> Self {
-        Engine{L, num_allocated: 0, use_allocation_tracking: true}
+        Engine {
+            L,
+            num_allocated: 0,
+            use_allocation_tracking: true,
+        }
     }
 
     pub fn from_state(state: *mut State) -> Self {
-        unsafe {
-            Engine::new((*state).engine)
-        }
+        unsafe { Engine::new((*state).engine) }
     }
 
     /// Engine without allocation tracking. Use this in lua functions.
     pub fn without_alloc(L: *mut lua::lua_State) -> Self {
-        Engine{L: L, num_allocated: 0, use_allocation_tracking: false}
+        Engine {
+            L: L,
+            num_allocated: 0,
+            use_allocation_tracking: false,
+        }
     }
 
     /// Reset the allocations of the engine
@@ -86,9 +101,7 @@ impl Engine {
 
     /// Call `lua_gettop`
     pub fn get_top(&self) -> i32 {
-        unsafe {
-            lua::lua_gettop(self.L)
-        }
+        unsafe { lua::lua_gettop(self.L) }
     }
 
     /// Get the top value as `pxs_Var`
@@ -112,7 +125,11 @@ impl Engine {
     }
 
     /// Push function
-    pub fn push_function(&mut self, func: unsafe extern "C" fn(*mut lua::lua_State) -> core::ffi::c_int, upvalues: i32) {
+    pub fn push_function(
+        &mut self,
+        func: unsafe extern "C" fn(*mut lua::lua_State) -> core::ffi::c_int,
+        upvalues: i32,
+    ) {
         unsafe {
             lua::lua_pushcclosure(self.L, Some(func), upvalues);
         }
@@ -206,7 +223,7 @@ impl Engine {
         }
         self.decrease(1);
     }
-    
+
     /// Call `lua_setmetatable`
     pub fn set_meta(&mut self, table: i32) {
         unsafe {
@@ -265,7 +282,7 @@ impl Engine {
     }
 
     /// Call `lua_len`
-    /// 
+    ///
     /// Also returns the length.
     pub fn len(&mut self, table: i32) -> i64 {
         unsafe {
@@ -273,30 +290,22 @@ impl Engine {
         }
         self.increase(1);
 
-        unsafe {
-            lua::lua_tointegerx(self.L, -1, core::ptr::null_mut())
-        }
+        unsafe { lua::lua_tointegerx(self.L, -1, core::ptr::null_mut()) }
     }
 
     /// Call `lua_toboolean`
     pub fn to_boolean(&self, idx: i32) -> bool {
-        unsafe {
-            lua::lua_toboolean(self.L, idx) == 1
-        }
+        unsafe { lua::lua_toboolean(self.L, idx) == 1 }
     }
-    
+
     /// Call `lua_tointeger`
     pub fn to_integer(&self, idx: i32) -> i64 {
-        unsafe {
-            lua::lua_tointegerx(self.L, idx, core::ptr::null_mut())
-        }
+        unsafe { lua::lua_tointegerx(self.L, idx, core::ptr::null_mut()) }
     }
 
     /// Call `lua_tostring`
     pub fn to_string(&self, idx: i32) -> String {
-        let s = unsafe {
-            lua::lua_tolstring(self.L, idx, core::ptr::null_mut())
-        };
+        let s = unsafe { lua::lua_tolstring(self.L, idx, core::ptr::null_mut()) };
         borrow_string!(s).to_string()
     }
 
@@ -334,9 +343,7 @@ impl Engine {
 
     /// Call `lua_type`
     pub fn get_type(&self, idx: i32) -> i32 {
-        unsafe {
-            lua::lua_type(self.L, idx)
-        }
+        unsafe { lua::lua_type(self.L, idx) }
     }
 
     /// Call `lua_getupvalue`
@@ -348,9 +355,9 @@ impl Engine {
     }
 
     /// Call `luaL_newmetatable`
-    /// 
+    ///
     /// Returns 0, 1
-    /// 
+    ///
     /// 0 = Already exists
     /// 1 = New
     pub fn new_meta(&mut self, name: &str) -> i32 {

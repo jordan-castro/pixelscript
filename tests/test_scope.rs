@@ -13,19 +13,33 @@
 mod tests {
     use std::{collections::HashMap, ffi::c_void};
 
-    use pixelscript::{borrow_var, create_raw_string, free_raw_string, own_string, own_var, pxs_compile, pxs_exec, pxs_execobject, pxs_finalize, pxs_freearena, pxs_freevar, pxs_gethost, pxs_getstring, pxs_initialize, pxs_listget, pxs_map_addpair, pxs_new_shallowcopy, pxs_newarena, pxs_newcopy, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmap, pxs_newnull, pxs_newobject, pxs_newstring, pxs_object_addfunc, pxs_startthread, pxs_stopthread, pxs_tostring, shared::{PtrMagic, pxs_Runtime, utils::setup_pxs, var::{pxs_Var, pxs_VarT}}};
+    use pixelscript::{
+        borrow_var, own_var, pxs_compile, pxs_exec,
+        pxs_execobject, pxs_finalize, pxs_freearena, pxs_freevar, pxs_gethost, pxs_getstring,
+        pxs_initialize, pxs_listget, pxs_map_addpair, pxs_new_shallowcopy, pxs_newarena,
+        pxs_newcopy, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmap, pxs_newnull,
+        pxs_newobject, pxs_newstring, pxs_object_addfunc, pxs_startthread, pxs_stopthread,
+        pxs_tostring,
+        shared::{
+            pxs_Runtime,
+            utils::setup_pxs,
+            var::{pxs_Var, pxs_VarT},
+        },
+    };
+    use etffi::{cstring::CStringSafe, borrow_string, create_raw_string, free_raw_string, own_string, ptr_magic::PtrMagic};
+
     fn print_helper(lang: &str) {
         println!("====================== {lang} ===================");
     }
 
     struct State {
-        pub internals: HashMap<String, pxs_VarT>
+        pub internals: HashMap<String, pxs_VarT>,
     }
 
     impl PtrMagic for State {}
 
     extern "C" fn free_state(ptr: *mut c_void) {
-        let _ = unsafe{State::from_raw(ptr as *mut State)};
+        let _ = unsafe { State::from_raw(ptr as *mut State) };
     }
 
     extern "C" fn get_attr(args: pxs_VarT) -> pxs_VarT {
@@ -34,7 +48,7 @@ mod tests {
         if state_ptr.is_null() {
             panic!("YO YO YO Why is state null?");
         }
-        let state = unsafe{State::from_borrow_void(state_ptr)};
+        let state = unsafe { State::from_borrow_void(state_ptr) };
 
         let key = own_string!(pxs_getstring(pxs_listget(args, 2)));
 
@@ -50,7 +64,7 @@ mod tests {
     extern "C" fn set_attr(args: pxs_VarT) -> pxs_VarT {
         let obj = pxs_listget(args, 1);
         let state_ptr = pxs_gethost(pxs_listget(args, 0), obj);
-        let state = unsafe{State::from_borrow_void(state_ptr)};
+        let state = unsafe { State::from_borrow_void(state_ptr) };
 
         let key = own_string!(pxs_getstring(pxs_listget(args, 2)));
         let value = pxs_newcopy(pxs_listget(args, 3));
@@ -65,7 +79,7 @@ mod tests {
 
     extern "C" fn set_if_null(args: pxs_VarT) -> pxs_VarT {
         let obj = pxs_listget(args, 1);
-        let state = unsafe{State::from_borrow_void(pxs_gethost(pxs_listget(args, 0), obj))};
+        let state = unsafe { State::from_borrow_void(pxs_gethost(pxs_listget(args, 0), obj)) };
 
         let key = own_string!(pxs_getstring(pxs_listget(args, 2)));
         let value = pxs_newcopy(pxs_listget(args, 3));
@@ -79,7 +93,7 @@ mod tests {
 
     extern "C" fn new_state(args: pxs_VarT) -> pxs_VarT {
         let state = State {
-            internals: HashMap::new()
+            internals: HashMap::new(),
         };
 
         let type_name = create_raw_string!("State");
@@ -93,16 +107,15 @@ mod tests {
         pxs_object_addfunc(obj, setattr, set_attr);
         pxs_object_addfunc(obj, setifnull, set_if_null);
 
-        unsafe { 
-            free_raw_string!(type_name); 
+        unsafe {
+            free_raw_string!(type_name);
             free_raw_string!(getattr);
             free_raw_string!(setattr);
             free_raw_string!(setifnull);
         };
-        
-        pxs_newhost(obj)
-    } 
 
+        pxs_newhost(obj)
+    }
 
     fn scope() -> pxs_VarT {
         // Setup scope
@@ -114,7 +127,7 @@ mod tests {
         let self_name = create_raw_string!("self");
         // Add state
         pxs_map_addpair(scope, pxs_newstring(self_name), state_factory);
-        unsafe{
+        unsafe {
             free_raw_string!(self_name);
         }
         scope
@@ -138,16 +151,23 @@ pxs.print(f'Current loop idx: {loop_id}')
 "#;
         let raw_code = create_raw_string!(code);
         // Compile python code to object
-        let code_object = pxs_compile(pixelscript::shared::pxs_Runtime::pxs_Python, raw_code, scope());
-        unsafe{
+        let code_object = pxs_compile(
+            pixelscript::shared::pxs_Runtime::pxs_Python,
+            raw_code,
+            scope(),
+        );
+        unsafe {
             free_raw_string!(raw_code);
         }
 
         // Print code object just to test
-        let code_object_str = own_string!(pxs_getstring(pxs_tostring(pxs_newint(1), pxs_listget(code_object, 1))));
+        let code_object_str = own_string!(pxs_getstring(pxs_tostring(
+            pxs_newint(1),
+            pxs_listget(code_object, 1)
+        )));
         println!("code object str: {code_object_str}");
 
-        let loop_name = create_raw_string!("loop_id");  
+        let loop_name = create_raw_string!("loop_id");
         for i in 0..5 {
             let co = pxs_new_shallowcopy(code_object);
             let bco = borrow_var!(co);
@@ -158,7 +178,9 @@ pxs.print(f'Current loop idx: {loop_id}')
             assert!(res.is_null(), "Error found: {:#?}", res);
         }
 
-        unsafe{free_raw_string!(loop_name);}
+        unsafe {
+            free_raw_string!(loop_name);
+        }
         pxs_freevar(code_object);
     }
 
@@ -181,11 +203,11 @@ pxs.print("Current loop idx: " .. tostring(loop_id))
         let raw_code = create_raw_string!(code);
         // Compile python code to object
         let code_object = pxs_compile(pixelscript::shared::pxs_Runtime::pxs_Lua, raw_code, scope());
-        unsafe{
+        unsafe {
             free_raw_string!(raw_code);
         }
 
-        let loop_name = create_raw_string!("loop_id");  
+        let loop_name = create_raw_string!("loop_id");
         for i in 0..5 {
             let co = pxs_new_shallowcopy(code_object);
             let bco = borrow_var!(co);
@@ -196,12 +218,12 @@ pxs.print("Current loop idx: " .. tostring(loop_id))
             assert!(res.is_null(), "Error found: {:#?}", res);
         }
 
-        unsafe{free_raw_string!(loop_name);}
+        unsafe {
+            free_raw_string!(loop_name);
+        }
         pxs_freevar(code_object);
-
     }
 
-    
     fn test_js() {
         let code = r#"
 import * as pxs from 'pxs';
@@ -227,15 +249,19 @@ export async function __pxs__(globals, locals) {
 "#;
         let raw_code = create_raw_string!(code);
         // Compile python code to object
-        let code_object = pxs_compile(pixelscript::shared::pxs_Runtime::pxs_JavaScript, raw_code, scope());
-        unsafe{
+        let code_object = pxs_compile(
+            pixelscript::shared::pxs_Runtime::pxs_JavaScript,
+            raw_code,
+            scope(),
+        );
+        unsafe {
             free_raw_string!(raw_code);
         }
 
         let co = borrow_var!(code_object);
         println!("CO: {:#?}", co);
 
-        let loop_name = create_raw_string!("loop_id");  
+        let loop_name = create_raw_string!("loop_id");
         for i in 0..5 {
             let co = pxs_new_shallowcopy(code_object);
             let bco = borrow_var!(co);
@@ -246,11 +272,11 @@ export async function __pxs__(globals, locals) {
             assert!(!res.is_exception(), "Error found: {:#?}", res);
         }
 
-        unsafe{free_raw_string!(loop_name);}
+        unsafe {
+            free_raw_string!(loop_name);
+        }
         pxs_freevar(code_object);
-
     }
-
 
     #[test]
     fn run_test() {

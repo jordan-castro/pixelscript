@@ -9,12 +9,15 @@
 
 use std::sync::Arc;
 
+use etffi::{borrow_string, cstring::CStringSafe};
+
 // Pure Rust goes here
 use crate::{
-    borrow_string, lua::{LUA_TBOOLEAN, LUA_TFUNCTION, LUA_TNONE, LUA_TNUMBER, LUA_TSTRING, LUA_TTABLE, LuaReference, get_lua_state, lua::{self, lua_createtable, lua_geti, lua_gettop, lua_rawseti, lua_settable}, lua_pop, object::create_object}, pxs_error, shared::{
-        PtrMagic, PxsRes, PxsResult, object::get_object, pxs_Opaque, pxs_Runtime, utils::CStringSafe, var::{pxs_Var, pxs_VarObject, pxs_VarType}
+    lua::{LUA_TBOOLEAN, LUA_TFUNCTION, LUA_TNONE, LUA_TNUMBER, LUA_TSTRING, LUA_TTABLE, LuaReference, get_lua_state, lua::{self, lua_createtable, lua_geti, lua_gettop, lua_rawseti, lua_settable}, lua_pop, object::create_object}, pxs_error, shared::{
+        PxsRes, PxsResult, object::get_object, pxs_Opaque, pxs_Runtime, var::{pxs_Var, pxs_VarObject, pxs_VarType}
     }
 };
+use etffi::ptr_magic::PtrMagic;
 
 /// Free lua memory
 unsafe extern "C" fn free_lua_mem(ptr: pxs_Opaque) {

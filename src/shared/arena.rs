@@ -1,4 +1,6 @@
-use crate::{shared::{PtrMagic, var::{pxs_Var, pxs_VarT}}};
+use etffi::ptr_magic::PtrMagic;
+
+use crate::{shared::{var::{pxs_Var, pxs_VarT}}};
 
 #[allow(non_camel_case_types)]
 /// A memory arena for `pxs_Var`s.

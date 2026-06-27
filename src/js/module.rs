@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use crate::{borrow_string, js::{JSModuleMethod, SmartJSValue, create_callback, get_js_state, pxs_into_js, quickjs}, pxs_debug, shared::{module::pxs_Module, utils::CStringSafe}};
+use etffi::{borrow_string, cstring::CStringSafe};
+
+use crate::{js::{JSModuleMethod, SmartJSValue, create_callback, get_js_state, pxs_into_js, quickjs}, pxs_debug, shared::module::pxs_Module};
 
 /// Module definition function
 unsafe extern "C" fn init_module_function(ctx: *mut quickjs::JSContext, m: *mut quickjs::JSModuleDef) -> i32 {

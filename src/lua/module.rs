@@ -8,12 +8,14 @@
 //
 use std::sync::Arc;
 
+use etffi::cstring::CStringSafe;
+
 use crate::{
     lua::{
         State, engine::Engine, func::LUA_MODULE_BRIDGE_FUNCTION, lua, lua_get_error, lua_upvalueindex, LUA_OK
     },
     pxs_error,
-    shared::{PxsRes, module::pxs_Module, utils::CStringSafe},
+    shared::{PxsRes, module::pxs_Module},
 };
 
 /// Load function

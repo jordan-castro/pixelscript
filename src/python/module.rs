@@ -1,3 +1,5 @@
+use etffi::cstring::CStringSafe;
+
 // Copyright 2026 Jordan Castro <jordan@grupojvm.com>
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
@@ -10,7 +12,7 @@ use crate::{
     python::{
         PXS_CALL_METHOD, exec_py, pocketpy, pocketpy_bridge, var_to_pocketpyref
     },
-    shared::{module::pxs_Module, utils::CStringSafe},
+    shared::module::pxs_Module,
 };
 
 pub(super) fn create_module(module: &pxs_Module) {

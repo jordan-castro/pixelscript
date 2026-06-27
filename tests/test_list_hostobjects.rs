@@ -11,10 +11,21 @@
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
-    use pixelscript::{create_raw_string, free_raw_string, pxs_addfunc, pxs_addmod, pxs_finalize, pxs_freearena, pxs_freevar, pxs_getint, pxs_initialize, pxs_listadd, pxs_listget, pxs_newarena, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmod, pxs_newobject, pxs_newstring, shared::{PtrMagic, module::pxs_Module, pxs_Opaque, pxs_Runtime, utils::{self, CStringSafe}, var::pxs_VarT}};
-    
+    use pixelscript::{
+        pxs_addfunc, pxs_addmod, pxs_finalize, pxs_freearena,
+        pxs_freevar, pxs_getint, pxs_initialize, pxs_listadd, pxs_listget, pxs_newarena,
+        pxs_newhost, pxs_newint, pxs_newlist, pxs_newmod, pxs_newobject, pxs_newstring,
+        shared::{
+            module::pxs_Module,
+            pxs_Opaque, pxs_Runtime,
+            utils::{self},
+            var::pxs_VarT,
+        },
+    };
+    use etffi::{cstring::CStringSafe, borrow_string, create_raw_string, free_raw_string, own_string, ptr_magic::PtrMagic};
+
     struct Person {
-        age: i32
+        age: i32,
     }
 
     impl PtrMagic for Person {}
@@ -26,9 +37,13 @@ mod tests {
     }
 
     extern "C" fn new_person(args: pxs_VarT) -> pxs_VarT {
-        let person = Person{age: 1};
+        let person = Person { age: 1 };
         let mut cstrgen = CStringSafe::new();
-        let pixel_object = pxs_newobject(person.into_void(), free_person, cstrgen.new_string("Person"));
+        let pixel_object = pxs_newobject(
+            person.into_void(),
+            free_person,
+            cstrgen.new_string("Person"),
+        );
 
         pxs_newhost(pixel_object)
     }

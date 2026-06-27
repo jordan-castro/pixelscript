@@ -16,11 +16,12 @@ mod tests {
 
     use pixelscript::{
         lua::LuaScripting, python::PythonScripting, shared::{
-            PixelScript, PtrMagic,
+            PixelScript,
             var::{pxs_Var, pxs_VarT},
             utils::{execute_code}
         }, *
     };
+    use etffi::{cstring::CStringSafe, borrow_string, create_raw_string, free_raw_string, own_string, ptr_magic::PtrMagic};
 
     #[derive(Clone)]
     struct DiaryItem {

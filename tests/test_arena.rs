@@ -11,10 +11,23 @@
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
-    use pixelscript::{create_raw_string, free_raw_string, own_string, pxs_addfunc, pxs_addmod, pxs_addvar, pxs_clear, pxs_arenaput, pxs_finalize, pxs_freearena, pxs_freevar, pxs_gethost, pxs_getint, pxs_getstring, pxs_initialize, pxs_listadd, pxs_listget, pxs_map_addpair, pxs_newarena, pxs_newbool, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmap, pxs_newmod, pxs_newnull, pxs_newobject, pxs_newstring, shared::{PtrMagic, module::pxs_Module, pxs_Opaque, pxs_Runtime, utils::{self, CStringSafe}, var::pxs_VarT}};
+    use pixelscript::{
+        pxs_addfunc, pxs_addmod, pxs_addvar,
+        pxs_arenaput, pxs_clear, pxs_finalize, pxs_freearena, pxs_freevar, pxs_gethost, pxs_getint,
+        pxs_getstring, pxs_initialize, pxs_listadd, pxs_listget, pxs_map_addpair, pxs_newarena,
+        pxs_newbool, pxs_newfactory, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmap, pxs_newmod,
+        pxs_newnull, pxs_newobject, pxs_newstring,
+        shared::{
+            module::pxs_Module,
+            pxs_Opaque, pxs_Runtime,
+            utils::{self},
+            var::pxs_VarT,
+        },
+    };
+    use etffi::{cstring::CStringSafe, borrow_string, create_raw_string, free_raw_string, own_string, ptr_magic::PtrMagic};
 
     struct Person2 {
-        person: Person
+        person: Person,
     }
 
     impl PtrMagic for Person2 {}
@@ -23,12 +36,14 @@ mod tests {
     }
     extern "C" fn new_person2(args: pxs_VarT) -> pxs_VarT {
         println!("new_person_2");
-        let p = unsafe{Person::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))};
+        let p = unsafe {
+            Person::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))
+        };
         println!("person2 name: {}", p.name);
-        let p2 = Person2{
-            person: Person{
-                name: p.name.clone()
-            }
+        let p2 = Person2 {
+            person: Person {
+                name: p.name.clone(),
+            },
         };
 
         let mut cstrgen = CStringSafe::new();
@@ -37,7 +52,7 @@ mod tests {
     }
 
     struct Person {
-        name: String
+        name: String,
     }
 
     impl PtrMagic for Person {}
@@ -50,9 +65,13 @@ mod tests {
         println!("Person");
         let name = own_string!(pxs_getstring(pxs_listget(args, 1)));
         println!("Name: {name}");
-        let person = Person{name};
+        let person = Person { name };
         let mut cstrgen = CStringSafe::new();
-        let obj = pxs_newobject(person.into_void(), drop_person, cstrgen.new_string("Person"));
+        let obj = pxs_newobject(
+            person.into_void(),
+            drop_person,
+            cstrgen.new_string("Person"),
+        );
         pxs_newhost(obj)
     }
 

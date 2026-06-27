@@ -11,11 +11,13 @@ use std::{
     sync::Arc,
 };
 
+use etffi::{borrow_string, create_raw_string, free_raw_string, ptr_magic::PtrMagic};
+
 use crate::{
-    borrow_string, create_raw_string, free_raw_string, pxs_debug, python::{
+    pxs_debug, python::{
         consume_error, func::{get_string_from_obj, py_assign}, object::create_object, pocketpy::{self}, python_pxs_get_register, python_pxs_new_register, python_pxs_remove_ref
     }, shared::{
-        PtrMagic, object::get_object, pxs_Runtime, var::{pxs_Var, pxs_VarObject, pxs_VarType}
+        object::get_object, pxs_Runtime, var::{pxs_Var, pxs_VarObject, pxs_VarType}
     }
 };
 

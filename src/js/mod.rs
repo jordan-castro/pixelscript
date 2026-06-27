@@ -1,10 +1,12 @@
 use std::collections::HashMap;
 
+use etffi::{borrow_string, cstring::CStringSafe, ptr_magic::{PtrMagic, ThreadSafePointer}};
+
 use crate::{
-    borrow_string, js::{
+    js::{
         func::create_callback, module::add_local_module, utils::SmartJSValue, var::{js_into_pxs, pxs_into_js}
     }, pxs_debug, pxs_error, shared::{
-        PXS_METHOD_NAME, PixelScript, PtrMagic, PxsRes, PxsResult, ffi::ThreadLanguageState, pxs_Opaque, read_file, utils::CStringSafe, var::{ObjectMethods, pxs_Var}
+        PXS_METHOD_NAME, PixelScript, PxsRes, PxsResult, pxs_Opaque, read_file, var::{ObjectMethods, pxs_Var}
     }
 };
 
@@ -104,7 +106,7 @@ impl Drop for State {
 }
 
 thread_local! {
-    static JSTATE: ThreadLanguageState<State> = ThreadLanguageState::new(new_state());
+    static JSTATE: ThreadSafePointer<State> = ThreadSafePointer::new_owned(new_state());
 }
 
 /// JS Module loader

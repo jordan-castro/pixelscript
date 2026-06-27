@@ -12,8 +12,16 @@
 #[cfg(test)]
 mod tests {
     use pixelscript::{
-        create_raw_string, free_raw_string, own_string, own_var, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_exec, pxs_finalize, pxs_freearena, pxs_freevar, pxs_getint, pxs_initialize, pxs_listadd, pxs_listget, pxs_newarena, pxs_newexception, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, shared::{PtrMagic, pxs_Runtime, utils::CStringSafe, var::{pxs_Var, pxs_VarT}}
+        own_var, pxs_addfunc, pxs_addmod, pxs_call,
+        pxs_debugvar, pxs_exec, pxs_finalize, pxs_freearena, pxs_freevar, pxs_getint,
+        pxs_initialize, pxs_listadd, pxs_listget, pxs_newarena, pxs_newexception, pxs_newint,
+        pxs_newlist, pxs_newmod, pxs_newnull,
+        shared::{
+            pxs_Runtime,
+            var::{pxs_Var, pxs_VarT},
+        },
     };
+    use etffi::{cstring::CStringSafe, borrow_string, create_raw_string, free_raw_string, own_string, ptr_magic::PtrMagic};
 
     extern "C" fn anything(args: pxs_VarT) -> pxs_VarT {
         let mn = create_raw_string!("add");
@@ -24,7 +32,7 @@ mod tests {
         println!("{}", own_string!(pxs_debugvar(res)));
         if pxs_getint(res) != 3 {
             pxs_freevar(res);
-            unsafe{
+            unsafe {
                 free_raw_string!(mn);
             }
             let mut cstrgen = CStringSafe::new();
@@ -32,7 +40,9 @@ mod tests {
         }
         // assert!(pxs_getint(res) == 3, "We could not run the add function");
         pxs_freevar(res);
-        unsafe {free_raw_string!(mn); }
+        unsafe {
+            free_raw_string!(mn);
+        }
         return pxs_newnull();
     }
 
@@ -41,64 +51,80 @@ mod tests {
     }
 
     fn test_python() {
-        let script = create_raw_string!(r#"
+        let script = create_raw_string!(
+            r#"
 from pxs import *
 def add(n1, n2):
     return n1 + n2
 
 anything(1,2)
-"#);
+"#
+        );
         let file_name = create_raw_string!("<test>");
 
         let err = own_var!(pxs_exec(pxs_Runtime::pxs_Python, script, file_name));
 
-        unsafe{
-free_raw_string!(script);
-free_raw_string!(file_name);
+        unsafe {
+            free_raw_string!(script);
+            free_raw_string!(file_name);
         };
 
-        assert!(err.is_null(), "Error is not empty: {}", err.get_string().unwrap());
+        assert!(
+            err.is_null(),
+            "Error is not empty: {}",
+            err.get_string().unwrap()
+        );
     }
 
     fn test_lua() {
-        let script = create_raw_string!(r#"
+        let script = create_raw_string!(
+            r#"
 local pxs = require('pxs')
 function add(n1, n2)
     return n1 + n2
 end
 pxs.anything(1,2)
-"#);
+"#
+        );
         let file_name = create_raw_string!("<test>");
 
         let err = own_var!(pxs_exec(pxs_Runtime::pxs_Lua, script, file_name));
 
-        unsafe{
-free_raw_string!(script);
-free_raw_string!(file_name);
+        unsafe {
+            free_raw_string!(script);
+            free_raw_string!(file_name);
         };
 
-        assert!(err.is_null(), "Error is not empty: {}", err.get_string().unwrap());
-
+        assert!(
+            err.is_null(),
+            "Error is not empty: {}",
+            err.get_string().unwrap()
+        );
     }
 
     fn test_js() {
-        let script = create_raw_string!(r#"
+        let script = create_raw_string!(
+            r#"
 import * as pxs from 'pxs';
 globalThis.add = (n1, n2) => n1 + n2;
 
 pxs.anything(1,2);
-"#);
+"#
+        );
         let file_name = create_raw_string!("<test>");
 
         let err = own_var!(pxs_exec(pxs_Runtime::pxs_JavaScript, script, file_name));
 
-        unsafe{
-    free_raw_string!(script);
-    free_raw_string!(file_name);
+        unsafe {
+            free_raw_string!(script);
+            free_raw_string!(file_name);
         };
 
-        assert!(err.is_null(), "Error is not empty: {}", err.get_string().unwrap());
-
+        assert!(
+            err.is_null(),
+            "Error is not empty: {}",
+            err.get_string().unwrap()
+        );
     }
 
     #[test]
@@ -111,7 +137,7 @@ pxs.anything(1,2);
         pxs_addfunc(module, anything_name, anything);
         pxs_addmod(module);
 
-        unsafe{
+        unsafe {
             free_raw_string!(mod_name);
             free_raw_string!(anything_name);
         }

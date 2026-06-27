@@ -1,14 +1,16 @@
+use etffi::cstring::CStringSafe;
+
 use crate::{
     borrow_var, own_var, pxs_addfunc, pxs_addmod, pxs_arenaput, pxs_debug, pxs_freearena,
     pxs_listadd, pxs_listget, pxs_listlen, pxs_new_shallowcopy, pxs_newarena, pxs_newcopy,
     pxs_newlist, pxs_newmod, pxs_newnull, pxs_objectget,
     shared::{
-        PXS_PTR_NAME, PtrMagic,
+        PXS_PTR_NAME,
         object::apply_ref_count_delete,
-        utils::CStringSafe,
         var::{pxs_Var, pxs_VarT, pxs_VarType},
     },
 };
+use etffi::ptr_magic::PtrMagic;
 
 /// Delete a `pxs_Var` `PixelObject`.
 extern "C" fn pxs_mem_delete(args: pxs_VarT) -> pxs_VarT {

@@ -11,10 +11,23 @@
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
-    use std::ffi::c_void; 
+    use std::ffi::c_void;
 
-    use pixelscript::{borrow_var, create_raw_string, free_raw_string, own_string, pxs_addfunc, pxs_addmod, pxs_addobject, pxs_finalize, pxs_freearena, pxs_gethost, pxs_getint, pxs_getstring, pxs_getuint, pxs_initialize, pxs_listadd, pxs_listget, pxs_listlen, pxs_newarena, pxs_newcopy, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_newobject, pxs_newstring, pxs_newuint, pxs_object_addfunc, pxs_object_addprop, shared::{PtrMagic, module::pxs_Module, pxs_Runtime, utils::{self, CStringSafe}, var::{pxs_Var, pxs_VarT}}};
-    
+    use pixelscript::{
+        borrow_var, pxs_addfunc, pxs_addmod,
+        pxs_addobject, pxs_finalize, pxs_freearena, pxs_gethost, pxs_getint, pxs_getstring,
+        pxs_getuint, pxs_initialize, pxs_listadd, pxs_listget, pxs_listlen, pxs_newarena,
+        pxs_newcopy, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_newobject,
+        pxs_newstring, pxs_newuint, pxs_object_addfunc, pxs_object_addprop,
+        shared::{
+            module::pxs_Module,
+            pxs_Runtime,
+            utils::{self},
+            var::{pxs_Var, pxs_VarT},
+        },
+    };
+    use etffi::{cstring::CStringSafe, borrow_string, create_raw_string, free_raw_string, own_string, ptr_magic::PtrMagic};
+
     fn print_helper(lang: &str) {
         println!("====================== {lang} ===================");
     }
@@ -22,16 +35,18 @@ mod tests {
     #[derive(Clone, Debug)]
     struct Person {
         name: String,
-        age: u32
+        age: u32,
     }
     impl PtrMagic for Person {}
 
     extern "C" fn free_person(ptr: *mut c_void) {
         let _ = Person::from_raw(ptr as *mut Person);
     }
-    
+
     extern "C" fn person_name_prop(args: pxs_VarT) -> pxs_VarT {
-        let p = unsafe { Person::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1))) };
+        let p = unsafe {
+            Person::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))
+        };
         if pxs_listlen(args) == 2 {
             let mut cstrgen = CStringSafe::new();
             pxs_newstring(cstrgen.new_string(&p.name))
@@ -44,7 +59,9 @@ mod tests {
     }
 
     extern "C" fn person_age_prop(args: pxs_VarT) -> pxs_VarT {
-        let p = unsafe { Person::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1))) };
+        let p = unsafe {
+            Person::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))
+        };
         if pxs_listlen(args) == 2 {
             pxs_newuint(p.age as u64)
         } else {
@@ -56,7 +73,9 @@ mod tests {
     }
 
     extern "C" fn person_string(args: pxs_VarT) -> pxs_VarT {
-        let p = unsafe { Person::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1))) };
+        let p = unsafe {
+            Person::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))
+        };
         let string = format!("{:#?}", p);
 
         let mut cstrgen = CStringSafe::new();
@@ -67,7 +86,10 @@ mod tests {
         let name = own_string!(pxs_getstring(pxs_listget(args, 1)));
         let age = pxs_getint(pxs_listget(args, 2));
 
-        let person = Person{name, age: age as u32};
+        let person = Person {
+            name,
+            age: age as u32,
+        };
         let mut cstrgen = CStringSafe::new();
         let tname = cstrgen.new_string("Person");
         let obj = pxs_newobject(person.into_void(), free_person, tname);
@@ -83,7 +105,7 @@ mod tests {
 
     struct Diary {
         owner: Person,
-        entries: Vec<String>
+        entries: Vec<String>,
     }
     impl PtrMagic for Diary {}
 
@@ -92,7 +114,9 @@ mod tests {
     }
 
     extern "C" fn diary_owner_prop(args: pxs_VarT) -> pxs_VarT {
-        let diary = unsafe{Diary::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))};
+        let diary = unsafe {
+            Diary::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))
+        };
         if pxs_listlen(args) == 2 {
             let owner = &diary.owner;
             let nargs = pxs_newlist();
@@ -103,15 +127,19 @@ mod tests {
             new_person(nargs)
         } else {
             // Set new owner...
-            let owner = unsafe{Person::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 2)))};
-            
+            let owner = unsafe {
+                Person::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 2)))
+            };
+
             diary.owner = owner.clone();
             pxs_newnull()
         }
     }
 
     extern "C" fn diary_entries_prop(args: pxs_VarT) -> pxs_VarT {
-        let diary = unsafe{Diary::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))};
+        let diary = unsafe {
+            Diary::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))
+        };
         if pxs_listlen(args) == 2 {
             let list = pxs_newlist();
             let mut cstrgen = CStringSafe::new();
@@ -134,16 +162,23 @@ mod tests {
     }
 
     extern "C" fn diary_string(args: pxs_VarT) -> pxs_VarT {
-        let diary = unsafe{Diary::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))};
+        let diary = unsafe {
+            Diary::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))
+        };
         let mut cstrgen = CStringSafe::new();
         let string = format!("{:#?}, {:#?}", diary.owner, diary.entries);
         pxs_newstring(cstrgen.new_string(&string))
     }
 
     extern "C" fn new_diary(args: pxs_VarT) -> pxs_VarT {
-        let owner = unsafe{Person::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))};
+        let owner = unsafe {
+            Person::from_borrow_void(pxs_gethost(pxs_listget(args, 0), pxs_listget(args, 1)))
+        };
 
-        let diary = Diary{owner: owner.clone(), entries: vec![]};
+        let diary = Diary {
+            owner: owner.clone(),
+            entries: vec![],
+        };
         let mut cstrgen = CStringSafe::new();
         let tname = cstrgen.new_string("Diary");
         let obj = pxs_newobject(diary.into_void(), free_diary, tname);
@@ -228,7 +263,6 @@ pxs.print(p.age);
         let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_JavaScript);
         assert!(res.is_null(), "JS error is not null: {:#?}", res);
     }
-
 
     #[test]
     fn run_test() {

@@ -14,6 +14,9 @@ pub mod module;
 pub mod object;
 pub mod var;
 
+use etffi::cstring::CStringSafe;
+use etffi::ptr_magic::{PtrMagic, ThreadSafePointer};
+
 use crate::lua::func::LUA_MODULE_LOADER_BRIDGE_FUNCTION;
 use crate::lua::module::preload_lua_module;
 use crate::{
@@ -25,10 +28,8 @@ use crate::{
     },
     pxs_error,
     shared::{
-        PixelScript, PtrMagic, PxsRes, PxsResult,
-        ffi::ThreadLanguageState,
+        PixelScript, PxsRes, PxsResult,
         read_file,
-        utils::CStringSafe,
         var::{ObjectMethods, pxs_Var, pxs_VarMap},
     },
     with_feature,
@@ -43,7 +44,7 @@ pub(self) mod lua {
 }
 
 thread_local! {
-    static LUASTATE: ThreadLanguageState<State> = ThreadLanguageState::new(new_state());
+    static LUASTATE: ThreadSafePointer<State> = ThreadSafePointer::new_owned(new_state());
 }
 
 /// This is the Lua state. Each language gets it's own private state
