@@ -348,6 +348,12 @@ namespace pxs {
             auto res = pxs_execobject(pxs_new_shallowcopy(raw()), local_scope);
             return with_rt(res);
         }
+
+        // Get the host pointer of a `pxs_HostObject`.
+        // < 0 means that the idx could not be found.
+        int get_idx() const {
+            return pxs_getidx(ptr);
+        }
     };
 
     // Call a function using pxs_call
@@ -419,6 +425,7 @@ namespace pxs {
 
     // Call a PXS function without going through the runtime.
     // This calls the C/C++ function.
+    // Memory is managed. If this is not desired behavior, call `pxs_newcopy` or `pxs_new_shallowcopy`.
     [[nodiscard]] inline pxs_VarT call(pxs_Func fun, const std::vector<PXSVariant>& arguments) {
         auto list = pxs::Var::new_list();
         list.add(pxs_newint(0));

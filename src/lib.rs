@@ -1931,6 +1931,28 @@ pub extern "C" fn pxs_garbagecollect() {
     });
 }
 
+/// Get the host IDX from a `pxs_HostObject`.
+/// 
+/// if result is < 0 then that means it is not a object.
+/// 
+/// var: BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_getidx(var: pxs_VarT) -> i32 {
+    pxs_debug!("pxs_getidx");
+    assert_initiated!();
+
+    if var.is_null() {
+        return -1;
+    }
+
+    let bvar = borrow_var!(var);
+    if !bvar.is_host_object() {
+        return -1;
+    }
+
+    bvar.get_host_idx()
+}
+
 // ====================================== Core functions Start =======================================
 
 /// Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.

@@ -1020,6 +1020,15 @@ char *pxs_debugstate(enum pxs_Runtime runtime);
 void pxs_garbagecollect(void);
 
 /**
+ * Get the host IDX from a `pxs_HostObject`.
+ *
+ * if result is < 0 then that means it is not a object.
+ *
+ * var: BORROW
+ */
+int32_t pxs_getidx(pxs_VarT var);
+
+/**
  * Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.
  * Transfers ownership of args.
  * Basically calls the runtime.pxs_json.encode() function.
