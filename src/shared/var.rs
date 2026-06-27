@@ -64,19 +64,6 @@ macro_rules! write_is_methods {
     };
 }
 
-// // Macro for writing out the FromVars
-// macro_rules! implement_from_var {
-//     ($($t:ty, $func:ident);*) => {
-//         $(
-//             impl FromVar for $t {
-//                 fn from_var(var:&Var) -> Result<Self, Error> {
-//                     var.$func()
-//                 }
-//             }
-//         )*
-//     };
-// }
-
 /// This represents the variable type that is being read or created.
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone, Copy)]
@@ -89,12 +76,12 @@ pub enum pxs_VarType {
     pxs_Float64,
     /// Lua (nil), Python (None), JS/easyjs (null/undefined)
     pxs_Null,
-    /// Lua (Tree), Python (Class), JS/easyjs (Prototype)
+    /// Lua (Table), Python (Class), JS/easyjs (Prototype)
     pxs_Object,
     /// Host object converted when created.
-    /// Lua (Tree), Python (object), JS/easyjs (Prototype think '{}')
+    /// Lua (Table), Python (object), JS/easyjs (Prototype think '{}')
     pxs_HostObject,
-    /// Lua (Tree), Python (list), JS/easyjs (Array)
+    /// Lua (Table), Python (list), JS/easyjs (Array)
     pxs_List,
     /// Lua (Value), Python (def or lambda), JS/easyjs (anon function)
     pxs_Function,
@@ -284,27 +271,27 @@ impl PtrMagic for pxs_FactoryHolder {}
 ///
 /// When creating call:
 ///
-/// `pixelscript_var_newlist()`.
+/// `pxs_newlist()`.
 ///
 /// To add items
 ///
-/// `pixelscript_var_list_add(list_ptr, item_ptr)`
+/// `pxs_listadd(list_ptr, item_ptr)`
 ///
 /// To get items
 ///
-/// `pixelscript_var_list_get(list_ptr, index)`
+/// `pxs_listget(list_ptr, index)`
 ///
 /// A full example looks like:
 /// ```c
 /// // Create a new list (you never interact with pxs_VarList directly...)
-/// pxs_Var* list = pixelscript_var_newlist();
+/// pxs_VarT list = pxs_newlist();
 ///
 /// // Add a item
-/// pxs_Var* number = pixelscript_var_newint(1);
-/// pixelscript_var_list_add(list, number);
+/// pxs_VarT number = pxs_newint(1);
+/// pxs_listadd(list, number);
 ///
 /// // Get a item
-/// pxs_Var* item_got = pixelscript_var_list_get(list, 0);
+/// pxs_VarT item_got = pxs_listget(list, 0);
 /// ```
 #[allow(non_camel_case_types)]
 pub struct pxs_VarList {
@@ -423,27 +410,30 @@ pub unsafe extern "C" fn default_deleter(_ptr: *mut c_void) {
 /// This is the universal truth between all languages PixelScript supports.
 ///
 /// Currently supports:
-/// - int (i32, i64, u32, u64)
-/// - float (f32, f64)
+/// - int (i64)
+/// - uint (u64)
+/// - float (f64)
 /// - string
 /// - boolean
-/// - Objects
-/// - HostObjects (C structs acting as pseudo-classes) This in the Host can also be a Int or Uint.
+/// - Object
+/// - HostObject (C structs acting as pseudo-classes) This in the Host can also be a Int or Uint.
 /// - List
-/// - Functions (First class functions)
+/// - Function (First class functions)
+/// - Map
+/// - Factory (a function that is run on the fly and its result is treated as a variable.)
+/// - Exception
 ///
 /// When working with objects you must use the C-api:
 /// ```c
 /// // Calls a method on a object.
-/// pixelscript_object_call(var)
+/// pxs_objectcall(var, ...)
 /// ```
 ///
 /// When using within a callback, if said callback was attached to a Class, the first *mut Var will be the class/object.
 ///
-/// When using ints or floats, if (i32, u32, u64, f32) there is no gurantee that the supported language uses
-/// those types. Usually it defaults to i64 and f64.
+/// When using uints there is no gurantee that the supported language uses
+/// that type. Usually it defaults to i64 and f64.
 ///
-/// When creating a object, this is a bit tricky but essentially you have to first create a pointer via the pixel script runtime.
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub struct pxs_Var {
@@ -630,20 +620,6 @@ impl pxs_Var {
         }
     }
 
-    // ///
-    // pub unsafe fn from_argv(argc: usize, argv: *mut *mut pxs_Var) -> Vec<pxs_Var> {
-    //     // First create a slice
-    //     let argv_borrow = unsafe { pxs_Var::slice_raw(argv, argc) };
-    //     // Now clone them!
-    //     let cloned: Vec<pxs_Var> = argv_borrow
-    //         .iter()
-    //         .filter(|ptr| !ptr.is_null())
-    //         .map(|&ptr| unsafe { (*ptr).clone() })
-    //         .collect();
-
-    //     cloned
-    // }
-
     /// Debug struct
     unsafe fn dbg(&self) -> String {
         unsafe {
@@ -685,12 +661,6 @@ impl pxs_Var {
             details
         }
     }
-
-    // /// Remove the deleter on current pxs_Var.
-    // pub fn remove_deleter(mut self) -> Self {
-    //     self.deleter = Cell::new(default_deleter);
-    //     self
-    // }
 
     write_func!(
         (get_i64, i64_val, i64, pxs_VarType::pxs_Int64),

@@ -576,28 +576,6 @@ namespace pxs {
     }
 };
 
-// Useful macros for PXS interop
-
-// If argc is not equal to it will return exception
-#define PXS_ARGC_EQ(expected) if (PXS_ARGC() != expected) return pxs::Var::new_exception(std::string("Expected ") + std::to_string(expected) + std::string(" args. Found ") + std::to_string(PXS_ARGC())).raw()
-
-#define PXS_ARGC_GT(expected) if (PXS_ARGC() < expected) return pxs::Var::new_exception(std::string("Expected at least ") + std::to_string(expected) + std::string(" args. Found ") + std::to_string(PXS_ARGC())).raw()
-
-#define PXS_ARGC_LT(expected) if (PXS_ARGC() > expected) return pxs::Var::new_exception(std::string("Expected at most ") + std::to_string(expected) + std::string(" args. Found ") + std::to_string(PXS_ARGC())).raw()
-
-#define PXS_ARG_IS_TYPE(arg, expected) if (!pxs_varis(arg, expected)) return pxs::Var::new_exception(std::string("Expected " + pxs::string_type(expected) + " but found " + pxs::string_type(arg))).raw()
-
-#define PXS_ARG_STRING(name, idx) auto name = pxs::Var::from_args(args, idx); \
-    PXS_ARG_IS_TYPE(name.raw(), pxs_String)
-
-#define PXS_ARG_NUMBER(name, idx) auto name = pxs::Var::from_args(args, idx); \
-    if (!name.is(pxs_Int64) && !name.is(pxs_UInt64)) return pxs_newexception(std::string("Expected number, found " pxs::string_type(name.raw())) 
-
-#define PXS_ARG_STRING_VAL(name, idx) PXS_ARG_STRING(name##__var__, idx); \
-    auto name = name##__var__.get_string()
-
-
-
 namespace pxs::type {
     // pixelscript does not know what a HostObject type is. It is just a void* passed around the host to the caller.
     // So to enforce that what we are receiving is correct. We need to attach a "TYPE" to it. Without the type, UB is possible.
@@ -643,3 +621,50 @@ namespace pxs::type {
         delete val;
     }
 };
+
+// Useful macros for PXS interop
+
+// If argc is not equal to it will return exception
+#define PXS_ARGC_EQ(expected) if (PXS_ARGC() != expected) return pxs::Var::new_exception(std::string("Expected ") + std::to_string(expected) + std::string(" args. Found ") + std::to_string(PXS_ARGC())).raw()
+
+#define PXS_ARGC_GT(expected) if (PXS_ARGC() < expected) return pxs::Var::new_exception(std::string("Expected at least ") + std::to_string(expected) + std::string(" args. Found ") + std::to_string(PXS_ARGC())).raw()
+
+#define PXS_ARGC_LT(expected) if (PXS_ARGC() > expected) return pxs::Var::new_exception(std::string("Expected at most ") + std::to_string(expected) + std::string(" args. Found ") + std::to_string(PXS_ARGC())).raw()
+
+#define PXS_ARG_IS_TYPE(arg, expected) if (!pxs_varis(arg, expected)) return pxs::Var::new_exception(std::string("Expected " + pxs::string_type(expected) + " but found " + pxs::string_type(arg))).raw()
+
+// Get a argument and enforce its string type.
+#define PXS_ARG_STRING(name, idx) auto name = pxs::Var::from_args(args, idx); \
+    PXS_ARG_IS_TYPE(name.raw(), pxs_String)
+
+// Get a ergument and enforce its number type (int64, uint64)
+#define PXS_ARG_NUMBER(name, idx) auto name = pxs::Var::from_args(args, idx); \
+    if (!name.is(pxs_Int64) && !name.is(pxs_UInt64)) return pxs_newexception(std::string("Expected number, found " pxs::string_type(name.raw())) 
+
+// Get argument, enforce boolean.
+#define PXS_ARG_BOOL(name, idx) auto name = pxs::Var::from_args(args, idx); \
+    PXS_ARG_IS_TYPE(name.raw(), pxs_Bool)
+
+// Get argument, enforce float.
+#define PXS_ARG_FLOAT(name, idx) auto name = pxs::Var::from_args(args, idx); \
+    PXS_ARG_IS_TYPE(name.raw(), pxs_Float64)
+
+// Get argument, enforce string, get string value.
+#define PXS_ARG_STRING_VAL(name, idx) PXS_ARG_STRING(name##__var__, idx); \
+    auto name = name##__var__.get_string()
+
+// Get argument, enforce number, get int value.
+#define PXS_ARG_INT_VAL(name, idx) PXS_ARG_NUMBER(name##__var__, idx); \
+    auto name = name##__var__.get_int()
+
+// Get argument, enforce number, get uint value.
+#define PXS_ARG_UINT_VAL(name, idx) PXS_ARG_NUMBER(name##__var__, idx); \
+    auto name = name##__var__.get_uint()
+
+// Get argument, enforce boolean, get boolean value.
+#define PXS_ARG_BOOL_VAL(name, idx) PXS_ARG_BOOL(name##__var__, idx); \
+    auto name = name##__var__.get_bool()
+
+// Get argument, enforce float, get float value.
+#define PXS_ARG_FLOAT_VAL(name, idx) PXS_ARG_FLOAT(name##__var__, idx); \
+    auto name = name##__var__.get_float()

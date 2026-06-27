@@ -93,10 +93,9 @@ pub struct ObjectCallback {
 /// void free_person(void* p) {
 ///     // TODO
 /// }
-/// Var* person_set_name(int argc, Var** argv, void* opaque) {
-///     Var* object = argv[0];
-///     Person* p = object.value.object_val as Person;
-///     Var* name = argv[1];
+/// pxs_VarT person_set_name(pxs_VarT args) {
+///     void* self = pxs_gethost(pxs_listget(args, 1));
+///     Person* p = (Person*)self;
 ///     p->set_name(name.value.string_val);
 ///     return NULL;
 /// }
