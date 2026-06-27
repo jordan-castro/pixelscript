@@ -585,7 +585,17 @@ namespace pxs {
 
 #define PXS_ARGC_LT(expected) if (PXS_ARGC() > expected) return pxs::Var::new_exception(std::string("Expected at most ") + std::to_string(expected) + std::string(" args. Found ") + std::to_string(PXS_ARGC())).raw()
 
-#define PXS_ARG_IS_TYPE(arg, expected) if (!pxs_varis(arg, expected)) return pxs::Var::new_exception(std::string("Expected " + pxs::string_type(expected) + " but found " + pxs::string_type(arg))).raw();
+#define PXS_ARG_IS_TYPE(arg, expected) if (!pxs_varis(arg, expected)) return pxs::Var::new_exception(std::string("Expected " + pxs::string_type(expected) + " but found " + pxs::string_type(arg))).raw()
+
+#define PXS_ARG_STRING(name, idx) auto name = pxs::Var::from_args(args, idx); \
+    PXS_ARG_IS_TYPE(name.raw(), pxs_String)
+
+#define PXS_ARG_NUMBER(name, idx) auto name = pxs::Var::from_args(args, idx); \
+    if (!name.is(pxs_Int64) && !name.is(pxs_UInt64)) return pxs_newexception(std::string("Expected number, found " pxs::string_type(name.raw())) 
+
+#define PXS_ARG_STRING_VAL(name, idx) PXS_ARG_STRING(name##__var__, idx); \
+    auto name = name##__var__.get_string()
+
 
 
 namespace pxs::type {
