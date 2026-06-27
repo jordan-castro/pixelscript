@@ -352,9 +352,9 @@ namespace pxs {
 
     using PXSVariant = std::variant<
         std::string,
-        int,
-        unsigned int,
-        float,
+        int64_t,
+        uint64_t,
+        double,
         bool,
         pxs_VarT,
         std::vector<pxs_VarT>,
@@ -364,8 +364,42 @@ namespace pxs {
     // Convert a PXSVariant into a pxs_VarT
     [[nodiscard]] inline pxs_VarT from_variant(const PXSVariant& v) {
         std::visit([](auto&& arg) {
-
+            using T = std::decay_t<decltype(arg)>;
+            if constexpr (std::is_same_v<T, std::string>) {
+                return pxs_newstring(arg.c_str());
+            } else if constexpr (std::is_same_v<T, int64_t>) {
+                return pxs_newint(arg);
+            } else if constexpr (std::is_same_v<T, uint64_t>) {
+                return pxs_newuint(arg);
+            } else if constexpr (std::is_same_v<T, double>) {
+                return pxs_newfloat(arg);
+            } else if constexpr (std::is_same_v<T, bool>) {
+                return pxs_newbool(arg);
+            } else if constexpr (std::is_same_v<T, std::vector<pxs_VarT>>) {
+                auto list = pxs::Var::new_list();
+                for (size_t i = 0; i < arg.size(); i++) {
+                    list.add(arg[i]);
+                }
+                return list.raw();
+            } else if constexpr (std::is_same_v<T, pxs_VarT>) {
+                return arg;
+            } else if constexpr (std::is_same_v<T, pxs::Var>) {
+                return arg.raw();
+            } else {
+                static_assert(false, "non-exhaustive visitor for PXSVariant.");
+            }
         }, v);
+    }
+
+    // Convert a vector of `PXSVariant` into pxs_VarT
+    [[nodiscard]] inline pxs_VarT vector_to_variant(const std::vector<PXSVariant>& vector) {
+        auto list = pxs::Var::new_list();
+
+        for (const auto& v : vector) {
+            list.add(from_variant(v));
+        }
+
+        return list.raw();
     }
 
     // Call a PXS function without going through the runtime.
