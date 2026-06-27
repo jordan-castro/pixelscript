@@ -354,6 +354,12 @@ namespace pxs {
         int get_idx() const {
             return pxs_getidx(ptr);
         }
+
+        // Convert a `pxs_Int64` or `pxs_UInt64` into a enum of some kind.
+        template<typename T>
+        T to_enum() const {
+            return static_cast<T>(get_uint());
+        }
     };
 
     // Call a function using pxs_call
