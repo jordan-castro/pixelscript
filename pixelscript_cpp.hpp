@@ -633,7 +633,6 @@ namespace pxs::type {
         inline static int32_t ext_type = -1;
     public:
         static T* self(pxs_VarT arg) {
-            if ()
             auto var = pxs::Var(arg);
             return pxs::type::Wrapper::get<T>(var, ext_type);
         }
