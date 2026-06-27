@@ -29,3 +29,4 @@
 - Add `HWrapper` to `pixelscript_cpp.hpp` wrapper.
 - Added `PXSVariant` to `pixelscript_cpp.hpp` wrapper.
 - Added internal `etffi` dep.
+- Added `pxs_getidx`.
