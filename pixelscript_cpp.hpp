@@ -626,6 +626,18 @@ namespace pxs::type {
         auto val = static_cast<Wrapper*>(wrapper);
         delete val;
     }
+
+    // A PXS extension class for `pxs_HostObject`.
+    template<typename T>
+    class Extension {
+        inline static int32_t ext_type = -1;
+    public:
+        static T* self(pxs_VarT arg) {
+            if ()
+            auto var = pxs::Var(arg);
+            return pxs::type::Wrapper::get<T>(var, ext_type);
+        }
+    };
 };
 
 // Useful macros for PXS interop
