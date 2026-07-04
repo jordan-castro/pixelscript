@@ -391,10 +391,10 @@ impl PixelScript for LuaScripting {
         init(state);
     }
 
-    fn eval(code: &str) -> PxsResult {
+    fn eval(code: &str, name: &str) -> PxsResult {
         let state = get_lua_state();
         let mut engine = Engine::from_state(state);
-        engine.compile_chunk(code, "<lua_eval>")?;
+        engine.compile_chunk(code, name)?;
         engine.call(0, 1)?;
         engine.from_lua(-1)
     }

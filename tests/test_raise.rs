@@ -18,8 +18,6 @@ mod tests {
     };
     use etffi::{cstring::CStringSafe, borrow_string, create_raw_string, free_raw_string, own_string, ptr_magic::PtrMagic};
 
-    // pub fn add_function(module: *mut pxs_Module, name: &str, function: pxs_Func) {
-
     extern "C" fn call(args: pxs_VarT) -> pxs_VarT {
         let msg = create_raw_string!("You no good dayo!!");
         let res = pxs_newexception(msg);
@@ -41,7 +39,6 @@ import test_raise
 
 test_raise.call()
 
-raise Exception("We should not get here")
 "#;
 
         let res = utils::execute_code(py_script, "<test>", pxs_Runtime::pxs_Python);
@@ -56,7 +53,6 @@ local test_raise = require('test_raise')
 
 test_raise.call()
 
-error('we should not get here')
 "#;
 
         let res = utils::execute_code(lua_script, "<test>", pxs_Runtime::pxs_Lua);
@@ -69,9 +65,9 @@ error('we should not get here')
 import * as pxs from 'pxs';
 import {call} from 'test_raise';
 
-call()
+call();
 
-throw 'We should not get here';
+throw 'kjl';
 "#;
         let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_JavaScript);
         assert!(res.is_exception(), "JS is not exception: {:#?}", res);

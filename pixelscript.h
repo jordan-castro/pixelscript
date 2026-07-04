@@ -22,16 +22,16 @@ typedef enum pxs_VarType {
    */
   pxs_Null,
   /**
-   * Lua (Tree), Python (Class), JS/easyjs (Prototype)
+   * Lua (Table), Python (Class), JS/easyjs (Prototype)
    */
   pxs_Object,
   /**
    * Host object converted when created.
-   * Lua (Tree), Python (object), JS/easyjs (Prototype think '{}')
+   * Lua (Table), Python (object), JS/easyjs (Prototype think '{}')
    */
   pxs_HostObject,
   /**
-   * Lua (Tree), Python (list), JS/easyjs (Array)
+   * Lua (Table), Python (list), JS/easyjs (Array)
    */
   pxs_List,
   /**
@@ -150,10 +150,9 @@ typedef struct pxs_PixelArena pxs_PixelArena;
  * void free_person(void* p) {
  *     // TODO
  * }
- * Var* person_set_name(int argc, Var** argv, void* opaque) {
- *     Var* object = argv[0];
- *     Person* p = object.value.object_val as Person;
- *     Var* name = argv[1];
+ * pxs_VarT person_set_name(pxs_VarT args) {
+ *     void* self = pxs_gethost(pxs_listget(args, 1));
+ *     Person* p = (Person*)self;
  *     p->set_name(name.value.string_val);
  *     return NULL;
  * }
@@ -188,27 +187,27 @@ typedef struct pxs_PixelObject pxs_PixelObject;
  *
  * When creating call:
  *
- * `pixelscript_var_newlist()`.
+ * `pxs_newlist()`.
  *
  * To add items
  *
- * `pixelscript_var_list_add(list_ptr, item_ptr)`
+ * `pxs_listadd(list_ptr, item_ptr)`
  *
  * To get items
  *
- * `pixelscript_var_list_get(list_ptr, index)`
+ * `pxs_listget(list_ptr, index)`
  *
  * A full example looks like:
  * ```c
  * // Create a new list (you never interact with pxs_VarList directly...)
- * pxs_Var* list = pixelscript_var_newlist();
+ * pxs_VarT list = pxs_newlist();
  *
  * // Add a item
- * pxs_Var* number = pixelscript_var_newint(1);
- * pixelscript_var_list_add(list, number);
+ * pxs_VarT number = pxs_newint(1);
+ * pxs_listadd(list, number);
  *
  * // Get a item
- * pxs_Var* item_got = pixelscript_var_list_get(list, 0);
+ * pxs_VarT item_got = pxs_listget(list, 0);
  * ```
  */
 typedef struct pxs_VarList pxs_VarList;
@@ -256,27 +255,30 @@ typedef void (*pxs_DeleterFn)(void*);
  * This is the universal truth between all languages PixelScript supports.
  *
  * Currently supports:
- * - int (i32, i64, u32, u64)
- * - float (f32, f64)
+ * - int (i64)
+ * - uint (u64)
+ * - float (f64)
  * - string
  * - boolean
- * - Objects
- * - HostObjects (C structs acting as pseudo-classes) This in the Host can also be a Int or Uint.
+ * - Object
+ * - HostObject (C structs acting as pseudo-classes) This in the Host can also be a Int or Uint.
  * - List
- * - Functions (First class functions)
+ * - Function (First class functions)
+ * - Map
+ * - Factory (a function that is run on the fly and its result is treated as a variable.)
+ * - Exception
  *
  * When working with objects you must use the C-api:
  * ```c
  * // Calls a method on a object.
- * pixelscript_object_call(var)
+ * pxs_objectcall(var, ...)
  * ```
  *
  * When using within a callback, if said callback was attached to a Class, the first *mut Var will be the class/object.
  *
- * When using ints or floats, if (i32, u32, u64, f32) there is no gurantee that the supported language uses
- * those types. Usually it defaults to i64 and f64.
+ * When using uints there is no gurantee that the supported language uses
+ * that type. Usually it defaults to i64 and f64.
  *
- * When creating a object, this is a bit tricky but essentially you have to first create a pointer via the pixel script runtime.
  */
 typedef struct pxs_Var {
   /**
@@ -800,11 +802,18 @@ pxs_VarT pxs_objectget(pxs_VarT runtime, pxs_VarT obj, const char *key);
 bool pxs_objectset(pxs_VarT runtime, pxs_VarT obj, const char *key, pxs_VarT value);
 
 /**
- * Evaluate code. This will return a pxs_Var.
+ * Evaluate code. This will return a `pxs_VarT`.
  *
  * return:OWNED
  */
 pxs_VarT pxs_eval(const char *script, enum pxs_Runtime rt);
+
+/**
+ * Evaluate named code. This will return a `pxs_VarT`.
+ *
+ * return:OWNED
+ */
+pxs_VarT pxs_evalnamed(const char *script, const char *name, enum pxs_Runtime rt);
 
 /**
  * Add a factory variable. This variable will be instantiated once at module startup.

@@ -176,7 +176,7 @@ pub trait PixelScript {
     fn execute(code: &str, file_name: &str) -> PxsResult;
 
     /// Evaluate a script in this runtime. Returns a pxs_Var.
-    fn eval(code: &str) -> PxsResult;
+    fn eval(code: &str, name: &str) -> PxsResult;
 
     /// Some langauges (pocketpy) need to be explicitly told that a new thread is starting.
     /// For most languages this is NOT needed.

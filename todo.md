@@ -19,26 +19,27 @@
 - ~~Check that function calls that fail dont crash.~~
 - ~~Add `_pxs_delete` method to free internal memory at language level. (core lib)~~ (it's pxs_mem.memdel(obj))
 - ~~Add `arenas`~~
-- Promises in JS.
+- ~~Promises in JS.~~ (Decided to not support them.)
 - Why (globals, locals) are null sometimes?
 
 ## v0.6 STD, Tests, Errors
 - ~~Use libs/lua-5.5.0/* src instead of mlua.~~
 - ~~Remove lua hacks (io, os, what else?)~~
-- Add file_name to `pxs_eval`.
-- Support commonJS.
+- ~~Add file_name to `pxs_eval`.~~
+- ~~Support commonJS.~~
 - Tests
     - ~~test_vars (Test all types to and from scripting)~~
-    - test_exec
-    - test_eval
+    - ~~test_exec~~
+    - ~~test_eval~~
     - test_ft (a test that builds pixel ai dashs fast terrain system. If this runs, then it most likely works fine.)
     - make tests smart with features. Pass in specific features in test.py script that overrides the feature in the file.
-- Better error messages
+- Better error messages (as feature 'errors')
     - Explicitly coming from PXS
     - Explicit which runtime
     - Fix JS nasty errors
 - Look into no_std
 - Bench marks
+- Add `name` to exceptions. Make it default to `Error` to be backwards compat.
 
 ## v0.7 Wasm and Dynamic Language support
 - Migrate from `PixelScript` into `pxs_PixelScript` type which makes language backends dynamic.

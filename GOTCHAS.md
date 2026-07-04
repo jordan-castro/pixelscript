@@ -19,6 +19,7 @@ A list of headaches that I've run into while using this library. Some could be c
     - Recreate the `pxs_HostObject`.
     - Pass a `pxs_Factory`.
 - `pxs_HostObject` Does not support inheritance.
+- `async`/`await` is not supported in scripts. Handle that in the host language.
 
 ## Lua (lua5.5)
 - A empty Table is interpreted as a `pxs_Object` not a `pxs_List`
@@ -35,8 +36,8 @@ A list of headaches that I've run into while using this library. Some could be c
 `pxs_call`. But Python or Lua don't have `undefined`. Python does have `nil` but it would crash the program. So no `undefined` support. For most cases just
 use `null`.
 - `__pxs__` is a predefined name.
-- When you call `pxs_compile` for JS code, it will be executed once to fince the __pxs__ function. Keep that in mind!
+- When you call `pxs_compile` for JS code, it will be executed once to fincd the __pxs__ function. Keep that in mind!
 - You should call `clearstate` before calling `stopthread`.
 - In general when working with JS and threads it is a trial and error to get it working just right. But it does work! I got it working in [Pixel Ai Dash](https://play.google.com/store/apps/details?id=us.epochtech.pixelaidash&hl=es_CR). Just be patient. Although as a general rule when you add JS you have to be more `explicit` in how memory works. When to clear the state, when to start/stop a thread, etc.
 - `pxs_Module`s can not be redefined. It won't crash but it will skip any redefined module names.
-- In Javascript `pxs_exec` runs in its own module everytime. To make something global
+- In Javascript `pxs_exec` runs in its own module everytime. To make something global, you have to use `globalThis`.

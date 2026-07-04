@@ -292,6 +292,7 @@ impl SmartJSValue {
         }
     }
 
+    #[allow(unused)]
     /// Await if promise and update value
     pub fn await_if_promise(&mut self) {
         if !self.is_promise() {

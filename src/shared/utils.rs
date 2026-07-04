@@ -4,7 +4,7 @@ use crate::shared::pxs_Opaque;
 use crate::{
     own_var, pxs_addfunc, pxs_addmod, pxs_addobject, pxs_addvar, pxs_exec, pxs_freevar, pxs_getint,
     pxs_getstring, pxs_listget, pxs_listlen, pxs_newhost, pxs_newint, pxs_newmod, pxs_newnull,
-    pxs_newobject, pxs_tostring,
+    pxs_newobject, pxs_tostring, pxs_eval, pxs_evalnamed,
     shared::{
         func::pxs_Func,
         module::pxs_Module,
@@ -134,6 +134,16 @@ pub fn execute_code(code: &str, file_name: &str, runtime: pxs_Runtime) -> pxs_Va
 
     own_var!(res)
 }
+
+#[cfg(feature = "testing")]
+pub fn eval_code(code: &str, name: &str, runtime: pxs_Runtime) -> pxs_Var {
+    let mut cstring = CStringSafe::new();
+    let res = if name.is_empty() { pxs_eval(cstring.new_string(code), runtime) } else {
+        pxs_evalnamed(cstring.new_string(code), cstring.new_string(name), runtime)
+    };
+    own_var!(res)
+}
+
 
 #[cfg(feature = "testing")]
 pub extern "C" fn print(args: pxs_VarT) -> pxs_VarT {

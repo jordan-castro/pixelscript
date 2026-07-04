@@ -1,13 +1,22 @@
 use std::collections::HashMap;
 
-use etffi::{borrow_string, cstring::CStringSafe, ptr_magic::{PtrMagic, ThreadSafePointer}};
+use etffi::{
+    borrow_string, create_raw_string,
+    cstring::CStringSafe,
+    free_raw_string,
+    ptr_magic::{PtrMagic, ThreadSafePointer},
+};
 
 use crate::{
     js::{
-        func::create_callback, module::add_local_module, utils::SmartJSValue, var::{js_into_pxs, pxs_into_js}
+        func::create_callback,
+        module::add_local_module,
+        utils::SmartJSValue,
+        var::{js_into_pxs, pxs_into_js},
     }, pxs_debug, pxs_error, shared::{
-        PXS_METHOD_NAME, PixelScript, PxsRes, PxsResult, pxs_Opaque, read_file, var::{ObjectMethods, pxs_Var}
-    }
+        PXS_METHOD_NAME, PixelScript, PxsRes, PxsResult, pxs_Opaque, read_file,
+        var::{ObjectMethods, pxs_Var},
+    }, with_feature,
 };
 
 // Allow for the binidngs only
@@ -22,13 +31,13 @@ pub(self) mod quickjs {
 mod func;
 mod module;
 mod object;
-mod var;
 mod utils;
+mod var;
 
 /// Holds name and Value for module methods
 pub(self) struct JSModuleMethod {
     pub name: String,
-    pub value: SmartJSValue
+    pub value: SmartJSValue,
 }
 
 /// JS specific State.
@@ -53,7 +62,8 @@ fn new_state() -> *mut State {
         defined_objects: HashMap::new(),
         module_exports: HashMap::new(),
         modules: HashMap::new(),
-    }.into_raw()
+    }
+    .into_raw()
 }
 
 /// Initialize the state.
@@ -68,10 +78,28 @@ fn init(ptr: *mut State) {
         // Setup module loader!
         quickjs::JS_SetModuleLoaderFunc(rt, None, Some(js_module_loader), std::ptr::null_mut());
 
-        // Add pxs_json.js
-        let pxs_json = add_local_module(ctx, include_str!("../../core/js/pxs_json.js"), "pxs_json");
+        with_feature!("pxs_json", {
+            // Add pxs_json.js
+            let pxs_json = add_local_module(ctx, include_str!("../../core/js/pxs_json.js"), "pxs_json");
 
-        (*ptr).modules.insert("pxs_json".to_string(), pxs_json);
+            (*ptr).modules.insert("pxs_json".to_string(), pxs_json);
+        });
+
+        with_feature!("js_commonjs", {
+            let require_name = create_raw_string!("require");
+            // add commonJS.`require`
+            let mut require_func = SmartJSValue::new_owned(quickjs::JS_NewCFunction2(
+                ctx,
+                Some(commonjs_require),
+                require_name,
+                "require".len() as i32,
+                quickjs::JSCFunctionEnum_JS_CFUNC_generic,
+                0,
+            ), ctx);
+            free_raw_string!(require_name);
+            let globals = SmartJSValue::globalThis(ctx);
+            globals.set_prop("require", &mut require_func);
+        });
 
         add_main_js();
     }
@@ -110,7 +138,11 @@ thread_local! {
 }
 
 /// JS Module loader
-unsafe extern "C" fn js_module_loader(context: *mut quickjs::JSContext, module_name: *const std::ffi::c_char, _opaque: pxs_Opaque) -> *mut quickjs::JSModuleDef {
+unsafe extern "C" fn js_module_loader(
+    context: *mut quickjs::JSContext,
+    module_name: *const std::ffi::c_char,
+    _opaque: pxs_Opaque,
+) -> *mut quickjs::JSModuleDef {
     let state = get_js_state();
     unsafe {
         // let modules = (*state).modules.borrow();
@@ -127,7 +159,13 @@ unsafe extern "C" fn js_module_loader(context: *mut quickjs::JSContext, module_n
 
         let mut cstrsafe = CStringSafe::new();
         // We need to evalute a module
-        let res = quickjs::JS_Eval(context, cstrsafe.new_string(&contents), contents.len(), module_name, (quickjs::JS_EVAL_TYPE_MODULE | quickjs::JS_EVAL_FLAG_COMPILE_ONLY) as i32);
+        let res = quickjs::JS_Eval(
+            context,
+            cstrsafe.new_string(&contents),
+            contents.len(),
+            module_name,
+            (quickjs::JS_EVAL_TYPE_MODULE | quickjs::JS_EVAL_FLAG_COMPILE_ONLY) as i32,
+        );
         let smart_res = SmartJSValue::new_borrow(res, context);
 
         // Check exception
@@ -144,9 +182,63 @@ unsafe extern "C" fn js_module_loader(context: *mut quickjs::JSContext, module_n
 }
 
 fn get_js_state() -> *mut State {
-    JSTATE.with(|mutex| {
-        mutex.get_ptr()
-    })
+    JSTATE.with(|mutex| mutex.get_ptr())
+}
+
+#[cfg(feature = "js_commonjs")]
+/// Add commonJS `require`
+unsafe extern "C" fn commonjs_require(
+    context: *mut quickjs::JSContext,
+    _this_val: quickjs::JSValue,
+    argc: i32,
+    argv: *mut quickjs::JSValue,
+) -> quickjs::JSValue {
+    let mut cstring = CStringSafe::new();
+    unsafe {
+        // Check we have at least 1 arg (the path.)
+        if argc < 1 {
+            return quickjs::JS_ThrowInternalError(
+                context,
+                cstring.new_string("require requires 1 argument."),
+            );
+        }
+        // Get the module name as a string.
+        let module_name_val = SmartJSValue::new_borrow(*argv.offset(0), context);
+        if !module_name_val.is_string() {
+            return SmartJSValue::new_exception(
+                context,
+                "Expected module name to be a string.".to_string(),
+                "TypeException".to_string(),
+            )
+            .dupped_value();
+        }
+        let module_name = module_name_val.as_string().unwrap();
+        // Load the actual module using our internal module loader.
+        let module = js_module_loader(
+            context,
+            cstring.new_string(&module_name),
+            core::ptr::null_mut(),
+        );
+        if module.is_null() {
+            return SmartJSValue::new_exception(
+                context,
+                format!("Could not find or compile module `{module_name}`."),
+                "LoadModuleException".to_string(),
+            )
+            .dupped_value();
+        }
+
+        // Evaluate it again or for the first time!
+        let code = format!("import * as __{module_name}__ from '{module_name}';");
+        let res = run_js(&code, "<commonjs_require>", quickjs::JS_EVAL_TYPE_MODULE as i32);
+        if res.is_exception() {
+            return res.dupped_value();
+        }
+
+        // Ok we have module, and it is evaluated ::: lets get namespace
+        let namespace = quickjs::JS_GetModuleNamespace(context, module);
+        namespace
+    }
 }
 
 /// Get context of state
@@ -159,7 +251,13 @@ fn run_js(code: &str, file_name: &str, eval_type: i32) -> SmartJSValue {
     let mut cstrsafe = CStringSafe::new();
     let state = get_js_state();
     unsafe {
-        let val = quickjs::JS_Eval(get_context(state), cstrsafe.new_string(code), code.len(), cstrsafe.new_string(file_name), eval_type);
+        let val = quickjs::JS_Eval(
+            get_context(state),
+            cstrsafe.new_string(code),
+            code.len(),
+            cstrsafe.new_string(file_name),
+            eval_type,
+        );
 
         // Check for exception
         let exception = SmartJSValue::current_exception(get_context(state));
@@ -183,7 +281,11 @@ fn get_js_name(name: &str) -> SmartJSValue {
 
 /// Add main.js
 fn add_main_js() {
-    run_js(include_str!("../../core/js/main.js"), "main.js", quickjs::JS_EVAL_TYPE_MODULE as i32);
+    run_js(
+        include_str!("../../core/js/main.js"),
+        "main.js",
+        quickjs::JS_EVAL_TYPE_MODULE as i32,
+    );
 }
 
 /// Import all modules to initialize the app
@@ -191,12 +293,16 @@ fn import_all_modules() {
     let state = get_js_state();
     // let modules = state.modules.borrow();
     let mut import_modules_code = String::new();
-    unsafe { 
+    unsafe {
         for m in (*state).modules.iter() {
             import_modules_code.push_str(format!("import '{}';", m.0).as_str());
         }
     }
-    run_js(&import_modules_code, "<cleanup>", quickjs::JS_EVAL_TYPE_MODULE as i32);
+    run_js(
+        &import_modules_code,
+        "<cleanup>",
+        quickjs::JS_EVAL_TYPE_MODULE as i32,
+    );
 }
 
 pub struct JSScripting;
@@ -224,7 +330,7 @@ impl PixelScript for JSScripting {
     }
 
     fn execute(code: &str, file_name: &str) -> PxsResult {
-        let res = run_js(code, file_name, (quickjs::JS_EVAL_TYPE_MODULE | quickjs::JS_EVAL_FLAG_ASYNC) as i32);
+        let res = run_js(code, file_name, quickjs::JS_EVAL_TYPE_MODULE as i32);
         let pxs_res = js_into_pxs(&res);
         if let Err(err) = pxs_res {
             Ok(pxs_Var::new_exception(err.to_string()))
@@ -238,8 +344,8 @@ impl PixelScript for JSScripting {
         }
     }
 
-    fn eval(code: &str) -> PxsResult {
-        let res = run_js(code, "<eval>", (quickjs::JS_EVAL_TYPE_GLOBAL | quickjs::JS_EVAL_FLAG_ASYNC) as i32);
+    fn eval(code: &str, name: &str) -> PxsResult {
+        let res = run_js(code, name, quickjs::JS_EVAL_TYPE_GLOBAL as i32);
         js_into_pxs(&res)
     }
 
@@ -261,22 +367,24 @@ impl PixelScript for JSScripting {
         init(state);
     }
 
-    fn compile(
-        code: &str,
-        global_scope: crate::shared::var::pxs_Var,
-    ) -> PxsResult {
+    fn compile(code: &str, global_scope: crate::shared::var::pxs_Var) -> PxsResult {
         // Compile object
-        let mod_obj = run_js(code, "<code_object>", (quickjs::JS_EVAL_FLAG_COMPILE_ONLY | quickjs::JS_EVAL_TYPE_MODULE | quickjs::JS_EVAL_FLAG_ASYNC) as i32);
+        let mod_obj = run_js(
+            code,
+            "<code_object>",
+            (quickjs::JS_EVAL_FLAG_COMPILE_ONLY | quickjs::JS_EVAL_TYPE_MODULE) as i32,
+        );
         if mod_obj.is_exception() || mod_obj.is_error() {
             return pxs_error!("{}", mod_obj.get_error_exception().unwrap());
         }
 
         // Execute it for the first time (there needs to be a specific function).
-        let mut res = SmartJSValue::new_owned(unsafe {
-            quickjs::JS_EvalFunction(mod_obj.context, mod_obj.value)
-        }, mod_obj.context);
-        res.await_if_promise();
-        
+        let res = SmartJSValue::new_owned(
+            unsafe { quickjs::JS_EvalFunction(mod_obj.context, mod_obj.value) },
+            mod_obj.context,
+        );
+        // res.await_if_promise();
+
         if res.is_exception() || res.is_error() {
             return pxs_error!("{}", res.get_error_exception().unwrap());
         }
@@ -321,12 +429,15 @@ impl PixelScript for JSScripting {
         let ns = code_object_js.get_module_namespace();
         let pxs_method = ns.get_prop(PXS_METHOD_NAME);
         if !pxs_method.is_function() {
-            return pxs_error!("Expected function for __pxs__, found: {}", pxs_method.type_string());
+            return pxs_error!(
+                "Expected function for __pxs__, found: {}",
+                pxs_method.type_string()
+            );
         }
 
         let args = vec![
             pxs_into_js(get_context(state), &global_scope)?,
-            pxs_into_js(get_context(state), &local_scope)?
+            pxs_into_js(get_context(state), &local_scope)?,
         ];
 
         // Call method
@@ -338,7 +449,7 @@ impl PixelScript for JSScripting {
             js_into_pxs(&res)
         }
     }
-    
+
     fn debug() -> String {
         unsafe {
             let state = get_js_state();
@@ -349,16 +460,19 @@ impl PixelScript for JSScripting {
             let binding = &(*state).modules;
             let module_names = binding.keys();
 
-            format!("{{defined_objects: {:#?}\nmodule_exports: {:#?}\nmodule_names:{:#?}}}", defined_objects, module_exports, module_names)
+            format!(
+                "{{defined_objects: {:#?}\nmodule_exports: {:#?}\nmodule_names:{:#?}}}",
+                defined_objects, module_exports, module_names
+            )
         }
     }
-    
+
     fn garbage_collect() {
         let state = get_js_state();
         unsafe {
             if !(*state).rt.is_null() {
                 quickjs::JS_RunGC((*state).rt);
-            } 
+            }
         }
     }
 }
@@ -382,10 +496,7 @@ impl ObjectMethods for JSScripting {
         js_into_pxs(&res)
     }
 
-    fn call_method(
-        method: &str,
-        args: &mut crate::shared::var::pxs_VarList,
-    ) -> PxsResult {
+    fn call_method(method: &str, args: &mut crate::shared::var::pxs_VarList) -> PxsResult {
         // globalThis.`method`(args)
         let state = get_js_state();
         let mut argv = vec![];
@@ -398,7 +509,9 @@ impl ObjectMethods for JSScripting {
 
         if !cbk.is_function() {
             // js_into_pxs(&cbk)
-            Ok(pxs_Var::new_exception(format!("{method} is not a Function")))
+            Ok(pxs_Var::new_exception(format!(
+                "{method} is not a Function"
+            )))
         } else {
             let res = cbk.call_as_source(&argv);
             js_into_pxs(&res)
@@ -420,10 +533,7 @@ impl ObjectMethods for JSScripting {
         js_into_pxs(&res)
     }
 
-    fn get(
-        var: &crate::shared::var::pxs_Var,
-        key: &str,
-    ) -> PxsResult {
+    fn get(var: &crate::shared::var::pxs_Var, key: &str) -> PxsResult {
         let state = get_js_state();
         let this = pxs_into_js(get_context(state), var)?;
         let res = this.get_prop(key);
@@ -439,7 +549,7 @@ impl ObjectMethods for JSScripting {
         let state = get_js_state();
         let this = pxs_into_js(get_context(state), var)?;
         let mut value = pxs_into_js(get_context(state), value)?;
-        
+
         this.set_prop(key, &mut value);
 
         Ok(())

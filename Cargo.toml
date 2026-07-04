@@ -1,6 +1,6 @@
 [package]
 name = "pixelscript"
-version = "0.6.2"
+version = "0.6.3"
 edition = "2024"
 license = "Apache-2.0"
 authors = ["Jordan Castro jordan@grupojvm.com"]
@@ -20,7 +20,7 @@ bindgen = "0.72.1"
 
 [features]
 # Default includes all languages and cores.
-default = ["lua", "python", "js", "include-core"]
+default = ["lua", "python", "js", "include-core", "js_commonjs"]
 # Include LUA scripting.
 lua = []
 # Include Python scripting. Via pocketpy
@@ -30,6 +30,9 @@ php = []
 # luajit uses the same lua engine but with JIT flags
 luajit = []
 js = []
+
+# JS specific to add or not to add CommonJS `require`
+js_commonjs = []
 
 # Core libs
 # Include all core libs (toggled by default)

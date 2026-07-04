@@ -113,7 +113,7 @@ unsafe extern "C" fn method_trampoline(
         let error_msg = format!("Error in callback: {}", err);
         pxs_debug!("{error_msg}");
         let res = SmartJSValue::new_exception(ctx, error_msg, "CallbackError".to_string());
-        res.dupped_value()
+        unsafe { quickjs::JS_Throw(ctx, res.dupped_value()) }
     } else {
         let res = js_res.unwrap();
         res.dupped_value()

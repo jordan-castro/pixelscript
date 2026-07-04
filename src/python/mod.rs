@@ -175,7 +175,6 @@ pub(self) fn consume_error() -> String {
 }
 
 /// Evaluate python code in the main module.
-#[allow(unused)]
 pub(self) fn eval_main_py(code: &str, name: &str) -> String {
     run_py(code, name, pocketpy::py_CompileMode::EVAL_MODE, None)
 }
@@ -500,13 +499,13 @@ impl PixelScript for PythonScripting {
         init();
     }
 
-    fn eval(code: &str) -> PxsResult {
-        let res = exec_main_py(code, "eval");
-        Ok(if res.is_empty() {
-            pocketpyref_to_var(unsafe { pocketpy::py_retval() })
+    fn eval(code: &str, name: &str) -> PxsResult {
+        let res = eval_main_py(code, name);
+        if res.is_empty() {
+            Ok(pocketpyref_to_var(unsafe{pocketpy::py_retval()}))
         } else {
-            pxs_Var::new_string(res)
-        })
+            pxs_error!("{res}")
+        }
     }
 
     fn compile(code: &str, scope: pxs_Var) -> PxsResult {

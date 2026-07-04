@@ -91,8 +91,8 @@ static mut IS_KILLED: bool = false;
 pub extern "C" fn pxs_version() -> u32 {
     pxs_debug!("pxs_version");
     let major = 0;
-    let minor = 5;
-    let patch = 14;
+    let minor = 6;
+    let patch = 3;
     (major << 16) | (minor << 8) | patch
 }
 
@@ -1346,7 +1346,7 @@ pub extern "C" fn pxs_objectset(
     })
 }
 
-/// Evaluate code. This will return a pxs_Var.
+/// Evaluate code. This will return a `pxs_VarT`.
 ///
 /// return:OWNED
 #[unsafe(no_mangle)]
@@ -1354,13 +1354,12 @@ pub extern "C" fn pxs_eval(script: *const c_char, rt: pxs_Runtime) -> pxs_VarT {
     pxs_debug!("pxs_eval");
     if script.is_null() {
         return pxs_Var::null_param_ep("script").into_raw();
-        // return pxs_newnull();
     }
 
     let script = borrow_string!(script);
 
     with_backend!(rt, Backend => {
-        let res = Backend::eval(script);
+        let res = Backend::eval(script, "<eval>");
         if res.is_err() {
             pxs_Var::new_exception(res.unwrap_err().to_string())
         } else {
@@ -1368,6 +1367,29 @@ pub extern "C" fn pxs_eval(script: *const c_char, rt: pxs_Runtime) -> pxs_VarT {
         }
     })
     .into_raw()
+}
+
+/// Evaluate named code. This will return a `pxs_VarT`.
+/// 
+/// return:OWNED
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_evalnamed(script: *const c_char, name: *const c_char, rt: pxs_Runtime) -> pxs_VarT {
+    pxs_debug!("pxs_evalnamed");
+    if script.is_null() || name.is_null() {
+        return pxs_Var::null_params_ep().into_raw();
+    }
+
+    let script = borrow_string!(script);
+    let name = borrow_string!(name);
+
+    with_backend!(rt, Backend => {
+        let res = Backend::eval(script, name);
+        if res.is_err() {
+            pxs_Var::new_exception(res.unwrap_err())
+        } else {
+            res.unwrap()
+        }
+    }).into_raw()
 }
 
 /// Add a factory variable. This variable will be instantiated once at module startup.

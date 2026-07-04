@@ -30,3 +30,7 @@
 - Added `PXSVariant` to `pixelscript_cpp.hpp` wrapper.
 - Added internal `etffi` dep.
 - Added `pxs_getidx`.
+- Added `pxs_evalnamed`.
+- Added `require` function to JS backend for commonJS support.
+- Added `js_commonjs` feature.
+- Wrapped `pxs_json` in feature tag in JS backend.
