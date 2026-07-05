@@ -385,7 +385,7 @@ namespace pxs {
         bool,
         pxs_VarT,
         std::vector<pxs_VarT>,
-        pxs::Var,
+        pxs::Var
     >;
 
     // Convert a PXSVariant into a pxs_VarT
