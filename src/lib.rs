@@ -362,6 +362,31 @@ pub extern "C" fn pxs_freemod(module_ptr: *mut pxs_Module) {
     let _ = pxs_Module::from_raw(module_ptr);
 }
 
+/// Create a new object with a Type.
+/// 
+/// This is the same as `pxs_newobject` but it defines a `type` on the `pxs_PixelObject`.
+/// 
+/// This will not cause UB. Retrieve the host pointer using `pxs_gettype`. A `type_id` < 0 means no type.
+/// 
+/// ptr:OWNED
+/// return:OWNED
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_newtype(
+    ptr: pxs_Opaque,
+    free_method: pxs_DeleterFn,
+    type_name: *const c_char,
+    type_id: i32
+) -> *mut pxs_PixelObject {
+    pxs_debug!("pxs_newtype");
+    assert_initiated!();
+    if ptr.is_null() || type_name.is_null() {
+        return ptr::null_mut();
+    }
+
+    let type_name = borrow_string!(type_name);
+    pxs_PixelObject::new_type(ptr, free_method, type_name, type_id).into_raw()
+}
+
 /// Create a new object.
 ///
 /// This should only be used within a PixelScript function callback. I.e. a constructor.
@@ -370,7 +395,7 @@ pub extern "C" fn pxs_freemod(module_ptr: *mut pxs_Module) {
 ///
 /// Can return nullptr.
 ///
-/// ptr:BORROW
+/// ptr:OWNED
 /// return:OWNED
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_newobject(
@@ -379,15 +404,7 @@ pub extern "C" fn pxs_newobject(
     type_name: *const c_char,
 ) -> *mut pxs_PixelObject {
     pxs_debug!("pxs_newobject");
-    assert_initiated!();
-    if ptr.is_null() || type_name.is_null() {
-        return ptr::null_mut();
-    }
-
-    // Borrow type_name
-    let type_name = borrow_string!(type_name);
-
-    pxs_PixelObject::new(ptr, free_method, type_name).into_raw()
+    pxs_newtype(ptr, free_method, type_name, -1)
 }
 
 /// Add a callback to a object
@@ -1420,18 +1437,16 @@ pub extern "C" fn pxs_newfactory(func: pxs_Func, args: *mut pxs_Var) -> pxs_VarT
     pxs_Var::new_factory(func, var).into_raw()
 }
 
-/// Get the HostPointer universally supported for:
-/// - Objects that have `_pxs_ptr` assigned.
-/// - Integers (signed and unsigned)
-/// - HostObjects
-/// - Factories (this will call it on the fly.)
-///
-/// All other types will return NULL.
-///
-/// var:BORROW
+/// Get the `_pxs_ptr` of a `pxs_HostObject`. And type check it against `type_id`.
+/// 
+/// if `type_id` < 0, no type checking is done.
+/// 
+/// runtime: BORROW
+/// var: BORROW
+/// return: BORROW
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_gethost(runtime: pxs_VarT, var: pxs_VarT) -> *mut c_void {
-    pxs_debug!("pxs_gethost");
+pub extern "C" fn pxs_gettype(runtime: pxs_VarT, var: pxs_VarT, type_id: i32) -> *mut c_void {
+    pxs_debug!("pxs_gettype");
     assert_initiated!();
     if runtime.is_null() || var.is_null() {
         return ptr::null_mut();
@@ -1451,6 +1466,12 @@ pub extern "C" fn pxs_gethost(runtime: pxs_VarT, var: pxs_VarT) -> *mut c_void {
         }
 
         let idx_own = pxs_Var::from_raw(idx_var);
+        if type_id >= 0 {
+            let t = idx_own.get_pxs_type();
+            if t != type_id {
+                return ptr::null_mut();
+            }
+        }
         let host_ptr = idx_own.get_host_ptr();
 
         if host_ptr.is_null() {
@@ -1459,15 +1480,21 @@ pub extern "C" fn pxs_gethost(runtime: pxs_VarT, var: pxs_VarT) -> *mut c_void {
 
         host_ptr
     } else if borrow_var.is_i64() || borrow_var.is_u64() || borrow_var.is_host_object() {
+        if type_id >= 0 {
+            let t = borrow_var.get_pxs_type();
+            if t != type_id {
+                return ptr::null_mut();
+            }
+        }
         borrow_var.get_host_ptr()
     } else if borrow_var.is_factory() {
         // Get the factory
         let factory = borrow_var.get_factory().unwrap();
         // Call the function
         let res = factory.call(unsafe { pxs_Runtime::from_var_ptr(runtime) }.unwrap());
-        // Now we should have our object, so just call pxs_gethost on it again
+        // Now we should have our object, so just call pxs_gettype on it again
         let res_raw = res.into_raw();
-        let host = pxs_gethost(runtime, res_raw);
+        let host = pxs_gettype(runtime, res_raw, type_id);
         // Free res_raw
         let _ = pxs_Var::from_raw(res_raw);
         // return host
@@ -1475,6 +1502,23 @@ pub extern "C" fn pxs_gethost(runtime: pxs_VarT, var: pxs_VarT) -> *mut c_void {
     } else {
         ptr::null_mut()
     }
+}
+
+/// Get the HostPointer universally supported for:
+/// - Objects that have `_pxs_ptr` assigned.
+/// - Integers (signed and unsigned)
+/// - HostObjects
+/// - Factories (this will call it on the fly.)
+///
+/// All other types will return NULL.
+///
+/// runtime:BORROW
+/// var:BORROW
+/// return:BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_gethost(runtime: pxs_VarT, var: pxs_VarT) -> *mut c_void {
+    pxs_debug!("pxs_gethost");
+    pxs_gettype(runtime, var, -1)
 }
 
 /// Return a string rep of the `pxs_Var`.

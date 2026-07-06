@@ -99,7 +99,7 @@ pub struct ObjectCallback {
 ///     p->set_name(name.value.string_val);
 ///     return NULL;
 /// }
-/// Var* new_person(int argc, Var** argv, void* opaque) {
+/// pxs_VarT new_person(int argc, Var** argv, void* opaque) {
 ///     Person* p = malloc();
 ///     PixelObject* object_ptr = pixelscript_new_object(p, free_person);
 ///     pixelscript_object_add_callback(object_ptr, "set_name", person_set_name);
@@ -141,7 +141,9 @@ pub struct pxs_PixelObject {
     // PixelObject does not hold variables. They are all getters/
 
     /// Refernce Counting. This is internal reference counting PXS side.
-    pub ref_count: Mutex<u16>
+    pub ref_count: Mutex<u16>,
+    /// Optional type. < 0 == None.
+    pub t: i32
 }
 
 impl pxs_PixelObject {
@@ -154,7 +156,22 @@ impl pxs_PixelObject {
             type_name: type_name.to_string(),
             pxs_free_method: Mutex::new(default_deleter),
             // TODO: Do I need to set this to 0?
-            ref_count: Mutex::new(1)
+            ref_count: Mutex::new(1),
+            t: -1
+        }
+    }
+
+    pub fn new_type(ptr: *mut c_void, free_method: pxs_DeleterFn, type_name: &str, t: i32) -> Self {
+        Self {
+            ptr,
+            free_method,
+            callbacks: vec![],
+            lang_ptr: Mutex::new(ptr::null_mut()),
+            type_name: type_name.to_string(),
+            pxs_free_method: Mutex::new(default_deleter),
+            // TODO: Do I need to set this to 0?
+            ref_count: Mutex::new(1),
+            t
         }
     }
 

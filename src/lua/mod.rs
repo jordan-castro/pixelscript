@@ -271,13 +271,6 @@ pub(self) fn module_loader_func(L: *mut lua::lua_State) -> PxsRes<i32> {
     let mut engine = Engine::without_alloc(L);
     let path = engine.to_string(path_idx);
 
-    // Path mut be grand.parent.child
-    if path.contains("/") {
-        return pxs_error!("Cannot have '/' in lua path.");
-    } 
-    let path = path.replace(".", "/");
-    let path = format!("{path}.lua");
-
     let contents = read_file(&path);
     if contents.is_empty() {
         return pxs_error!("{path} was not found.");

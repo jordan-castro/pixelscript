@@ -227,14 +227,18 @@ mod tests {
             return pxs_newnull();
         }
 
-        let file_exists = std::fs::exists(file_path).unwrap();
+        // We are assuming 'parent.child' path
+        let file_path = file_path.replace(".", "/");
+        let file_path = file_path + ".lua";
+
+        let file_exists = std::fs::exists(&file_path).unwrap();
 
         if !file_exists {
             return pxs_newnull();
         }
 
         // Read file
-        let contents = std::fs::read_to_string(file_path).unwrap();
+        let contents = std::fs::read_to_string(&file_path).unwrap();
 
         // Return contents
         pxs_Var::new_string(contents).into_raw()

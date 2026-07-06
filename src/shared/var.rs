@@ -456,8 +456,15 @@ impl pxs_Var {
         }
     }
 
-    pub unsafe fn slice_raw(argv: *mut *mut Self, argc: usize) -> &'static [*mut pxs_Var] {
-        unsafe { std::slice::from_raw_parts(argv, argc) }
+    /// Get the `t` from a `pxs_PixelObject`.
+    /// This will return -1 for anything that does not have a `pxs_PixelObject` assigned.
+    pub fn get_pxs_type(&self) -> i32 {
+        let object = get_object(self.get_host_idx());
+        if let Some(obj) = object {
+            obj.t
+        } else {
+            -1
+        }
     }
 
     /// Get the direct host pointer. (Not the idx) OR null if not found!

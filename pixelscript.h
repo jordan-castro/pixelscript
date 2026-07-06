@@ -156,7 +156,7 @@ typedef struct pxs_PixelArena pxs_PixelArena;
  *     p->set_name(name.value.string_val);
  *     return NULL;
  * }
- * Var* new_person(int argc, Var** argv, void* opaque) {
+ * pxs_VarT new_person(int argc, Var** argv, void* opaque) {
  *     Person* p = malloc();
  *     PixelObject* object_ptr = pixelscript_new_object(p, free_person);
  *     pixelscript_object_add_callback(object_ptr, "set_name", person_set_name);
@@ -413,6 +413,21 @@ void pxs_addmod(struct pxs_Module *module_ptr);
 void pxs_freemod(struct pxs_Module *module_ptr);
 
 /**
+ * Create a new object with a Type.
+ *
+ * This is the same as `pxs_newobject` but it defines a `type` on the `pxs_PixelObject`.
+ *
+ * This will not cause UB. Retrieve the host pointer using `pxs_gettype`. A `type_id` < 0 means no type.
+ *
+ * ptr:OWNED
+ * return:OWNED
+ */
+struct pxs_PixelObject *pxs_newtype(pxs_Opaque ptr,
+                                    pxs_DeleterFn free_method,
+                                    const char *type_name,
+                                    int32_t type_id);
+
+/**
  * Create a new object.
  *
  * This should only be used within a PixelScript function callback. I.e. a constructor.
@@ -421,7 +436,7 @@ void pxs_freemod(struct pxs_Module *module_ptr);
  *
  * Can return nullptr.
  *
- * ptr:BORROW
+ * ptr:OWNED
  * return:OWNED
  */
 struct pxs_PixelObject *pxs_newobject(pxs_Opaque ptr,
@@ -831,6 +846,17 @@ pxs_VarT pxs_evalnamed(const char *script, const char *name, enum pxs_Runtime rt
 pxs_VarT pxs_newfactory(pxs_Func func, struct pxs_Var *args);
 
 /**
+ * Get the `_pxs_ptr` of a `pxs_HostObject`. And type check it against `type_id`.
+ *
+ * if `type_id` < 0, no type checking is done.
+ *
+ * runtime: BORROW
+ * var: BORROW
+ * return: BORROW
+ */
+void *pxs_gettype(pxs_VarT runtime, pxs_VarT var, int32_t type_id);
+
+/**
  * Get the HostPointer universally supported for:
  * - Objects that have `_pxs_ptr` assigned.
  * - Integers (signed and unsigned)
@@ -839,7 +865,9 @@ pxs_VarT pxs_newfactory(pxs_Func func, struct pxs_Var *args);
  *
  * All other types will return NULL.
  *
+ * runtime:BORROW
  * var:BORROW
+ * return:BORROW
  */
 void *pxs_gethost(pxs_VarT runtime, pxs_VarT var);
 

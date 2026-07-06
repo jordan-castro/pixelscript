@@ -34,3 +34,8 @@
 - Added `require` function to JS backend for commonJS support.
 - Added `js_commonjs` feature.
 - Wrapped `pxs_json` in feature tag in JS backend.
+
+## 0.6.4
+- Added `pxs_newtype` to combat UB in `pxs_HostObject` retrival.
+- Added `pxs_gettype` that retrieves `pxs_HostObject` and only returns if the type matches.
+- Change luas VFS module loader to be raw string. This lets the host handle `/` or `.` as they like.

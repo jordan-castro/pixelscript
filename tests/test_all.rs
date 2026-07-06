@@ -520,7 +520,7 @@ local diary = pxs_math.Diary(pxs_math.DiaryOwner("Jordan"), pxs_math.DiaryItem("
 diary:add_item("Yo test dog")
 pxs.print(diary)
 
-local ft_object = require('pad.ft_object')
+local ft_object = require('pad/ft_object.lua')
 ft_object.function_from_outside()
 
 local msg = "Welcome " .. pxs.name
