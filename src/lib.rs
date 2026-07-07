@@ -12,7 +12,7 @@
 // TRANSFER: the value is transfered from host to library.
 // BORROW: the value is borrowed by the library.
 
-use etffi::{borrow_string, create_raw_string, free_raw_string, ptr_magic::PtrMagic};
+use etffi::{borrow_string, create_raw_string, cstring::CStringSafe, free_raw_string, ptr_magic::PtrMagic};
 use shared::{func::pxs_Func, var::pxs_Var};
 use std::{
     ffi::{CString, c_char, c_void},
@@ -256,6 +256,35 @@ pub extern "C" fn pxs_addfunc(module_ptr: *mut pxs_Module, name: *const c_char, 
 
     // Now add callback
     module.add_callback(name_str, &full_name, idx);
+}
+
+/// Add the same function under different names.
+/// 
+/// module_ptr:BORROW
+/// func_list:TRANSFER
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_addfuncs(module_ptr: *mut pxs_Module, func_list: pxs_VarT, func: pxs_Func) {
+    pxs_debug!("pxs_addfuncs");
+    assert_initiated!();
+
+    if module_ptr.is_null() || func_list.is_null() {
+        return;
+    }
+
+    let func_list = own_var!(func_list);
+    if !func_list.is_list() {
+        return;
+    }
+    let list = func_list.get_list().unwrap();
+
+    let mut cstring = CStringSafe::new();
+    for var in list.vars.iter() {
+        if !var.is_string() {
+            panic!("Expected only list of strings in pxs_addfuncs.");
+        }
+
+        pxs_addfunc(module_ptr, cstring.new_string(&var.get_string().unwrap()), func);
+    }
 }
 
 /// Add a Varible to a module.

@@ -375,6 +375,14 @@ struct pxs_Module *pxs_newmod(const char *name);
 void pxs_addfunc(struct pxs_Module *module_ptr, const char *name, pxs_Func func);
 
 /**
+ * Add the same function under different names.
+ *
+ * module_ptr:BORROW
+ * func_list:TRANSFER
+ */
+void pxs_addfuncs(struct pxs_Module *module_ptr, pxs_VarT func_list, pxs_Func func);
+
+/**
  * Add a Varible to a module.
  *
  * Pass in the module pointer and variable params.

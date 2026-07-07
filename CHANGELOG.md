@@ -39,3 +39,8 @@
 - Added `pxs_newtype` to combat UB in `pxs_HostObject` retrival.
 - Added `pxs_gettype` that retrieves `pxs_HostObject` and only returns if the type matches.
 - Change luas VFS module loader to be raw string. This lets the host handle `/` or `.` as they like.
+
+## 0.6.5
+- Added `pxs_addfuncs` method to add the same function with different names. This is useful for adding tostring methods.
+- Added benchmarks.
+- Added `scripts/bench.py` to run and display benchmarks.

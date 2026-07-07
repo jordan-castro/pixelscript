@@ -38,7 +38,7 @@
     - Explicit which runtime
     - Fix JS nasty errors
 - Look into no_std
-- Bench marks
+- Benchmarks
 - Add `name` to exceptions. Make it default to `Error` to be backwards compat.
 
 ## v0.7 Wasm and Dynamic Language support
