@@ -64,7 +64,11 @@ namespace pxs {
         // assumes that index - 1 is passed. I.e. runtime is ignored.
         // runtime is automatiacally set via args(0)
         [[nodiscard]] static Var from_args(pxs_Var* args, int index, bool owned=false) {
-            return Var(pxs_listget(args, 0), pxs_listget(args, index + 1), owned);
+            auto arg = pxs_arg(args, index);
+            if (!arg) {
+                return Var::new_null(true);
+            }
+            return Var(pxs_getrt(args), arg, owned);
         }
 
         // Creates a list for passing into pxs functions.

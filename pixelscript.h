@@ -748,7 +748,7 @@ int32_t pxs_listadd(struct pxs_Var *list,
  * This will NOT return a cloned variable, you must NOT free it.
  *
  * list:BORROW
- * return:BORROW
+ * return:BORROW&NULLABLE
  */
 struct pxs_Var *pxs_listget(struct pxs_Var *list,
                             int32_t index);
@@ -1072,6 +1072,26 @@ void pxs_garbagecollect(void);
  * var: BORROW
  */
 int32_t pxs_getidx(pxs_VarT var);
+
+/**
+ * Get a `pxs_VarT` from args without needing to worry about index checks.
+ *
+ * Literraly does `pxs_listget(args, idx + 1)`
+ *
+ * args: BORROW
+ * result: BORROW&NULLABLE
+ */
+pxs_VarT pxs_arg(pxs_VarT args, int32_t idx);
+
+/**
+ * Get the `pxs_VarT` runtime from args.
+ *
+ * Does `pxs_listget(args, 0)`
+ *
+ * args: BORROW
+ * result: BORROW&NULLABLE
+ */
+pxs_VarT pxs_getrt(pxs_VarT args);
 
 /**
  * Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.

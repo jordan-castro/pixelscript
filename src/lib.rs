@@ -11,6 +11,7 @@
 // OWNED: the host/caller owns the value and must free it.
 // TRANSFER: the value is transfered from host to library.
 // BORROW: the value is borrowed by the library.
+// NULLABLE: means the value can be NULL.
 
 use etffi::{borrow_string, create_raw_string, cstring::CStringSafe, free_raw_string, ptr_magic::PtrMagic};
 use shared::{func::pxs_Func, var::pxs_Var};
@@ -40,7 +41,7 @@ use crate::shared::{
 pub mod shared;
 
 #[cfg(feature = "include-core")]
-pub mod core;
+pub mod pxs_core;
 #[cfg(feature = "js")]
 pub mod js;
 #[cfg(feature = "lua")]
@@ -845,10 +846,13 @@ pub extern "C" fn pxs_getstring(var: *mut pxs_Var) -> *mut c_char {
         return ptr::null_mut();
     }
 
-    unsafe {
-        let string = pxs_Var::from_borrow(var).get_string().unwrap();
-        create_raw_string!(string.clone())
+    let bv = borrow_var!(var);
+    if !bv.is_string() {
+        return ptr::null_mut();
     }
+
+    let string = bv.get_string().unwrap();
+    create_raw_string!(string.clone())
 }
 
 /// Check if a variable is of a type.
@@ -1162,14 +1166,14 @@ pub extern "C" fn pxs_listadd(list: *mut pxs_Var, item: *mut pxs_Var) -> i32 {
 /// This will NOT return a cloned variable, you must NOT free it.
 ///
 /// list:BORROW
-/// return:BORROW
+/// return:BORROW&NULLABLE
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_listget(list: *mut pxs_Var, index: i32) -> *mut pxs_Var {
     pxs_debug!("pxs_listget");
     assert_initiated!();
 
     if list.is_null() {
-        return pxs_Var::null_param_ep("list").into_raw();
+        return ptr::null_mut();
     }
 
     // Get list
@@ -1183,7 +1187,7 @@ pub extern "C" fn pxs_listget(list: *mut pxs_Var, index: i32) -> *mut pxs_Var {
     if let Some(res) = varlist.get_item(index) {
         res as *const pxs_Var as *mut pxs_Var
     } else {
-        return pxs_Var::item_not_found_ep().into_raw();
+        return ptr::null_mut();
     }
 }
 
@@ -2048,6 +2052,32 @@ pub extern "C" fn pxs_getidx(var: pxs_VarT) -> i32 {
     bvar.get_host_idx()
 }
 
+/// Get a `pxs_VarT` from args without needing to worry about index checks.
+/// 
+/// Literraly does `pxs_listget(args, idx + 1)`
+/// 
+/// args: BORROW
+/// result: BORROW&NULLABLE
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_arg(args: pxs_VarT, idx: i32) -> pxs_VarT {
+    pxs_debug!("pxs_arg");
+    assert_initiated!();
+    pxs_listget(args, idx + 1)
+}
+
+/// Get the `pxs_VarT` runtime from args.
+/// 
+/// Does `pxs_listget(args, 0)`
+/// 
+/// args: BORROW
+/// result: BORROW&NULLABLE
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_getrt(args: pxs_VarT) -> pxs_VarT {
+    pxs_debug!("pxs_getrt");
+    assert_initiated!();
+    pxs_listget(args, 0)
+}
+
 // ====================================== Core functions Start =======================================
 
 /// Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.
@@ -2067,11 +2097,11 @@ pub extern "C" fn pxs_json_encode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
         "pxs_json",
         {
             unsafe {
-                if !core::is_valid_pxs_function(rt, args) {
+                if !pxs_core::is_valid_pxs_function(rt, args) {
                     return pxs_Var::new_exception("Not a valid core call").into_raw();
                 }
             }
-            core::pxs_json::encode(rt, args)
+            pxs_core::pxs_json::encode(rt, args)
         },
         { pxs_Var::feature_not_enabled_ep("pxs_json").into_raw() }
     )
@@ -2094,11 +2124,11 @@ pub extern "C" fn pxs_json_decode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
         "pxs_json",
         {
             unsafe {
-                if !core::is_valid_pxs_function(rt, args) {
+                if !pxs_core::is_valid_pxs_function(rt, args) {
                     return pxs_Var::new_exception("Not a valid core call").into_raw();
                 }
             }
-            core::pxs_json::decode(rt, args)
+            pxs_core::pxs_json::decode(rt, args)
         },
         { pxs_Var::feature_not_enabled_ep("pxs_json").into_raw() }
     )
@@ -2113,7 +2143,7 @@ pub extern "C" fn pxs_meminit() {
     with_feature!(
         "pxs_mem",
         {
-            core::pxs_mem::init();
+            pxs_core::pxs_mem::init();
         },
         {
             panic!("pxs_mem feature is not enabled");

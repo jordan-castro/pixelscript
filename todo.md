@@ -37,30 +37,21 @@
     - Explicitly coming from PXS
     - Explicit which runtime
     - Fix JS nasty errors
-- Look into no_std
+- Implement `no_std`
+    - add `pxs_setalloc`
+    - add `pxs_setfree`
+    - what else needs to go here?
 - Benchmarks
 - Add `name` to exceptions. Make it default to `Error` to be backwards compat.
 
 ## v0.7 Wasm and Dynamic Language support
-- Migrate from `PixelScript` into `pxs_PixelScript` type which makes language backends dynamic.
-    - Lua into dynamic
-    - Python into dynamic
-    - JS into dynamic
-- Function for enabling each language
-    - `pxs_enablepython`
-    - `pxs_enablelua`
-    - `pxs_enablejs`
-    - `pxs_enablewren`
-    - `pxs_enablec`
-    - Will require that the language feature is also enabled.
 - Add Wren support
-- Add C support via libtcc
+- Add `dynamic` language support meaning a host language can add its own bindings backend that interops perfectly with Pxs.
+    - This will be useful when a developer wants to create a custom DSL.
 - WASM support + Wasm web page similar to pocketpy live playground.
 
-## v0.8
-- Cross language support. Calling JS from Python, Lua from JS, Python from JS, etc...
-- New feature for on language support called |lang-on-demand| or something
-    - Requires setting LANGUAGES static variable via `pxs_setlanguages`
+## v0.8 Cross language
+- Cross language support. Calling JS from Python, Lua from JS, Python from JS, etc.
 
 <!-- ## v0.7 Size Reduction -->
 <!-- - Remove mlua (use raw lua c files instead) -->

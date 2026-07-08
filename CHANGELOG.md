@@ -44,3 +44,7 @@
 - Added `pxs_addfuncs` method to add the same function with different names. This is useful for adding tostring methods.
 - Added benchmarks.
 - Added `scripts/bench.py` to run and display benchmarks.
+- Made it so that `pxs_getstring` won't panic.
+- renamed `core` to `pxs_core`.
+- added `pxs_arg` to be shorthand for `pxs_listget(args, i - 1)`
+- Added `pxs_getrt` to be shorthand for `pxs_listget(args, 0)`
