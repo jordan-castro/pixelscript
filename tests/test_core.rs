@@ -14,7 +14,7 @@ mod tests {
         own_var, pxs_addfunc, pxs_addmod, pxs_call,
         pxs_debugvar, pxs_exec, pxs_finalize, pxs_freearena, pxs_freevar, pxs_getstring,
         pxs_initialize, pxs_json_decode, pxs_json_encode, pxs_listadd, pxs_listget, pxs_listlen,
-        pxs_meminit, pxs_new_shallowcopy, pxs_newarena, pxs_newcopy, pxs_newint, pxs_newlist,
+        pxs_new_shallowcopy, pxs_newarena, pxs_newcopy, pxs_newint, pxs_newlist,
         pxs_newmod, pxs_newnull, pxs_tostring,
         shared::{
             pxs_Runtime, utils,
@@ -74,7 +74,6 @@ mod tests {
         pxs_addfunc(module, fname2, call_pxs_json_decode);
         pxs_addfunc(module, print, print_wrapper);
         pxs_addmod(module);
-        pxs_meminit();
         utils::setup_pxs();
         unsafe {
             free_raw_string!(mname);

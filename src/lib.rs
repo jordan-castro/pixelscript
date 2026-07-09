@@ -118,12 +118,12 @@ pub extern "C" fn pxs_initialize() {
                 JSScripting::start();
             });
 
+            IS_INIT = true;
             // Initialize core modules.
             with_feature!("pxs_mem", {
                 pxs_core::pxs_mem::init();
             });
         }
-        IS_INIT = true;
     }
 }
 
