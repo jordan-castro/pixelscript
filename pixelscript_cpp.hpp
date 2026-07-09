@@ -417,7 +417,7 @@ namespace pxs {
             } else if constexpr (std::is_same_v<T, pxs::Var>) {
                 return arg.raw();
             } else {
-                static_assert(false, "non-exhaustive visitor for PXSVariant.");
+                return pxs_newnull();
             }
         }, v);
     }
