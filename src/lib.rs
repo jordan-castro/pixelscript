@@ -93,7 +93,7 @@ pub extern "C" fn pxs_version() -> u32 {
     pxs_debug!("pxs_version");
     let major = 0;
     let minor = 6;
-    let patch = 3;
+    let patch = 5;
     (major << 16) | (minor << 8) | patch
 }
 
@@ -116,6 +116,11 @@ pub extern "C" fn pxs_initialize() {
 
             with_feature!("js", {
                 JSScripting::start();
+            });
+
+            // Initialize core modules.
+            with_feature!("pxs_mem", {
+                pxs_core::pxs_mem::init();
             });
         }
         IS_INIT = true;
@@ -2078,6 +2083,173 @@ pub extern "C" fn pxs_getrt(args: pxs_VarT) -> pxs_VarT {
     pxs_listget(args, 0)
 }
 
+/// Get the length of args without the runtime.
+/// 
+/// args: BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_argc(args: pxs_VarT) -> usize {
+    pxs_debug!("pxs_argc");
+    assert_initiated!();
+    let len = pxs_listlen(args);
+    if len <= 0 {
+        return 0;
+    } else {
+        return (len - 1) as usize;
+    }
+}
+
+/// Create a `pxs_List` of u8. i.e. bytes.
+/// 
+/// data: BORROW
+/// result: OWNED
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_newbytes(data: pxs_Opaque, el_size: usize, size: usize) -> pxs_VarT {
+    pxs_debug!("pxs_newbytes");
+    assert_initiated!();
+
+    if data.is_null() {
+        return pxs_newlist();
+    }
+
+    let ptr = data as *mut u8;
+    let total_bytes = el_size * size;
+    let raw_bytes: &mut [u8] = unsafe { core::slice::from_raw_parts_mut(ptr, total_bytes) };
+    
+    let mut list = vec![];
+    for i in raw_bytes {
+        list.push(pxs_Var::new_u64(i.clone() as u64));
+    }
+
+    pxs_Var::new_list_with(list).into_raw()
+}
+
+/// Get the memory size (in bytes) of a `pxs_VarT`
+///
+/// var: BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_varsize(var: pxs_VarT) -> usize {
+    pxs_debug!("pxs_varsize");
+    assert_initiated!();
+
+    if var.is_null() {
+        return 0;
+    }
+
+    let bvar = borrow_var!(var);
+    bvar.get_size()
+}
+
+/// Copy a `pxs_VarT` into a list of u8. i.e. bytes, if values are:
+///   - `pxs_UInt64`
+///   - `pxs_Int64`
+///   - `pxs_Float64`
+///   - `pxs_Bool`
+///   - `pxs_String`
+///   - `pxs_List`
+/// 
+/// var: BORROW
+/// data_ptr: BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_copybytes(var: pxs_VarT, data_ptr: pxs_Opaque) {
+    pxs_debug!("pxs_copybytes");
+    assert_initiated!();
+
+    if var.is_null() || data_ptr.is_null() {
+        return;
+    }
+
+    let bvar = borrow_var!(var);
+    let bytes_ptr = data_ptr as *mut u8;
+
+    unsafe { bvar.copy_bytes(bytes_ptr) };
+}
+
+/// Copy a `pxs_String` into a char*.
+/// 
+/// var: BORROW
+/// str_ptr: BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_copystring(var: pxs_VarT, str_ptr: *mut c_char) {
+    pxs_debug!("pxs_copystring");
+    assert_initiated!();
+
+    if var.is_null() || str_ptr.is_null() {
+        return;
+    }
+
+    let bvar = borrow_var!(var);
+    if !bvar.is_string() {
+        return;
+    }
+
+    unsafe { bvar.copy_bytes(str_ptr as *mut u8) };
+}
+
+/// Get a string (char*) from `pxs_String`. And calls `pxs_tostring` automatically if not already a string.
+/// Runtime is required.
+/// 
+/// Free the result using `pxs_freestr`.
+/// 
+/// rt: BORROW
+/// str: BORROW
+/// result: OWNED
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_smart_getstring(rt: pxs_VarT, str: pxs_VarT) -> *mut c_char {
+    pxs_debug!("pxs_smart_getstring");
+    assert_initiated!();
+    
+    if rt.is_null() || str.is_null() {
+        return core::ptr::null_mut();
+    }
+
+    let mut bstr = str;
+    let mut string_var_ptr: pxs_VarT = core::ptr::null_mut();
+
+    if !pxs_varis(bstr, pxs_VarType::pxs_String) {
+        string_var_ptr = pxs_tostring(rt, str);
+        bstr = string_var_ptr;
+    }
+
+    let str_value = pxs_getstring(bstr);
+
+    if !string_var_ptr.is_null() {
+        pxs_freevar(string_var_ptr);
+    }
+
+    str_value
+}
+
+/// Copy a `pxs_String` memory into a char*. Calls `pxs_tostring` automatically if not already a string.
+/// Runtime is required.
+/// 
+/// rt: BORROW
+/// str: BORROW
+/// str_ptr: BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_smart_copystring(rt: pxs_VarT, str: pxs_VarT, str_ptr: *mut c_char) {
+    pxs_debug!("pxs_smart_copystring");
+    assert_initiated!();
+
+    if rt.is_null() || str.is_null() || str_ptr.is_null() {
+        return;
+    }
+
+    let mut bstr = str;
+    let mut string_var_ptr: pxs_VarT = core::ptr::null_mut();
+
+    if !pxs_varis(bstr, pxs_VarType::pxs_String) {
+        string_var_ptr = pxs_tostring(rt, bstr);
+        bstr = string_var_ptr;
+    }
+
+    pxs_copystring(bstr, str_ptr);
+
+    // Free
+    if !string_var_ptr.is_null() {
+        pxs_freevar(string_var_ptr);
+    }
+}
+
 // ====================================== Core functions Start =======================================
 
 /// Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.
@@ -2132,23 +2304,6 @@ pub extern "C" fn pxs_json_decode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
         },
         { pxs_Var::feature_not_enabled_ep("pxs_json").into_raw() }
     )
-}
-
-/// Add `pxs_mem` core module to scripting languages.
-/// It can only be added once, if added gain it will throw an error.
-#[unsafe(no_mangle)]
-pub extern "C" fn pxs_meminit() {
-    pxs_debug!("pxs_meminit");
-    assert_initiated!();
-    with_feature!(
-        "pxs_mem",
-        {
-            pxs_core::pxs_mem::init();
-        },
-        {
-            panic!("pxs_mem feature is not enabled");
-        }
-    );
 }
 
 // ====================================== Core functions End =========================================

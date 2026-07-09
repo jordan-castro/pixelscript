@@ -21,7 +21,7 @@ Because most games pick only one language for scripting. PixelScript gives modde
 Each language runtime uses the same PixelScript bindings.
 
 ## Version
-pixelscript crate is currently at version 0.6.4.
+pixelscript crate is currently at version 0.6.5.
 
 ## How to use
 pixelscript can be used within a rust application or via ffi.
@@ -67,7 +67,6 @@ Overview of what is incldued in `pxs_json` module.
 
 ### pxs_mem
 Overview of what is included in the `pxs_mem` module.
-Call `pxs_meminit` to initialize the module.
 | Name | Type | Doc Comment |
 |------|------|-------------|
 | `memdel` | Function | Decreases the refcount for a `PixelObject`. Pass in a `object`, if it does not have `_pxs_ptr` assigned it raises an exception. |

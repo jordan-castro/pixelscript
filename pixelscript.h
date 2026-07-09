@@ -1094,6 +1094,75 @@ pxs_VarT pxs_arg(pxs_VarT args, int32_t idx);
 pxs_VarT pxs_getrt(pxs_VarT args);
 
 /**
+ * Get the length of args without the runtime.
+ *
+ * args: BORROW
+ */
+uintptr_t pxs_argc(pxs_VarT args);
+
+/**
+ * Create a `pxs_List` of u8. i.e. bytes.
+ *
+ * data: BORROW
+ * result: OWNED
+ */
+pxs_VarT pxs_newbytes(pxs_Opaque data, uintptr_t el_size, uintptr_t size);
+
+/**
+ * Get the memory size (in bytes) of a `pxs_VarT`
+ *
+ * var: BORROW
+ */
+uintptr_t pxs_varsize(pxs_VarT var);
+
+/**
+ * Copy a `pxs_VarT` into a list of u8. i.e. bytes, if values are:
+ *   - `pxs_UInt64`
+ *   - `pxs_Int64`
+ *   - `pxs_Float64`
+ *   - `pxs_Bool`
+ *   - `pxs_String`
+ *   - `pxs_List`
+ *
+ * var: BORROW
+ * data_ptr: BORROW
+ */
+void pxs_copybytes(pxs_VarT var, pxs_Opaque data_ptr);
+
+/**
+ * Copy a `pxs_String` into a char*.
+ *
+ * var: BORROW
+ * str_ptr: BORROW
+ */
+void pxs_copystring(pxs_VarT var, char *str_ptr);
+
+/**
+ * Get a string (char*) from `pxs_String`. And calls `pxs_tostring` automatically if not already a string.
+ * Runtime is required.
+ *
+ * Free the result using `pxs_freestr`.
+ *
+ * rt: BORROW
+ * str: BORROW
+ * result: OWNED
+ */
+char *pxs_smart_getstring(pxs_VarT rt,
+                          pxs_VarT str);
+
+/**
+ * Copy a `pxs_String` memory into a char*. Calls `pxs_tostring` automatically if not already a string.
+ * Runtime is required.
+ *
+ * rt: BORROW
+ * str: BORROW
+ * str_ptr: BORROW
+ */
+void pxs_smart_copystring(pxs_VarT rt,
+                          pxs_VarT str,
+                          char *str_ptr);
+
+/**
  * Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.
  * Transfers ownership of args.
  * Basically calls the runtime.pxs_json.encode() function.
@@ -1120,12 +1189,6 @@ pxs_VarT pxs_json_encode(pxs_VarT rt,
  */
 pxs_VarT pxs_json_decode(pxs_VarT rt,
                          pxs_VarT args);
-
-/**
- * Add `pxs_mem` core module to scripting languages.
- * It can only be added once, if added gain it will throw an error.
- */
-void pxs_meminit(void);
 
 #ifdef __cplusplus
 }  // extern "C"

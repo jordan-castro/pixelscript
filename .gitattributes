@@ -9,3 +9,8 @@
 libs/** linguist-vendored
 
 libs/pxs_lua/** linguist-vendored=false
+libs/pxs_utils/** linguist-vendored=false
+libs/pxs_python/** linguist-vendored=false
+
+# yoyo
+core/yoyo/lib/** linguist-vendored

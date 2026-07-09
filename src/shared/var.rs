@@ -7,11 +7,7 @@
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
 use std::{
-    cell::Cell,
-    collections::HashMap,
-    ffi::{CStr, CString, c_char, c_void},
-    hash::Hash,
-    ptr,
+    cell::Cell, collections::HashMap, ffi::{CStr, CString, c_char, c_void}, hash::Hash, ptr,
 };
 
 use etffi::{create_raw_string, borrow_string, ptr_magic::PtrMagic};
@@ -781,6 +777,85 @@ impl pxs_Var {
                 },
             }
         }
+    }
+
+    /// Get the memory size of this `pxs_Var`.
+    /// Returns 0 for:
+    /// - `pxs_Object`
+    /// - `pxs_HostObject`
+    /// - `pxs_Null`
+    /// - `pxs_Function`
+    /// - `pxs_Factory`
+    /// - `pxs_Exception`
+    /// - `pxs_Map`
+    pub fn get_size(&self) -> usize {
+        match self.tag {
+            pxs_VarType::pxs_Int64 => 8,
+            pxs_VarType::pxs_UInt64 => 8,
+            pxs_VarType::pxs_Float64 => 8,
+            pxs_VarType::pxs_Bool => 1,
+            pxs_VarType::pxs_String => {
+                let s = self.get_string().unwrap();
+                s.as_bytes().len()
+            },
+            pxs_VarType::pxs_List => {
+                let mut size = 0;
+                let list = self.get_list().unwrap();
+                for item in list.vars.iter() {
+                    size += item.get_size();
+                }
+                size
+            }
+            _ => 0
+        }
+    }
+
+    /// Copy the raw bytes of this `pxs_Var` into ptr. 
+    /// This assumes enough memory has been allocated. Either by C or Rust.
+    /// returns space copied. Use that as a offset.
+    pub unsafe fn copy_bytes(&self, ptr: *mut u8) -> usize {
+        let size = self.get_size();
+        // If 0, do nothing.
+        if size == 0 {
+            return 0;
+        }
+
+        unsafe {
+            match self.tag {
+                pxs_VarType::pxs_Int64 => {
+                    let val = self.get_i64().unwrap().to_ne_bytes();
+                    core::ptr::copy_nonoverlapping(val.as_ptr(), ptr, size);
+                },
+                pxs_VarType::pxs_UInt64 => {
+                    let val = self.get_u64().unwrap().to_ne_bytes();
+                    core::ptr::copy_nonoverlapping(val.as_ptr(), ptr, size);
+                },
+                pxs_VarType::pxs_String => {
+                    let str = self.get_string().unwrap();
+                    let val = str.as_bytes();
+                    core::ptr::copy_nonoverlapping(val.as_ptr(), ptr, size);
+                },
+                pxs_VarType::pxs_Bool => {
+                    let val = if self.get_bool().unwrap() == true {1u8} else {0u8};
+                    *ptr = val;
+                },
+                pxs_VarType::pxs_Float64 => {
+                    let val = self.get_f64().unwrap().to_ne_bytes();
+                    core::ptr::copy_nonoverlapping(val.as_ptr(), ptr, size);
+                },
+                pxs_VarType::pxs_List => {
+                    let list = self.get_list().unwrap();
+                    let mut byte_offset = 0;
+                    for item in list.vars.iter() {
+                        byte_offset += item.copy_bytes(ptr.add(byte_offset));
+                    }
+                },
+                _ => {
+                    return 0;
+                }
+            }
+        }
+        size
     }
 }
 

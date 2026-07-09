@@ -1,6 +1,6 @@
 [package]
 name = "pixelscript"
-version = "0.6.4"
+version = "0.6.5"
 edition = "2024"
 license = "Apache-2.0"
 authors = ["Jordan Castro jordan@grupojvm.com"]
@@ -17,6 +17,13 @@ etffi = "0.1.2"
 cbindgen = "0.29.2"
 cc = "1.2.52"
 bindgen = "0.72.1"
+
+[dev-dependencies]
+divan = "0.1.21"
+
+[[bench]]
+name = "host_call"
+harness = false
 
 [features]
 # Default includes all languages and cores.
