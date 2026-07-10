@@ -438,7 +438,7 @@ namespace pxs {
     // Memory is managed. If this is not desired behavior, call `pxs_newcopy` or `pxs_new_shallowcopy`.
     [[nodiscard]] inline pxs_VarT call(pxs_Func fun, const std::vector<PXSVariant>& arguments) {
         auto list = pxs::Var::new_list();
-        list.add(pxs_newint(0));
+        list.add(pxs_newint(-1));
         // Drop the list at the end of the function.
         list.set_owned(true);
         for (const auto& arg : arguments) {

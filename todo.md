@@ -43,6 +43,7 @@
     - what else needs to go here?
 - Benchmarks
 - Add `name` to exceptions. Make it default to `Error` to be backwards compat.
+- Remove `pxs_PixelArena` just use `pxs_List`.
 
 ## v0.7 Wasm and Dynamic Language support
 - Add Wren support

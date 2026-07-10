@@ -117,13 +117,8 @@ pub extern "C" fn pxs_initialize() {
             with_feature!("js", {
                 JSScripting::start();
             });
-
-            IS_INIT = true;
-            // Initialize core modules.
-            with_feature!("pxs_mem", {
-                pxs_core::pxs_mem::init();
-            });
         }
+            IS_INIT = true;
     }
 }
 
@@ -532,38 +527,11 @@ pub extern "C" fn pxs_object_addprop(
     add_callback_to_object(object_borrow, name_borrow, callback, flags);
 }
 
-/// Add a object to a Module.
-///
-/// This essentially makes it so that when constructing this Module, this object is instanced.
-/// This works by adding a public factory function with the type name. But the type name
-/// is mangled (_module_typename).
-///
-/// In Lua:
-/// ```lua
-/// -- Let's say we have a object "Person"
-/// local p = Person("Jordan", 23)
-/// p:set_name("Jordan Castro")
-/// local name = p:get_name()
-///
-/// -- Although you could also do
-/// local p = Person("Jordan", 23)
-/// p.set_name(p, "Jordan") -- You get the idea
-/// ```
-///
-/// In Python:
-/// ```python
-/// p = Person("Jordan", 23)
-/// # use '.' instead of ':'
-/// # etc
-/// ```
-///
-/// In JS the same as Python and Lua:
-/// ```js
-/// let p = Person("Jordan", 23);
-/// // Same as Python
-/// // etc
-/// ```
-///
+/// Add a object constructor to a module. This is the same as calling `pxs_addfunc`. Only named differently to distinguish
+/// when a function should be treated as a Object or a Function in your code.
+/// It is not required to call this function in order to expose a `pxs_HostObject` to a module. Any functoin that returns a `pxs_HostObject`
+/// will expose the object.
+/// 
 /// module_ptr:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_addobject(
@@ -1623,7 +1591,9 @@ pub extern "C" fn pxs_var_fromname(rt: pxs_VarT, name: *const c_char) -> pxs_Var
 
 /// Remove a item from a list at a specific index.
 ///
-/// Returns true for success, false for failed
+/// Returns true for success, false for failed.
+/// 
+/// This will automatically call `pxs_freevar` on the found item.
 ///
 /// list:BORROW
 #[unsafe(no_mangle)]
@@ -1988,6 +1958,8 @@ pub extern "C" fn pxs_freearena(arena: *mut pxs_PixelArena) {
 
 /// Add a `pxs_VarT` to a `pxs_PixelArena`. Upon freeing the Arena, the variable is freed aswell.
 ///
+/// A variable must only be added once.
+/// 
 /// arena:BORROW
 /// var:TRANSFER
 /// result:BORROW
@@ -2004,6 +1976,33 @@ pub extern "C" fn pxs_arenaput(arena: *mut pxs_PixelArena, var: pxs_VarT) -> pxs
     barena.alloc(var);
 
     var
+}
+
+/// Add a `char*` to a `pxs_PixelArena`. Upon freeing the Arena, the string is freed aswell.
+/// 
+/// This must be a string allocated by pixelscript. Either in:
+/// - `pxs_getstring`
+/// - `pxs_smart_getstring`
+/// - `pxs_debugstate`
+/// 
+/// A string must only be added once.
+/// 
+/// arena:BORROW
+/// str:TRANSFER
+/// result:BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_arena_putstr(arena: *mut pxs_PixelArena, str: *mut c_char) -> *mut c_char {
+    pxs_debug!("pxs_arena_putstr");
+    assert_initiated!();
+
+    if arena.is_null() || str.is_null() {
+        return core::ptr::null_mut();
+    }
+
+    let barena = unsafe { pxs_PixelArena::from_borrow(arena) };
+    barena.alloc_str(str); 
+
+    str
 }
 
 /// Debug state info.
@@ -2173,16 +2172,7 @@ pub extern "C" fn pxs_copystring(var: pxs_VarT, str_ptr: *mut c_char) {
     pxs_debug!("pxs_copystring");
     assert_initiated!();
 
-    if var.is_null() || str_ptr.is_null() {
-        return;
-    }
-
-    let bvar = borrow_var!(var);
-    if !bvar.is_string() {
-        return;
-    }
-
-    unsafe { bvar.copy_bytes(str_ptr as *mut u8) };
+    pxs_copybytes(var, str_ptr as pxs_Opaque);
 }
 
 /// Get a string (char*) from `pxs_String`. And calls `pxs_tostring` automatically if not already a string.
@@ -2304,6 +2294,21 @@ pub extern "C" fn pxs_json_decode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
         },
         { pxs_Var::feature_not_enabled_ep("pxs_json").into_raw() }
     )
+}
+
+/// Initialize the `pxs_mem` module.
+/// 
+/// This needs to be called in each new thread too. Should only be called once per thread.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_meminit() {
+    pxs_debug!("pxs_meminit");
+    assert_initiated!();
+
+    with_feature!("pxs_mem", {
+        pxs_core::pxs_mem::init();
+    }, {
+        panic!("pxs_mem is not enabled.");
+    });
 }
 
 // ====================================== Core functions End =========================================

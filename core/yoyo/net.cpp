@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include "utils/exceptions.hpp"
 #include <stdexcept>
+#include <array>
 
 #if defined(_WIN32)
 // Windows native IMPL. Uses WinHTTP.
@@ -84,7 +85,17 @@ namespace yoyo::net {
     };
 
     void Client::setup() {
-        std::wstring wuser_agent = yoyo::utils::str::to_wstring(this->data.user_agent);
+        // Already setup.
+        if (this->internal) {
+            return;
+        }
+
+        auto user_agent = this->data.user_agent;
+        if (user_agent.empty()) {
+            user_agent = "yoyo_rt";
+        }
+
+        std::wstring wuser_agent = yoyo::utils::str::to_wstring(user_agent);
 
         HINTERNET h_session = WinHttpOpen(
             wuser_agent.c_str(),
@@ -179,7 +190,7 @@ namespace yoyo::net {
 
         // Send request
         BOOL ok;
-        if (this->data.request_type == RequestType::GET) {
+        if (rt == RequestType::GET) {
             ok = WinHttpSendRequest(
                 request_wrapper.handle,
                 headers_string,
@@ -189,7 +200,7 @@ namespace yoyo::net {
                 0,
                 0
             );
-        } else if (this->data.request_type == RequestType::POST) {
+        } else if (rt == RequestType::POST) {
             // Send body
             ok = WinHttpSendRequest(
                 request_wrapper.handle,
@@ -240,7 +251,7 @@ namespace yoyo::net {
                 break;
             }
 
-            response.append(buffer.data(), buffer.size());
+            response.append(buffer.data(), bytes_read);
         } while (bytes_avail > 0);
 
         // Get status code.
@@ -280,6 +291,14 @@ namespace yoyo::net {
         delete static_cast<Client*>(ptr);
     }
 
+    void free_client_response(pxs_Opaque ptr) {
+        if (!ptr) {
+            return;
+        }
+
+        delete static_cast<ClientResponse*>(ptr);
+    }
+
     Client::~Client() {
         if (!this->internal) {
             return;
@@ -288,6 +307,15 @@ namespace yoyo::net {
         #if defined(_WIN32)
             delete static_cast<HInternetWrapper*>(this->internal);
         #endif
+    }
+
+    pxs_VarT ClientResponse::into_pxs() {
+        auto obj = pxs_newtype(static_cast<pxs_Opaque>(this), free_client_response, "ClientResponse", yoyo::types::NET_ClientResponse);
+        pxs_object_addprop(obj, "version", ClientResponse::prop_version);
+        pxs_object_addprop(obj, "status", ClientResponse::prop_status);
+        pxs_object_addprop(obj, "bytes", ClientResponse::prop_bytes);
+        pxs_object_addprop(obj, "text", ClientResponse::prop_text);
+        return pxs_newhost(obj);
     }
 
     pxs_VarT ClientResponse::prop_version(pxs_VarT args) {
@@ -337,7 +365,41 @@ namespace yoyo::net {
         pxs_object_addfunc(object, "set_header", Client::set_header);
         pxs_object_addprop(object, "body", Client::prop_body);
         pxs_object_addprop(object, "version", Client::prop_version);
+        pxs_object_addprop(object, "domain", Client::prop_domain);
+        pxs_object_addfunc(object, "make_request", Client::make_request);
+        return pxs_newhost(object);
+    }
 
+    // Get the headers from a pxs_VarT
+    std::map<std::string, std::string> get_headers(pxs_VarT rt, pxs_VarT arg) {
+        std::map<std::string, std::string> result;
+        // loop through values
+        for (int i = 0; i < pxs_listlen(arg); i++) {
+            // Get string values if strings
+            auto item = pxs_listget(arg, i);
+            if (!pxs_varis(item, pxs_List)) {
+                continue;
+            }
+
+            // Get key, value
+            auto key_arg = pxs_smart_getstring(rt, pxs_listget(item, 0));
+            if (!key_arg) {
+                continue;
+            }
+            std::string key(key_arg);
+            pxs_freestr(key_arg);
+
+            auto value_arg = pxs_smart_getstring(rt, pxs_listget(item, 1));
+            if (!value_arg) {
+                continue;
+            }
+            std::string value(value_arg);
+            pxs_freestr(value_arg);
+
+            result[key] = value;
+        }
+
+        return result;
     }
 
     pxs_VarT Client::prop_headers(pxs_VarT args) {
@@ -345,18 +407,26 @@ namespace yoyo::net {
         if (!self) {
             return yoyo::utils::exceptions::expected_self(pxs_arg(args, 0));
         }
+        auto argc = pxs_argc(args);
+        if (argc == 1) {
+            // Return headers
+            auto headers = self->data.headers;
+            auto result = pxs_newlist();
 
-        auto headers = self->data.headers;
-        auto result = pxs_newlist();
-
-        for (const auto& [key, value] : headers) {
-            auto it = pxs_newlist();
-            pxs_listadd(it, pxs_newstring(key.c_str()));
-            pxs_listadd(it, pxs_newstring(value.c_str()));
-            pxs_listadd(result, it);
+            for (const auto& [key, value] : headers) {
+                auto it = pxs_newlist();
+                pxs_listadd(it, pxs_newstring(key.c_str()));
+                pxs_listadd(it, pxs_newstring(value.c_str()));
+                pxs_listadd(result, it);
+            }
+            return result;
+        } else if (argc == 2) {
+            // Set headers
+            auto headers = pxs_arg(args, 1);
+            self->data.headers = get_headers(pxs_getrt(args), headers);
         }
 
-        return result;
+        return pxs_newnull();
     }
 
     pxs_VarT Client::get_header(pxs_VarT args) {
@@ -433,40 +503,130 @@ namespace yoyo::net {
         }
         
         if (argc == 2) {
-            self->data.version = static_cast<HttpVersion>(pxs_getint(pxs_arg(args, 1)));
+            auto v = pxs_getint(pxs_arg(args, 1));
+            if (v > -1) {
+                self->data.version = static_cast<HttpVersion>(v);
+            }
         }
 
         return pxs_newnull();
     }
 
-        // // @self
-        // // @prop(get,set)
-        // // Version
-        // // args:
-        // //  - version: @set `int` the http version to use.
-        // //
-        // // returns `int`|`null`
-        // static pxs_VarT prop_version(pxs_VarT args);
+    pxs_VarT Client::prop_domain(pxs_VarT args) {
+        auto self = yoyo::utils::pxs::get_type<Client>(args, 0, yoyo::types::NET_Client);
+        if (!self) {
+            return yoyo::utils::exceptions::expected_self(pxs_arg(args, 0));
+        }
 
-        // // @self
-        // // @prop(get,set)
-        // // Domain name
-        // // args:
-        // //  - dn: @set `string` the domain name.
-        // //
-        // // returns `string`|`null`
-        // static pxs_VarT prop_domain(pxs_VarT args);
+        auto argc = pxs_argc(args);
+        if (argc == 1) {
+            return pxs_newstring(self->data.domain_name.c_str());
+        }
 
-        // // @except
-        // // @self
-        // // Make a request
-        // // args:
-        // //  - url: `string` the url to make the request to.
-        // //  - rt: `RequestType` the request type to send.
-        // //
-        // // returns `string`
-        // static pxs_VarT make_request(pxs_VarT args);
+        if (argc == 2) {
+            auto domain_var = pxs_arg(args, 1);
+            std::string domain(pxs_varsize(domain_var) / sizeof(char), '\0');
+            pxs_smart_copystring(pxs_getrt(args), domain_var, domain.data());
 
+            self->data.domain_name = domain;
+        }
+
+        return pxs_newnull();
+    }
+
+    pxs_VarT Client::make_request(pxs_VarT args) {
+        auto self = yoyo::utils::pxs::get_type<Client>(args, 0, yoyo::types::NET_Client);
+        if (!self) {
+            return yoyo::utils::exceptions::expected_self(pxs_arg(args, 0));
+        }
+        // If not already!
+        self->setup();
+
+        // Get the URL
+        auto url_arg = pxs_arg(args, 1);
+        if (!pxs_varis(url_arg, pxs_String)) {
+            return pxs_newexception("Expected URL to be string.");
+        }
+        std::string url(pxs_varsize(url_arg) / sizeof(char), '\0');
+        pxs_copybytes(url_arg, static_cast<pxs_Opaque>(url.data()));
+
+        // Get the request type
+        auto request_t = static_cast<RequestType>(pxs_getint(pxs_arg(args, 2)));
+
+        auto client_response = self->create_request(url, request_t);
+        if (!client_response) {
+            return pxs_newnull();
+        }
+
+        return client_response->into_pxs();
+    }
+
+    // Get domain name and path from a pxs_VarT url
+    std::array<std::string, 2> get_domain_and_path(pxs_VarT rt, pxs_VarT url) {
+        std::array<std::string, 2> result({"", ""});
+        // Split by calling script code
+        auto arena = pxs_newarena();
+        auto rt = pxs_arenaput(arena, pxs_newint(1)); 
+        auto hpargs = pxs_arenaput(arena, pxs_newlist());
+        pxs_listadd(hpargs, pxs_newcopy(url));
+        auto request_paths = pxs_arenaput(arena, pxs_call(rt, "yoyo_net_get_host_and_path", hpargs));
+        // Result will be [string, string]
+        auto domain_c = pxs_arena_putstr(arena, pxs_smart_getstring(rt, pxs_listget(request_paths, 0)));
+        auto path_c = pxs_arena_putstr(arena, pxs_smart_getstring(rt, pxs_listget(request_paths, 1)));
+        if (domain_c) {
+            result[0] = domain_c;
+        }
+        if (path_c) {
+            result[1] = path_c;
+        }
+        // Free memory.
+        pxs_freearena(arena);
+
+        return result;
+    }
+
+    pxs_VarT get(pxs_VarT args) {
+        // Check URL
+        auto argc = pxs_argc(args);
+        if (argc == 0) {
+            return pxs_newexception("Expected URL");
+        }
+
+        auto paths = get_domain_and_path(pxs_getrt(args), pxs_arg(args, 0));
+
+        auto client = Client::new_client(nullptr);
+        // pxs_list
+        pxs_freevar(pxs_hostcall(client, Client::prop_domain, pxs_argsadd(pxs_argsadd(pxs_newargs(), pxs_newstring("test")), "test 2")));
+        // pxs_freevar(pxs::call(Client::prop_domain, {client, paths[0]}));
+        // pxs_freevar(pxs::call(Client::prop_headers, {client, pxs_arg(args, 1)}));
+        // pxs_freevar(pxs::call(Client::prop_version, {client, pxs_arg(args, 2)}));
+
+        auto result = pxs::call(Client::make_request, {client, paths[1], static_cast<int>(RequestType::GET)});
+        pxs_freevar(client);
+        
+        return result;
+    }
+
+    pxs_VarT post(pxs_VarT args) {
+        // Check URL
+        auto argc = pxs_argc(args);
+        if (argc == 0) {
+            return pxs_newexception("Expected URL");
+        }
+
+        auto paths = get_domain_and_path(pxs_getrt(args), pxs_arg(args, 0));
+
+        auto client = Client::new_client(nullptr);
+        pxs_freevar(pxs::call(Client::prop_domain, {client, paths[0]}));
+        pxs_freevar(pxs::call(Client::prop_body, {client, pxs_arg(args, 1)}));
+        pxs_freevar(pxs::call(Client::prop_headers, {client, pxs_arg(args, 2)}));
+        pxs_freevar(pxs::call(Client::prop_version, {client, pxs_arg(args, 3)}));
+
+        auto result = pxs::call(Client::make_request, {client, paths[1], static_cast<int>(RequestType::POST)});
+        pxs_freevar(client);
+        
+        return result;
+    }
 
     void init(pxs_Module* yoyo_mod) {
         auto net_mod = pxs_newmod("net");
@@ -477,6 +637,9 @@ namespace yoyo::net {
 
         auto client_mod = pxs_newmod("client");
 
+        pxs_addobject(client_mod, "Client", Client::new_client);
+        pxs_addfunc(client_mod, "get", get);
+        pxs_addfunc(client_mod, "post", post);
 
         pxs_add_submod(net_mod, client_mod);
         pxs_add_submod(yoyo_mod, net_mod);

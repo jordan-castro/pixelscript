@@ -57,6 +57,10 @@ namespace yoyo::net {
         // @private
         int status;
 
+        // @private
+        // Convert into its pxs type
+        pxs_VarT into_pxs();
+
         // @self
         // @prop(get)
         // The HTTP version.
@@ -93,10 +97,6 @@ namespace yoyo::net {
         void* internal;
         
         // @private
-        // The data to create a response with.
-        ResponseData data;
-
-        // @private
         // Use HTTPS. Defaults to true.
         bool use_https = true;
         
@@ -107,6 +107,9 @@ namespace yoyo::net {
     public:
         Client() {}
         ~Client();
+        // @private
+        // The data to create a response with.
+        ResponseData data;
         // @private
         // Setup the native connection
         void setup();
@@ -198,6 +201,7 @@ namespace yoyo::net {
     // Make a HTTP Post request.
     // args:
     //  - url: `string` the url to request to.
+    //  - body: `string` the body to send.
     //  - headers: @opt `[][]string` the headers to apply.
     //  - version: @opt `int` the HTTP version to use.
     //

@@ -1,16 +1,17 @@
-use etffi::ptr_magic::PtrMagic;
+use etffi::{free_raw_string, ptr_magic::PtrMagic};
 
 use crate::{shared::{var::{pxs_Var, pxs_VarT}}};
 
 #[allow(non_camel_case_types)]
 /// A memory arena for `pxs_Var`s.
 pub struct pxs_PixelArena {
-    vars: Vec<pxs_VarT>
+    vars: Vec<pxs_VarT>,
+    strings: Vec<*mut core::ffi::c_char>
 }
 
 impl pxs_PixelArena {
     pub fn new() -> pxs_PixelArena {
-        pxs_PixelArena { vars: Vec::new() }
+        pxs_PixelArena { vars: Vec::new(), strings: Vec::new() }
     }
 
     /// Add a new `pxs_Var` for arena tracking
@@ -30,6 +31,11 @@ impl pxs_PixelArena {
     pub fn num_of_args(&self) -> usize {
         self.vars.len()
     }
+
+    /// Add a new `char*` for arena tracking.
+    pub fn alloc_str(&mut self, string: *mut core::ffi::c_char) {
+        self.strings.push(string);
+    }
 }
 
 impl PtrMagic for pxs_PixelArena {}
@@ -44,5 +50,10 @@ impl Drop for pxs_PixelArena {
             let _ = pxs_Var::from_raw(v);
         }
         self.vars.clear();
+
+        for s in self.strings.drain(0..self.strings.len()) {
+            unsafe { free_raw_string!(s) };
+        }
+        self.strings.clear();
     }
 }

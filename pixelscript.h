@@ -478,41 +478,16 @@ void pxs_object_addprop(struct pxs_PixelObject *ptr,
                         pxs_Func callback);
 
 /**
- * Add a object to a Module.
- *
- * This essentially makes it so that when constructing this Module, this object is instanced.
- * This works by adding a public factory function with the type name. But the type name
- * is mangled (_module_typename).
- *
- * In Lua:
- * ```lua
- * -- Let's say we have a object "Person"
- * local p = Person("Jordan", 23)
- * p:set_name("Jordan Castro")
- * local name = p:get_name()
- *
- * -- Although you could also do
- * local p = Person("Jordan", 23)
- * p.set_name(p, "Jordan") -- You get the idea
- * ```
- *
- * In Python:
- * ```python
- * p = Person("Jordan", 23)
- * # use '.' instead of ':'
- * # etc
- * ```
- *
- * In JS the same as Python and Lua:
- * ```js
- * let p = Person("Jordan", 23);
- * // Same as Python
- * // etc
- * ```
+ * Add a object constructor to a module. This is the same as calling `pxs_addfunc`. Only named differently to distinguish
+ * when a function should be treated as a Object or a Function in your code.
+ * It is not required to call this function in order to expose a `pxs_HostObject` to a module. Any functoin that returns a `pxs_HostObject`
+ * will expose the object.
  *
  * module_ptr:BORROW
  */
-void pxs_addobject(struct pxs_Module *module_ptr, const char *name, pxs_Func object_constructor);
+void pxs_addobject(struct pxs_Module *module_ptr,
+                   const char *name,
+                   pxs_Func object_constructor);
 
 /**
  * Make a new Var string.
@@ -907,7 +882,9 @@ pxs_VarT pxs_var_fromname(pxs_VarT rt, const char *name);
 /**
  * Remove a item from a list at a specific index.
  *
- * Returns true for success, false for failed
+ * Returns true for success, false for failed.
+ *
+ * This will automatically call `pxs_freevar` on the found item.
  *
  * list:BORROW
  */
@@ -1046,11 +1023,29 @@ void pxs_freearena(struct pxs_PixelArena *arena);
 /**
  * Add a `pxs_VarT` to a `pxs_PixelArena`. Upon freeing the Arena, the variable is freed aswell.
  *
+ * A variable must only be added once.
+ *
  * arena:BORROW
  * var:TRANSFER
  * result:BORROW
  */
 pxs_VarT pxs_arenaput(struct pxs_PixelArena *arena, pxs_VarT var);
+
+/**
+ * Add a `char*` to a `pxs_PixelArena`. Upon freeing the Arena, the string is freed aswell.
+ *
+ * This must be a string allocated by pixelscript. Either in:
+ * - `pxs_getstring`
+ * - `pxs_smart_getstring`
+ * - `pxs_debugstate`
+ *
+ * A string must only be added once.
+ *
+ * arena:BORROW
+ * str:TRANSFER
+ * result:BORROW
+ */
+char *pxs_arena_putstr(struct pxs_PixelArena *arena, char *str);
 
 /**
  * Debug state info.
@@ -1189,6 +1184,13 @@ pxs_VarT pxs_json_encode(pxs_VarT rt,
  */
 pxs_VarT pxs_json_decode(pxs_VarT rt,
                          pxs_VarT args);
+
+/**
+ * Initialize the `pxs_mem` module.
+ *
+ * This needs to be called in each new thread too. Should only be called once per thread.
+ */
+void pxs_meminit(void);
 
 #ifdef __cplusplus
 }  // extern "C"

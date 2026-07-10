@@ -54,9 +54,8 @@
     - `pxs_copybytes` copies a list of items as good as possible (this is unsafe) because a list can have a float and bool
         anywyas, it copies the bytes into a void*
     - `pxs_varsize` get the size (in bytes) of a `pxs_VarT` 
-    - `pxs_copystring` copy a `pxs_String` into a *char without allocations.
     - `pxs_smart_getstring` get a *char from a `pxs_VarT` IF IT is not a string it will call `pxs_tostring` and handle the memory automatically.
-    - `pxs_smart_copystring` does the same as `pxs_smart_getstring` but does not allocate the final *char.
+    - `pxs_arena_putstr` puts a `char*` from pixelscript into a arena. Gets freed when `pxs_freearena` is called.
 - Added `yoyo` core modules. (behind feature flag.)
     - `yoyo`
     - `yoyo.os`
