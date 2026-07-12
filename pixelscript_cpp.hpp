@@ -388,13 +388,12 @@ namespace pxs {
         double,
         bool,
         pxs_VarT,
-        std::vector<pxs_VarT>,
-        pxs::Var
+        std::vector<pxs_VarT>
     >;
 
     // Convert a PXSVariant into a pxs_VarT
     [[nodiscard]] inline pxs_VarT from_variant(const PXSVariant& v) {
-        std::visit([](auto&& arg) {
+        return std::visit([](auto&& arg) -> pxs_VarT {
             using T = std::decay_t<decltype(arg)>;
             if constexpr (std::is_same_v<T, std::string>) {
                 return pxs_newstring(arg.c_str());
@@ -414,8 +413,6 @@ namespace pxs {
                 return list.raw();
             } else if constexpr (std::is_same_v<T, pxs_VarT>) {
                 return arg;
-            } else if constexpr (std::is_same_v<T, pxs::Var>) {
-                return arg.raw();
             } else {
                 return pxs_newnull();
             }

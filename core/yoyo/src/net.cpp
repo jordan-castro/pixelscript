@@ -2,7 +2,7 @@
 
 #include "net.hpp"
 #include <pixelscript_cpp.hpp>
-#include "types.hpp"
+#include "utils/types.hpp"
 #include "utils/debug.hpp"
 #include "utils/bytes.hpp"
 #include "utils/strutils.hpp"
@@ -12,6 +12,8 @@
 #include "utils/exceptions.hpp"
 #include <stdexcept>
 #include <array>
+#include <sstream>
+#include <iostream>
 
 #if defined(_WIN32)
 // Windows native IMPL. Uses WinHTTP.
@@ -309,6 +311,15 @@ namespace yoyo::net {
         #endif
     }
 
+    std::vector<std::string> Client::get_header_parts() {
+        std::vector<std::string> res;
+        for (const auto& [key, value] : this->data.headers) {
+            auto full_str = key + ":\t" + value;
+            res.push_back(full_str);
+        }
+        return res;
+    }
+
     pxs_VarT ClientResponse::into_pxs() {
         auto obj = pxs_newtype(static_cast<pxs_Opaque>(this), free_client_response, "ClientResponse", yoyo::types::NET_ClientResponse);
         pxs_object_addprop(obj, "version", ClientResponse::prop_version);
@@ -344,7 +355,7 @@ namespace yoyo::net {
 
         // Convert response into bytes
         auto response = self->data.body;
-        return yoyo::utils::bytes::make_byte_list(response.data(), response.size());
+        return pxs_newbytes(static_cast<pxs_Opaque>(response.data()), sizeof(char), response.size());
     }
 
     pxs_VarT ClientResponse::prop_text(pxs_VarT args) {
@@ -360,13 +371,13 @@ namespace yoyo::net {
         // Create a new client
         auto client = new Client();
         auto object = pxs_newtype(static_cast<pxs_Opaque>(client), free_client, "Client", yoyo::types::NET_Client);
-        pxs_object_addprop(object, "headers", Client::prop_headers);
-        pxs_object_addfunc(object, "get_header", Client::get_header);
-        pxs_object_addfunc(object, "set_header", Client::set_header);
-        pxs_object_addprop(object, "body", Client::prop_body);
-        pxs_object_addprop(object, "version", Client::prop_version);
-        pxs_object_addprop(object, "domain", Client::prop_domain);
-        pxs_object_addfunc(object, "make_request", Client::make_request);
+        pxs_object_addprop(object, "headers", &Client::prop_headers);
+        pxs_object_addfunc(object, "get_header", &Client::get_header);
+        pxs_object_addfunc(object, "set_header", &Client::set_header);
+        pxs_object_addprop(object, "body", &Client::prop_body);
+        pxs_object_addprop(object, "version", &Client::prop_version);
+        pxs_object_addprop(object, "domain", &Client::prop_domain);
+        pxs_object_addfunc(object, "make_request", &Client::make_request);
         return pxs_newhost(object);
     }
 
@@ -562,25 +573,37 @@ namespace yoyo::net {
     }
 
     // Get domain name and path from a pxs_VarT url
-    std::array<std::string, 2> get_domain_and_path(pxs_VarT rt, pxs_VarT url) {
+    std::array<std::string, 2> get_domain_and_path(pxs_VarT url) {
         std::array<std::string, 2> result({"", ""});
-        // Split by calling script code
-        auto arena = pxs_newarena();
-        auto rt = pxs_arenaput(arena, pxs_newint(1)); 
-        auto hpargs = pxs_arenaput(arena, pxs_newlist());
-        pxs_listadd(hpargs, pxs_newcopy(url));
-        auto request_paths = pxs_arenaput(arena, pxs_call(rt, "yoyo_net_get_host_and_path", hpargs));
-        // Result will be [string, string]
-        auto domain_c = pxs_arena_putstr(arena, pxs_smart_getstring(rt, pxs_listget(request_paths, 0)));
-        auto path_c = pxs_arena_putstr(arena, pxs_smart_getstring(rt, pxs_listget(request_paths, 1)));
-        if (domain_c) {
-            result[0] = domain_c;
+
+        auto cstr = pxs_getstring(url);
+        if (!cstr) {
+            return result;
         }
-        if (path_c) {
-            result[1] = path_c;
+
+        std::stringstream Url(cstr);
+        std::vector<std::string> paths;
+        std::string token;
+        pxs_freestr(cstr);
+
+        while (std::getline(Url, token, '/')) {
+            paths.push_back(token);
         }
-        // Free memory.
-        pxs_freearena(arena);
+
+        if (paths.size() >= 3) {
+            result[0] = paths[2];
+            
+            if (paths.size() > 3) {
+                std::string path;
+                for (int i = 3; i < paths.size(); i++) {
+                    path += paths[i];
+                    if (i < paths.size() - 1) {
+                        path += "/";
+                    }
+                }
+                result[1] = path;
+            }
+        }
 
         return result;
     }
@@ -592,14 +615,12 @@ namespace yoyo::net {
             return pxs_newexception("Expected URL");
         }
 
-        auto paths = get_domain_and_path(pxs_getrt(args), pxs_arg(args, 0));
+        auto paths = get_domain_and_path(pxs_arg(args, 0));
 
         auto client = Client::new_client(nullptr);
-        // pxs_list
-        pxs_freevar(pxs_hostcall(client, Client::prop_domain, pxs_argsadd(pxs_argsadd(pxs_newargs(), pxs_newstring("test")), "test 2")));
-        // pxs_freevar(pxs::call(Client::prop_domain, {client, paths[0]}));
-        // pxs_freevar(pxs::call(Client::prop_headers, {client, pxs_arg(args, 1)}));
-        // pxs_freevar(pxs::call(Client::prop_version, {client, pxs_arg(args, 2)}));
+        pxs_freevar(pxs::call(Client::prop_domain, {client, paths[0]}));
+        pxs_freevar(pxs::call(Client::prop_headers, {client, pxs_arg(args, 1)}));
+        pxs_freevar(pxs::call(Client::prop_version, {client, pxs_arg(args, 2)}));
 
         auto result = pxs::call(Client::make_request, {client, paths[1], static_cast<int>(RequestType::GET)});
         pxs_freevar(client);
@@ -614,7 +635,7 @@ namespace yoyo::net {
             return pxs_newexception("Expected URL");
         }
 
-        auto paths = get_domain_and_path(pxs_getrt(args), pxs_arg(args, 0));
+        auto paths = get_domain_and_path(pxs_arg(args, 0));
 
         auto client = Client::new_client(nullptr);
         pxs_freevar(pxs::call(Client::prop_domain, {client, paths[0]}));

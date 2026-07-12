@@ -22,61 +22,6 @@ fn build_pixelscript_h() {
         .write_to_file(output_file);
 }
 
-/// Build PH7 library
-#[cfg(feature = "php")]
-fn build_ph7() {
-    let mut build = cc::Build::new();
-    build.warnings(false);
-
-    // Add source
-    build.file("libs/ph7/ph7.c");
-    // Add header location
-    build.include("libs/ph7");
-
-    let builder = std::env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
-
-    if builder == "msvc" {
-        build.flag("/Ox");
-        build.flag("/fp:fast");
-        // Compile as a static lib
-        build.static_crt(true);
-    } else {
-        // GCC/Clang
-        build.flag("-Wunused");
-        build.flag("-Ofast");
-    }
-
-    build.compile("ph7");
-}
-
-/// Build bindings for ph7
-#[cfg(feature = "php")]
-fn build_ph7_bindings() {
-    let mut builder = bindgen::Builder::default()
-        .header("libs/ph7/ph7.h")
-        .clang_arg("-libs/ph7")
-        .default_enum_style(bindgen::EnumVariation::Rust {
-            non_exhaustive: false,
-        })
-        .size_t_is_usize(true)
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()));
-
-    // add GNU libs
-    for arg in find_gnu_include_path() {
-        builder = builder.clang_arg(arg);
-    }
-
-    let bindings = builder
-        .generate()
-        .expect("Unable to build Pocketpy rust bindings");
-
-    // Write bindings
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-    bindings
-        .write_to_file(out_path.join("ph7_bindings.rs"))
-        .expect("Couldn't write ph7 bindings!");
-}
-
 #[cfg(feature = "lua")]
 fn build_lua(target_os: &str, target_env: &str) {
     let mut build = cc::Build::new();
@@ -182,11 +127,63 @@ fn build_quickjsng(_target_os: &str, target_env: &str) {
     build.compile("quickjs");
 }
 
+/// Build the yoyo core.
+#[cfg(feature="yoyo")]
+fn build_yoyo(_target_os: &str, target_env: &str) {
+    let mut build = cc::Build::new();
+    build.warnings(false);
+    build.cpp(true);
+
+    // Always incldue the libs
+    build.include("core/yoyo/include");
+    build.include("core/yoyo/lib");
+    build.include("./");
+    build.file("core/yoyo/src/yoyo.cpp");
+    build.file("core/yoyo/src/utils/exceptions.cpp");
+
+    #[cfg(feature="yoyo_os")] 
+    {
+        build.file("core/yoyo/src/os.cpp");
+        build.define("YOYO_OS", None);
+    }
+    #[cfg(feature="yoyo_net")]
+    {
+        build.file("core/yoyo/src/net.cpp");
+        build.define("YOYO_NET", None);
+    }
+    #[cfg(feature="yoyo_shell")]
+    {
+        build.file("core/yoyo/src/shell.cpp");
+        build.define("YOYO_SHELL", None);
+    }
+    #[cfg(feature="yoyo_core")]
+    {
+        build.define("YOYO_CORE", None);
+    }
+    #[cfg(feature="yoyo_fs")]
+    {
+        build.file("core/yoyo/src/fs.cpp");
+        build.define("YOYO_FS", None);
+    }
+    #[cfg(feature="yoyo_zip")]
+    {
+        build.file("core/yoyo/src/zip.cpp");
+        build.define("YOYO_ZIP", None);
+    }
+
+    if target_env == "msvc" {
+        build.static_crt(true);
+        build.flag("/EHsc");
+    }
+    build.std("c++17");
+    build.compile("yoyo");
+}
+
 /// Create PocketPy Rust bindings
 #[cfg(feature = "python")]
 fn build_pocketpy_bindings() {
-    // If using gcc on windows, we might need to find the gcc include paths
-    // let include_paths =
+    // This might be a problem when using GCC on windows.
+    // I don't, but if anyone requires this please apply a solution if it does not work currently.
 
     let builder = bindgen::Builder::default()
         .header("libs/pocketpy/pocketpy.h")
@@ -203,10 +200,6 @@ fn build_pocketpy_bindings() {
         .allowlist_var("py_.*")
         .allowlist_function("pxspython_.*")
         .allowlist_var("PXSPYTHON_.*");
-
-    // for arg in find_gnu_include_path() {
-    //     builder = builder.clang_arg(arg);
-    // }
 
     let bindings = builder
         .generate()
@@ -271,6 +264,25 @@ fn build_lua_bindings() {
         .expect("Couldn't write Lua-5.5.0 bindings!");
 }
 
+#[cfg(feature = "yoyo")]
+/// Build yoyo bindings
+fn build_yoyo_bindings() {
+    let bindings = bindgen::Builder::default()
+        .header("core/yoyo/include/yoyo.hpp")
+        .clang_arg("-I.")
+        .clang_arg("-xc++")
+        .clang_arg("-std=c++17")
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+        .allowlist_function("yoyo_.*")
+        .allowlist_var("yoyo_.*")
+        .allowlist_type("yoyo_.*")
+        .generate()
+        .expect("Could not generate yoyo bindings");
+    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    bindings.write_to_file(out_path.join("yoyo_bindings.rs"))
+        .expect("Couldn't write yoyo bindings!");
+}
+
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     build_pixelscript_h();
@@ -311,12 +323,13 @@ fn main() {
         println!("cargo:rerun-if-changed=libs/quickjs-ng/quickjs.h");
     }
 
-    // Compile PH7
-    #[cfg(feature = "php")]
+    // Compile yoyo
+    #[cfg(feature = "yoyo")]
     {
-        build_ph7();
-        build_ph7_bindings();
-        println!("cargo:rerun-if-changed=libs/ph7/ph7.c");
-        println!("cargo:rerun-if-changed=libs/ph7/ph7.h");
+        build_yoyo(&target_os, &target_env);
+        build_yoyo_bindings();
+        println!("cargo:rerun-if-changed=core/yoyo/src");
+        println!("cargo:rerun-if-changed=core/yoyo/include");
+        println!("cargo:rerun-if-changed=core/yoyo/lib");
     }
 }

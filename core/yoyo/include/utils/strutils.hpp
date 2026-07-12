@@ -34,7 +34,7 @@ namespace yoyo::utils::str {
 
     #ifdef _WIN32
     // Convert a std::string into a wide string.
-    std::wstring to_wstring(std::string_view utf8_str) {
+    inline std::wstring to_wstring(std::string_view utf8_str) {
         if (utf8_str.empty()) {
             return L"";
         }

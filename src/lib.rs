@@ -42,6 +42,8 @@ pub mod shared;
 
 #[cfg(feature = "include-core")]
 pub mod pxs_core;
+#[cfg(feature = "yoyo")]
+pub mod yoyo;
 #[cfg(feature = "js")]
 pub mod js;
 #[cfg(feature = "lua")]
@@ -2113,10 +2115,10 @@ pub extern "C" fn pxs_newbytes(data: pxs_Opaque, el_size: usize, size: usize) ->
     let ptr = data as *mut u8;
     let total_bytes = el_size * size;
     let raw_bytes: &mut [u8] = unsafe { core::slice::from_raw_parts_mut(ptr, total_bytes) };
-    
+
     let mut list = vec![];
     for i in raw_bytes {
-        list.push(pxs_Var::new_u64(i.clone() as u64));
+        list.push(pxs_Var::new_byte(i.clone()));
     }
 
     pxs_Var::new_list_with(list).into_raw()
@@ -2171,6 +2173,10 @@ pub extern "C" fn pxs_copybytes(var: pxs_VarT, data_ptr: pxs_Opaque) {
 pub extern "C" fn pxs_copystring(var: pxs_VarT, str_ptr: *mut c_char) {
     pxs_debug!("pxs_copystring");
     assert_initiated!();
+
+    if !pxs_varis(var, pxs_VarType::pxs_String) {
+        return;
+    }
 
     pxs_copybytes(var, str_ptr as pxs_Opaque);
 }
@@ -2237,6 +2243,21 @@ pub extern "C" fn pxs_smart_copystring(rt: pxs_VarT, str: pxs_VarT, str_ptr: *mu
     // Free
     if !string_var_ptr.is_null() {
         pxs_freevar(string_var_ptr);
+    }
+}
+
+/// Get the `pxs_VarType` of a `pxs_VarT`
+///
+/// var:BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_vartype(var: pxs_VarT) -> pxs_VarType {
+    pxs_debug!("pxs_vartype");
+    assert_initiated!();
+
+    if var.is_null() {
+        pxs_VarType::pxs_Null
+    } else {
+       unsafe { (*var).tag }
     }
 }
 
@@ -2308,6 +2329,21 @@ pub extern "C" fn pxs_meminit() {
         pxs_core::pxs_mem::init();
     }, {
         panic!("pxs_mem is not enabled.");
+    });
+}
+
+/// Intialize the `yoyo` modules.
+/// 
+/// This should be called for every thread that wants to use it. Should only be called once per thread.
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_yoyoinit() {
+    pxs_debug!("pxs_yoyoinit");
+    assert_initiated!();
+
+    with_feature!("yoyo", {
+        unsafe { yoyo::yoyo::yoyo_init() };
+    }, {
+        panic!("yoyo is not enabled.");
     });
 }
 

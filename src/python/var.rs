@@ -311,6 +311,9 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
                 }
 
                 // All good dayo!
+            },
+            pxs_VarType::pxs_Byte => {
+                pocketpy::py_newint(out, var.get_byte().unwrap() as i64);
             }
         }
     }

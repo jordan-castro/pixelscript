@@ -51,6 +51,10 @@ typedef enum pxs_VarType {
    * always default to `pxs_Object`. Does not support all `pxs_VarType`s.
    */
   pxs_Map,
+  /**
+   * Holds 1 byte of memory (u8).
+   */
+  pxs_Byte,
 } pxs_VarType;
 
 /**
@@ -242,6 +246,7 @@ typedef union pxs_VarValue {
   void *function_val;
   struct pxs_FactoryHolder *factory_val;
   struct pxs_VarMap *map_val;
+  uint8_t byte_val;
 } pxs_VarValue;
 
 /**
@@ -267,6 +272,7 @@ typedef void (*pxs_DeleterFn)(void*);
  * - Map
  * - Factory (a function that is run on the fly and its result is treated as a variable.)
  * - Exception
+ * - byte (u8)
  *
  * When working with objects you must use the C-api:
  * ```c
@@ -1158,6 +1164,13 @@ void pxs_smart_copystring(pxs_VarT rt,
                           char *str_ptr);
 
 /**
+ * Get the `pxs_VarType` of a `pxs_VarT`
+ *
+ * var:BORROW
+ */
+enum pxs_VarType pxs_vartype(pxs_VarT var);
+
+/**
  * Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.
  * Transfers ownership of args.
  * Basically calls the runtime.pxs_json.encode() function.
@@ -1191,6 +1204,13 @@ pxs_VarT pxs_json_decode(pxs_VarT rt,
  * This needs to be called in each new thread too. Should only be called once per thread.
  */
 void pxs_meminit(void);
+
+/**
+ * Intialize the `yoyo` modules.
+ *
+ * This should be called for every thread that wants to use it. Should only be called once per thread.
+ */
+void pxs_yoyoinit(void);
 
 #ifdef __cplusplus
 }  // extern "C"

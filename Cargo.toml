@@ -25,8 +25,6 @@ default = ["lua", "python", "js", "include-core", "js_commonjs"]
 lua = []
 # Include Python scripting. Via pocketpy
 python = []
-# Include PHP scripting. v5.3 Via PH7
-php = []
 # luajit uses the same lua engine but with JIT flags
 luajit = []
 js = []
@@ -47,6 +45,16 @@ pxs_mem = []
 pxs-debug = []
 
 testing = []
+
+# Yoyo
+yoyo = []
+yoyo_full = ["yoyo", "yoyo_core", "yoyo_os", "yoyo_fs", "yoyo_shell", "yoyo_net", "yoyo_zip"]
+yoyo_core = []
+yoyo_os = []
+yoyo_fs = []
+yoyo_shell = []
+yoyo_net = []
+yoyo_zip = []
 
 [profile.release]
 opt-level = "z"

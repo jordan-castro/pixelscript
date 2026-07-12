@@ -5,6 +5,7 @@
 #include <map>
 #include <string>
 #include <cstdint>
+#include <vector>
 
 namespace yoyo::net {
     // 

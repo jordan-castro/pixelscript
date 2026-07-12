@@ -32,4 +32,7 @@ namespace yoyo::utils::exceptions {
         std::string msg = std::string("Expected " + expected_types + ", found " + found_type + " instead.");
         return pxs_newexception(msg.c_str());
     }
+    pxs_VarT invalid_enum() {
+        return pxs_newexception("Invalid enum value");
+    }
 };

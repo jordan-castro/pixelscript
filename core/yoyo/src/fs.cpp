@@ -11,7 +11,7 @@
 #include "utils/strutils.hpp"
 #include "utils/debug.hpp"
 #include <system_error>
-#include "types.hpp"
+#include "utils/types.hpp"
 #include "utils/exceptions.hpp"
 #include <iterator>
 
@@ -28,19 +28,16 @@ namespace yoyo::fs {
 
     // Create the `File` object with all it's methods.
     pxs_VarT create_file_object(File* file) {
-        auto wrapper = new pxs::type::Wrapper(static_cast<pxs_Opaque>(file), free_file, yoyo::types::FS_FILE_TYPE);
-        auto obj = pxs::Object(static_cast<pxs_Opaque>(wrapper), pxs::type::free_wrapper, "File");
-
-        obj.add_method("read", &File::read);
-        obj.add_method("write", &File::write);
-        obj.add_method("append", &File::append);
-        obj.add_method("close", &File::close);
-        obj.add_method("remove", &File::remove);
-        obj.add_method("save", &File::save);
-        obj.add_property("path", &File::get_path);
-        obj.add_property("open_type", &File::get_open_type);
-
-        return obj.make().raw();
+        auto obj = pxs_newtype(static_cast<pxs_Opaque>(file), free_file, "File", yoyo::types::FS_FILE_TYPE);
+        pxs_object_addfunc(obj, "read", &File::read);
+        pxs_object_addfunc(obj, "write", &File::write);
+        pxs_object_addfunc(obj, "append", &File::append);
+        pxs_object_addfunc(obj, "close", &File::close);
+        pxs_object_addfunc(obj, "remove", &File::remove);
+        pxs_object_addfunc(obj, "save", &File::save);
+        pxs_object_addprop(obj, "path", &File::get_path);
+        pxs_object_addprop(obj, "open_type", &File::get_open_type);
+        return pxs_newhost(obj);
     }
 
     File::~File() {
@@ -72,16 +69,12 @@ namespace yoyo::fs {
 
         this->stream = std::fstream(path, mode);
         this->created = false;
-
-        File::ext_type = yoyo::types::FS_FILE_TYPE;
     }
 
     File::File() {
         this->created = true;
         FileOpenType ot = FileOpenType::Read | FileOpenType::Write | FileOpenType::Append;
         this->opentype = ot;
-
-        File::ext_type = yoyo::types::FS_FILE_TYPE;
     }
 
     pxs_VarT File::create(pxs_VarT args) {
@@ -93,17 +86,29 @@ namespace yoyo::fs {
     
     pxs_VarT File::open(pxs_VarT args) {
         // Get path and maybe open_type
-        auto argc = PXS_ARGC();
+        auto argc = pxs_argc(args);
         std::string path;
         FileOpenType ot = FileOpenType::Read;
         if (argc >= 1) {
-            auto path_arg = pxs::Var::from_args(args, 0);
-            PXS_ARG_IS_TYPE(path_arg.raw(), pxs_String);
-            path = path_arg.get_string();
+            // Get string path or return exception
+            auto path_arg = pxs_arg(args, 0);
+            if (path_arg && pxs_varis(path_arg, pxs_String)) {
+                auto path_c = pxs_getstring(path_arg);
+                path = std::string(path_c);
+                pxs_freestr(path_c);
+            } else {
+                return pxs_newexception("Expected path:String");
+            }
+            // Get open type if passed. No exception unless invalid index.
             if (argc >= 2) {
-                auto ot_arg = pxs::Var::from_args(args, 1);
-                PXS_ARG_IS_TYPE(ot_arg.raw(), pxs_Int64);
-                ot = static_cast<FileOpenType>(ot_arg.get_uint());
+                auto ot_arg = pxs_arg(args, 1);
+                auto ot_int = pxs_getint(ot_arg);
+                if (ot_int > 1) {
+                    return pxs_newexception("Expected valid FileReadType.");
+                }
+                if (ot_int != -1) {
+                    ot = static_cast<FileOpenType>(ot_int);
+                }
             }
         } else {
             return utils::exceptions::expected_nm(argc, 1);
@@ -121,7 +126,7 @@ namespace yoyo::fs {
     }
 
     pxs_VarT File::read(pxs_VarT args) {
-        auto self = File::self(PXS_ARG(0));
+        auto self = static_cast<File*>(pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), yoyo::types::FS_FILE_TYPE));
         if (!self) {
             return utils::exceptions::expected_self(PXS_ARG(0));
         }
@@ -148,13 +153,13 @@ namespace yoyo::fs {
             std::string text(contents.begin(), contents.end());
             return pxs_newstring(text.c_str());
         } else {
-            return yoyo::utils::bytes::make_byte_list(contents);
+            return pxs_newbytes(static_cast<pxs_Opaque>(contents.data()), sizeof(char), contents.size());
         }
     }
 
     pxs_VarT File::write(pxs_VarT args) {
         PXS_ARGC_EQ(2); // self, data
-        auto self = File::self(PXS_ARG(0));
+        auto self = static_cast<File*>(pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), yoyo::types::FS_FILE_TYPE));
         if (!self) {
             return utils::exceptions::expected_self(PXS_ARG(0));
         }
@@ -169,11 +174,22 @@ namespace yoyo::fs {
 
         if (data.is(pxs_String)) {
             auto str = data.get_string();
-            bytes = std::vector<char>(bytes.begin(), bytes.end());
+            bytes = std::vector<char>(str.begin(), str.end());
         } else if (data.is(pxs_List)) {
-            bytes = utils::bytes::convert_list_into<char>(data.raw());
+            bytes.resize(pxs_varsize(data.raw()));
+            pxs_copybytes(data.raw(), static_cast<pxs_Opaque>(bytes.data()));
         } else {
             return utils::exceptions::expected_types(data.raw()->tag, {pxs_String, pxs_List});
+        }
+
+        // Check if path exists.
+        // If not, create it.
+        std::filesystem::path parent_path = std::filesystem::path(self->path).parent_path();
+        if (!std::filesystem::exists(parent_path)) {
+            auto res = pxs::call(create_dir, {parent_path.string(), static_cast<int>(CreateDirMode::All)});
+            if (pxs_varis(res, pxs_Exception)) {
+                return res;
+            }
         }
 
         self->stream.write(reinterpret_cast<const char*>(bytes.data(), bytes.size()), bytes.size());
@@ -183,13 +199,7 @@ namespace yoyo::fs {
 
     pxs_VarT File::append(pxs_VarT args) {
         PXS_ARGC_EQ(2); // self, data
-        auto self = File::self(PXS_ARG(0));
-        if (!self) {
-            return utils::exceptions::expected_self(PXS_ARG(0));
-        }
-
-        PXS_ARGC_EQ(2); // self, data
-        auto self = File::self(PXS_ARG(0));
+        auto self = static_cast<File*>(pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), yoyo::types::FS_FILE_TYPE));
         if (!self) {
             return utils::exceptions::expected_self(PXS_ARG(0));
         }
@@ -204,9 +214,9 @@ namespace yoyo::fs {
 
         if (data.is(pxs_String)) {
             auto str = data.get_string();
-            bytes = std::vector<char>(bytes.begin(), bytes.end());
+            bytes = std::vector<char>(str.begin(), str.end());
         } else if (data.is(pxs_List)) {
-            bytes = utils::bytes::convert_list_into<char>(data.raw());
+            pxs_copybytes(data.raw(), static_cast<pxs_Opaque>(bytes.data()));
         } else {
             return utils::exceptions::expected_types(data.raw()->tag, {pxs_String, pxs_List});
         }
@@ -217,7 +227,7 @@ namespace yoyo::fs {
     }
 
     pxs_VarT File::close(pxs_VarT args) {
-        auto self = File::self(PXS_ARG(0));
+        auto self = static_cast<File*>(pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), yoyo::types::FS_FILE_TYPE));
         if (!self) {
             return utils::exceptions::expected_self(PXS_ARG(0));
         }
@@ -235,7 +245,7 @@ namespace yoyo::fs {
     }
 
     pxs_VarT File::remove(pxs_VarT args) {
-        auto self = File::self(PXS_ARG(0));
+        auto self = static_cast<File*>(pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), yoyo::types::FS_FILE_TYPE));
         if (!self) {
             return utils::exceptions::expected_self(PXS_ARG(0));
         }
@@ -257,7 +267,7 @@ namespace yoyo::fs {
 
     pxs_VarT File::save(pxs_VarT args) {
         PXS_ARGC_EQ(2); // self, path to save to.
-        auto self = File::self(PXS_ARG(0));
+        auto self = static_cast<File*>(pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), yoyo::types::FS_FILE_TYPE));
         if (!self) {
             return utils::exceptions::expected_self(PXS_ARG(0));
         }
@@ -277,7 +287,7 @@ namespace yoyo::fs {
 
     pxs_VarT File::get_path(pxs_VarT args) {
         PXS_ARGC_EQ(1); // self
-        auto self = File::self(PXS_ARG(0));
+        auto self = static_cast<File*>(pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), yoyo::types::FS_FILE_TYPE));
         if (!self) {
             return utils::exceptions::expected_self(PXS_ARG(0));
         }
@@ -287,7 +297,7 @@ namespace yoyo::fs {
 
     pxs_VarT File::get_open_type(pxs_VarT args) {
         PXS_ARGC_EQ(1); // self
-        auto self = File::self(PXS_ARG(0));
+        auto self = static_cast<File*>(pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), yoyo::types::FS_FILE_TYPE));
         if (!self) {
             return utils::exceptions::expected_self(PXS_ARG(0));
         }
@@ -400,11 +410,11 @@ namespace yoyo::fs {
 
         std::error_code ec;
         if (crmode == CreateDirMode::All) {
-            std::filesystem::create_directory(path, ec);
-        } else if (crmode == CreateDirMode::Single) {
             std::filesystem::create_directories(path, ec);
+        } else if (crmode == CreateDirMode::Single) {
+            std::filesystem::create_directory(path, ec);
         } else {
-            return pxs_newexception("Please provide a valid createmore.");
+            return pxs_newexception("Please provide a valid createmode.");
         }
 
         if (ec) {
@@ -434,6 +444,15 @@ namespace yoyo::fs {
         pxs_addfunc(_fs, "is_dir", is_dir);
         pxs_addfunc(_fs, "create", &File::create);
         pxs_addfunc(_fs, "open", &File::open);
+        pxs_addvar(_fs, "FILE_READ_TYPE_TEXT", pxs_newint(static_cast<int>(FileReadType::Text)));
+        pxs_addvar(_fs, "FILE_READ_TYPE_BYTES", pxs_newint(static_cast<int>(FileReadType::Bytes)));
+        pxs_addvar(_fs, "CREATE_DIR_MODE_ALL", pxs_newint(static_cast<int>(CreateDirMode::All)));
+        pxs_addvar(_fs, "CREATE_DIR_MODE_SINGLE", pxs_newint(static_cast<int>(CreateDirMode::Single)));
+        pxs_addvar(_fs, "DIR_REMOVE_TYPE_EMPTY", pxs_newint(static_cast<int>(DirRemoveType::Empty)));
+        pxs_addvar(_fs, "DIR_REMOVE_TYPE_ALL", pxs_newint(static_cast<int>(DirRemoveType::All)));
+        pxs_addvar(_fs, "FILE_OPEN_TYPE_READ", pxs_newint(static_cast<int>(FileOpenType::Read)));
+        pxs_addvar(_fs, "FILE_OPEN_TYPE_WRITE", pxs_newint(static_cast<int>(FileOpenType::Write)));
+        pxs_addvar(_fs, "FILE_OPEN_TYPE_APPEND", pxs_newint(static_cast<int>(FileOpenType::Append)));
 
         pxs_add_submod(yoyo, _fs);
     }

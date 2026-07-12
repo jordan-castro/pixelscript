@@ -14,4 +14,6 @@ namespace yoyo::utils::exceptions {
     pxs_VarT expected_type(pxs_VarType found, pxs_VarType expected);
     // Expected `type` or ... found `type`.
     pxs_VarT expected_types(pxs_VarType found, const std::vector<pxs_VarType>& expected);
+    // Invalid enum value
+    pxs_VarT invalid_enum();
 };

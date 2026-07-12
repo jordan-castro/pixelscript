@@ -88,6 +88,8 @@ pub enum pxs_VarType {
     /// A Map Type that ONLY goes from PixelScript to scripting language. You will NEVER receive a Map from a scripting language. It will
     /// always default to `pxs_Object`. Does not support all `pxs_VarType`s.
     pxs_Map,
+    /// Holds 1 byte of memory (u8).
+    pxs_Byte,
 }
 
 /// A `Object` in pixelscript is wrapped with a potential host_ptr. This allows for non language specific ref counting.
@@ -389,6 +391,7 @@ pub union pxs_VarValue {
     pub function_val: *mut c_void,
     pub factory_val: *mut pxs_FactoryHolder,
     pub map_val: *mut pxs_VarMap,
+    pub byte_val: u8
 }
 
 #[allow(non_camel_case_types)]
@@ -418,6 +421,7 @@ pub unsafe extern "C" fn default_deleter(_ptr: *mut c_void) {
 /// - Map
 /// - Factory (a function that is run on the fly and its result is treated as a variable.)
 /// - Exception
+/// - byte (u8)
 ///
 /// When working with objects you must use the C-api:
 /// ```c
@@ -658,7 +662,8 @@ impl pxs_Var {
                     res.push_str("}");
 
                     res
-                }
+                },
+                pxs_VarType::pxs_Byte => self.value.byte_val.to_string()
             };
 
             details
@@ -675,7 +680,8 @@ impl pxs_Var {
             function_val,
             *mut c_void,
             pxs_VarType::pxs_Function
-        )
+        ),
+        (get_byte, byte_val, u8, pxs_VarType::pxs_Byte)
     );
 
     // $t:ty, $func:ident, $vt:expr, $vn:ident
@@ -683,7 +689,8 @@ impl pxs_Var {
         i64, new_i64, pxs_VarType::pxs_Int64, i64_val;
         u64, new_u64, pxs_VarType::pxs_UInt64, u64_val;
         f64, new_f64, pxs_VarType::pxs_Float64, f64_val;
-        bool, new_bool, pxs_VarType::pxs_Bool, bool_val
+        bool, new_bool, pxs_VarType::pxs_Bool, bool_val;
+        u8, new_byte, pxs_VarType::pxs_Byte, byte_val
     }
 
     write_is_methods! {
@@ -699,7 +706,8 @@ impl pxs_Var {
         is_function, pxs_VarType::pxs_Function;
         is_factory, pxs_VarType::pxs_Factory;
         is_exception, pxs_VarType::pxs_Exception;
-        is_map, pxs_VarType::pxs_Map
+        is_map, pxs_VarType::pxs_Map;
+        is_byte, pxs_VarType::pxs_Byte
     }
 
     /// Do a shallow copy on this variable.
@@ -775,6 +783,7 @@ impl pxs_Var {
                     // Follows a similar structure to pxs_List shallow copy
                     Self::new(pxs_VarType::pxs_Map, pxs_VarValue{map_val: map.into_raw()}, default_deleter)
                 },
+                pxs_VarType::pxs_Byte => self.clone()
             }
         }
     }
@@ -805,7 +814,8 @@ impl pxs_Var {
                     size += item.get_size();
                 }
                 size
-            }
+            },
+            pxs_VarType::pxs_Byte => 1,
             _ => 0
         }
     }
@@ -850,6 +860,10 @@ impl pxs_Var {
                         byte_offset += item.copy_bytes(ptr.add(byte_offset));
                     }
                 },
+                pxs_VarType::pxs_Byte => {
+                    let val = self.get_byte().unwrap().to_ne_bytes();
+                    core::ptr::copy_nonoverlapping(val.as_ptr(), ptr, size);
+                }
                 _ => {
                     return 0;
                 }
@@ -999,6 +1013,9 @@ impl Clone for pxs_Var {
                     // Follows a similar structure to pxs_List cloning
                     Self::new(pxs_VarType::pxs_Map, pxs_VarValue{map_val: map.into_raw()}, default_deleter)
                 }
+                pxs_VarType::pxs_Byte => {
+                    pxs_Var::new_byte(self.value.byte_val)
+                }
             }
         }
     }
@@ -1048,6 +1065,12 @@ impl PartialEq for pxs_Var {
                 (pxs_VarType::pxs_Factory, _) => false,
                 (pxs_VarType::pxs_Exception, _) => false,
                 (pxs_VarType::pxs_Map, _) => false,
+                (pxs_VarType::pxs_Byte, pxs_VarType::pxs_Byte) => {
+                    self.value.byte_val == other.value.byte_val
+                },
+                (pxs_VarType::pxs_Byte, _) => {
+                    false
+                }
             }
         }
     }
@@ -1064,6 +1087,7 @@ impl Hash for pxs_Var {
                 pxs_VarType::pxs_String => self.get_string().unwrap_or(String::new()).hash(state),
                 pxs_VarType::pxs_Bool => self.value.bool_val.hash(state),
                 pxs_VarType::pxs_Float64 => self.value.f64_val.to_bits().hash(state),
+                pxs_VarType::pxs_Byte => self.value.byte_val.hash(state),
                 _ => panic!("Can not Hash none basic pxs_VarType")
             }
         }

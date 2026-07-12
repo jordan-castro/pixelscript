@@ -168,5 +168,8 @@ pub(super) fn pxs_into_js(context: *mut quickjs::JSContext, var: &pxs_Var) -> Px
             
             Ok(object)
         },
+        crate::shared::var::pxs_VarType::pxs_Byte => {
+            Ok(SmartJSValue::new_i32(context, var.get_byte()? as i32))
+        },
     }
 }

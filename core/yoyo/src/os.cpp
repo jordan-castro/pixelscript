@@ -24,15 +24,11 @@ namespace yoyo::os {
         return pxs_newnull();
     }
 
-    void init(pxs_Module* yoyo, int argc, char* argv[]) {
+    void init(pxs_Module* yoyo, pxs_VarT argv) {
         auto yoyo_os = pxs_newmod("os");
 
         // Add argv
-        auto argv_list = pxs::Var::new_list();
-        for (int i = 0; i < argc; i++) {
-            argv_list.add(pxs_newstring(argv[i]));
-        }
-        pxs_addvar(yoyo_os, "argv", argv_list.raw());
+        pxs_addvar(yoyo_os, "argv", argv);
 
         pxs_addfunc(yoyo_os, "get_cwd", get_cwd);
         pxs_addfunc(yoyo_os, "ch_dir", ch_dir);

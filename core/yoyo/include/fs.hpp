@@ -15,8 +15,8 @@ namespace yoyo::fs {
     // Pass this as the final argument in `read_file` to return bytes or text.
     // Defaults to Text
     enum class FileReadType : uint8_t {
-        Bytes,
-        Text
+        Bytes = 0,
+        Text = 1
     };
 
     // Pass this as the final argument in `open_file` to open as Read, Write, or Append
@@ -41,21 +41,21 @@ namespace yoyo::fs {
     // Pass this as the final argument in `remove_dir` to either remove only empty components or all components.
     // Defaults to Empty.
     enum class DirRemoveType : uint8_t {
-        Empty,
-        All
+        Empty = 0,
+        All = 1
     };
 
     // Pass this as the final argument in `create_dir` to except on creating more than one internal directory.
     // Defaults to `Single`
     enum class CreateDirMode : uint8_t {
-        Single,
-        All
+        Single = 0,
+        All = 1
     };
 
     // Wraps a `ifstream` or `ofstream` depending on `FileOpenType`.
     // Use this when memory needs to be explicit.
     // `read_file` and `write_file` use `File` internally.
-    class File : public pxs::type::Extension<File> {
+    class File {
         // @private
         // File path
         std::string path;

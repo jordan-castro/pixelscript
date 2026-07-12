@@ -70,8 +70,7 @@ void yoyo_init() {
     #endif // YOYO_CORE
 
     #ifdef YOYO_OS
-    // TODO(jc) make OS use rust callbacks.
-    // yoyo::os::init(yoyo, argc, argv);
+    // yoyo::os::init(yoyo, argv);
     #endif // YOYO_OS
 
     #ifdef YOYO_PXS

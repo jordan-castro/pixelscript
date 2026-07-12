@@ -53,6 +53,7 @@ features = ""
 defaults = True
 debug = False
 run_clear = False
+yoyo = False
 
 for arg in argv:
     if "target" in arg:
@@ -69,6 +70,8 @@ for arg in argv:
         debug = True
     elif arg == "clear":
         run_clear = True
+    elif arg == "yoyo":
+        yoyo = True
     elif arg == "help":
         print("""PixelScript script/build.py usage
 Arguments:
@@ -78,6 +81,7 @@ Arguments:
 - debug; a debug build
 - clear; clear the cache
 - help; print this message
+- yoyo; include the yoyo_full
 """)
         exit(0)
 
@@ -90,7 +94,12 @@ if target:
     cmd += [target]
 if not defaults:
     cmd += ["--no-default-features"]
-if len(features) > 0:
+if len(features) > 0 or yoyo:
+    if yoyo:
+        features = features.split(",") + ["yoyo_full"]
+        features = ",".join(features)
+        if features[0] == ',':
+            features = features[1:]
     cmd += ["--features", f'"{features}"']
 # cmd += features
 

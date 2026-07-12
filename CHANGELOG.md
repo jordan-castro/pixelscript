@@ -48,7 +48,6 @@
 - renamed `core` to `pxs_core`.
 - added `pxs_arg` to be shorthand for `pxs_listget(args, i - 1)`
 - Added `pxs_getrt` to be shorthand for `pxs_listget(args, 0)`
-- Automatically init `pxs_mem` if enabled.
 - Added memory helpers:
     - `pxs_newbytes` which creates a list of u8s from a void* of size and element size.
     - `pxs_copybytes` copies a list of items as good as possible (this is unsafe) because a list can have a float and bool
@@ -56,6 +55,8 @@
     - `pxs_varsize` get the size (in bytes) of a `pxs_VarT` 
     - `pxs_smart_getstring` get a *char from a `pxs_VarT` IF IT is not a string it will call `pxs_tostring` and handle the memory automatically.
     - `pxs_arena_putstr` puts a `char*` from pixelscript into a arena. Gets freed when `pxs_freearena` is called.
+    - `pxs_Byte` to hold 1 byte of memory. 
+    - `pxs_vartype` get the variable type.
 - Added `yoyo` core modules. (behind feature flag.)
     - `yoyo`
     - `yoyo.os`
@@ -64,5 +65,4 @@
     - `yoyo.zip`
     - `yoyo.fs`
 - Added `test_bytes.rs`
-- Added `test_str.rs`
 - Added `test_yoyo.rs`

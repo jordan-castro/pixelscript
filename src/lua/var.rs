@@ -182,6 +182,9 @@ pub(super) fn push_lua_stack(var: &pxs_Var) -> PxsRes<i32> {
                     lua_settable(L, table);
                 }
             },
+            pxs_VarType::pxs_Byte => {
+                lua::lua_pushinteger(L, var.get_byte()? as i64);
+            }
         }
 
         Ok(lua_gettop(L))
