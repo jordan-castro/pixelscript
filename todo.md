@@ -43,20 +43,29 @@
     - what else needs to go here?
 - Benchmarks
 - Add `name` to exceptions. Make it default to `Error` to be backwards compat.
-- Remove `pxs_PixelArena` just use `pxs_List`.
+- Update how when adding child modules to a module it changes the names correctly. (Only do this at final pxs_addmod).
+- Add more `pxs` core modules
+    - rename `pxs_json` `pxs.json`
+    - rename `pxs_mem`  `pxs.mem`
+    - add `pxs.os`
+    - add `pxs.fs`
+    - add `pxs.shell`
+    - add `pxs.zip`
+    - add `pxs.net`
+    - Important caveat with core modules: THEY MUST NOT USE ANY CRATES! So zip and net are written in C++.
+- Add android build support in `build.py`
+- Fix child modules naming.
+    - Should be renamed when adding module to another module type thingy.
 
 ## v0.7 Wasm and Dynamic Language support
-- Add Wren support
+- Add Wren support as a dynamic language (C++)
 - Add `dynamic` language support meaning a host language can add its own bindings backend that interops perfectly with Pxs.
     - This will be useful when a developer wants to create a custom DSL.
 - WASM support + Wasm web page similar to pocketpy live playground.
+- Add PHP support as a dynamic language (C++) (this is just for funsies)
 
 ## v0.8 Cross language
 - Cross language support. Calling JS from Python, Lua from JS, Python from JS, etc.
-
-<!-- ## v0.7 Size Reduction -->
-<!-- - Remove mlua (use raw lua c files instead) -->
-<!-- - Attempting to get pixelscript runtime (not language libraries) <= 10mb -->
 
 ## LSP
 - Remove ModuleCallbacks just use Function

@@ -79,8 +79,7 @@ Here is a "Hello World" example supporting Lua, Python, and JavaScript.
 
 // Define a simple `println` function.
 pxs_VarT println(pxs_VarT args) {
-    // Get contents (0 is always Runtime)
-    pxs_VarT contents_var = pxs_listget(args, 1);
+    pxs_VarT contents_var = pxs_arg(args, 0);
     // We are assuming this is a string.
     char* contents_str = pxs_getstring(contents_var);
 
@@ -97,7 +96,7 @@ int main() {
     pxs_Module* main = pxs_newmod("main");
 
     // Add callbacks
-    pxs_addfunc(main, "println", println, NULL);
+    pxs_addfunc(main, "println", println);
 
     // Add module
     pxs_addmod(main);
@@ -118,14 +117,28 @@ int main() {
     const char* python_script = "import main\n"
                                 "main.println('Hello World from Python')\n";
 
-    char* error = pxs_exec(pxs_Python, python_script, "<ctest>");
-    pxs_freestr(error);
+    pxs_VarT error = pxs_exec(pxs_Python, python_script, "<ctest>");
+    // Check error
+    if (!pxs_varis(error, pxs_Null)) {
+        char* msg = pxs_getstring(error);
+        printf("%s", msg);
+        pxs_freestr(msg);
+    }
+    pxs_freevar(error);
 
     // JavaScript
     const char* js_script = "import * as main from 'main';\n"
                             "main.println('Hello World from JavaScript!');";
-    char* error = pxs_exec(pxs_JavaScript, js_script, "<ctest>");
-    pxs_freestr(error);
+    pxs_VarT error = pxs_exec(pxs_JavaScript, js_script, "<ctest>");
+    // Check error
+    if (!pxs_varis(error, pxs_Null)) {
+        char* msg = pxs_getstring(error);
+        printf("%s", msg);
+        pxs_freestr(msg);
+    }
+    pxs_freevar(error);
+
+    // All set!
 
     pxs_finalize();
 
@@ -135,7 +148,6 @@ int main() {
 
 ## Used in
 - Pixel Ai Dash
-- [Yoyo](https://github.com/jordan-castro/yoyo)
 
 <!-- ## Future -->
 <!-- This will ideally be used by all future epochtech games since it allows for modding in multiple languages. 

@@ -776,9 +776,9 @@ struct pxs_Var *pxs_varcall(struct pxs_Var *runtime,
                             struct pxs_Var *args);
 
 /**
- * Copy the pxs_Var.
+ * Move ownership of value from `item`.
  *
- * Memory is handled by caller
+ * `item` still needs to be managed by whoever owns it. But the `deleter` is moved.
  *
  * item:BORROW
  * return:OWNED
