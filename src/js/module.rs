@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use etffi::{borrow_string, cstring::CStringSafe};
 
 use crate::{js::{JSModuleMethod, SmartJSValue, create_callback, get_js_state, pxs_into_js, quickjs}, pxs_debug, shared::module::pxs_Module};
