@@ -6,13 +6,14 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
-// cargo test --test test_yoyo --no-default-features --features "lua,python,js,testing,yoyo_full" -- --nocapture --test-threads=1
+
+// cargo test --test test_pxs_core --no-default-features --features "lua,python,js,testing,include-core" -- --nocapture --test-threads=1
 
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
     use pixelscript::{
-        pxs_finalize, pxs_freearena, pxs_initialize, pxs_newarena, pxs_newmod, pxs_yoyoinit, shared::{module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT},
+        pxs_finalize, pxs_freearena, pxs_initialize, pxs_newarena, pxs_newmod, pxs_core_initall, shared::{module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT},
     };
     use etffi::{cstring::CStringSafe, borrow_string, create_raw_string, free_raw_string, own_string, ptr_magic::PtrMagic};
 
@@ -42,9 +43,7 @@ mod tests {
     fn run_test() {
         println!();
         pxs_initialize();
-        // utils::setup_pxs();
-        pxs_yoyoinit();
-
+        pxs_core_initall();
 
         print_helper("core");
         test_core();

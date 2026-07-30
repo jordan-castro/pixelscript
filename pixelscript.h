@@ -1201,16 +1201,58 @@ pxs_VarT pxs_json_decode(pxs_VarT rt,
 /**
  * Initialize the `pxs_mem` module.
  *
- * This needs to be called in each new thread too. Should only be called once per thread.
+ * THREAD_LOCAL
  */
 void pxs_meminit(void);
 
 /**
- * Intialize the `yoyo` modules.
+ * Initialize the `pxs` module.
  *
- * This should be called for every thread that wants to use it. Should only be called once per thread.
+ * THREAD_LOCAL
  */
-void pxs_yoyoinit(void);
+void pxs_pxsinit(void);
+
+/**
+ * Initialize the `pxs_os` module.
+ *
+ * THREAD_LOCAL REQUIRES_STD
+ */
+void pxs_osinit(void);
+
+/**
+ * Initialize the `pxs_fs` module.
+ *
+ * THREAD_LOCAL REQUIRES_STD
+ */
+void pxs_fsinit(void);
+
+/**
+ * Initialize the `pxs_shell` module.
+ *
+ * THREAD_LOCAL REQUIRES_STD
+ */
+void pxs_shellinit(void);
+
+/**
+ * Initialize the `pxs_zip` module.
+ *
+ * THREAD_LOCAL
+ */
+void pxs_zipinit(void);
+
+/**
+ * Initialize the `pxs_net` module.
+ *
+ * THREAD_LOCAL
+ */
+void pxs_netinit(void);
+
+/**
+ * Initialize all the `pxs_core` modules.
+ *
+ * THREAD_LOCAL REQUIRES_STD
+ */
+void pxs_core_initall(void);
 
 #ifdef __cplusplus
 }  // extern "C"

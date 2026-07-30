@@ -31,6 +31,9 @@ for t in included_tests:
     if not line.startswith("//"):
         continue
 
+    # To easily find when it fails.
+    print(f"Starting =={t}==")
+    
     # Get cmd
     command = line.split("// ")[-1]
     if use_miri:

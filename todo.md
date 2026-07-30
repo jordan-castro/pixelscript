@@ -45,17 +45,18 @@
 - Add `name` to exceptions. Make it default to `Error` to be backwards compat.
 - Update how when adding child modules to a module it changes the names correctly. (Only do this at final pxs_addmod).
 - Add more `pxs` core modules
-    - rename `pxs_json` `pxs.json`
-    - rename `pxs_mem`  `pxs.mem`
-    - add `pxs.os`
-    - add `pxs.fs`
-    - add `pxs.shell`
-    - add `pxs.zip`
-    - add `pxs.net`
+    - add `pxs_os`    Rust
+    - add `pxs_fs`    Rust
+    - add `pxs_shell` Rust
+    - add `pxs_zip`   C++
+    - add `pxs_net`   C++
+    - add `pxs_yaml`  C++
     - Important caveat with core modules: THEY MUST NOT USE ANY CRATES! So zip and net are written in C++.
 - Add android build support in `build.py`
+- Add `zigbuild` support in `build.py`
 - ~~Fix child modules naming.~~
     - ~~Should be renamed when adding module to another module type thingy.~~
+- ~~Remove `c_tests`~~
 
 ## v0.7 Wasm and Dynamic Language support
 - Add Wren support as a dynamic language (C++)

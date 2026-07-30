@@ -57,16 +57,18 @@
     - `pxs_arena_putstr` puts a `char*` from pixelscript into a arena. Gets freed when `pxs_freearena` is called.
     - `pxs_Byte` to hold 1 byte of memory. 
     - `pxs_vartype` get the variable type.
-- Added `yoyo` core modules. (behind feature flag.)
-    - `yoyo`
-    - `yoyo.os`
-    - `yoyo.net`
-    - `yoyo.shell`
-    - `yoyo.zip`
-    - `yoyo.fs`
+- Added more `pxs` core modules. (behind feature flag.)
+    - `pxs`
+    - `pxs_os`
+    - `pxs_net`
+    - `pxs_shell`
+    - `pxs_zip`
+    - `pxs_fs`
+    - `pxs_yaml`
 - Added `test_bytes.rs`
 - Added `test_yoyo.rs`
 - removed `php` support. (Was never completed and it just got in the way.) I will add it back as a optional C++ module in 0.8
 - Added `tst_exception_in_chunk.rs`
 - Updated doc comment for `pxs_newcopy` to be explicit about how the deleter is moved.
 - Fixed module naming for grandchildren.
+- Removed `c_tests` directory

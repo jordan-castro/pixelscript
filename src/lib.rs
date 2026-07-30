@@ -8,10 +8,12 @@
 //
 
 // Doc comment convention:
-// OWNED: the host/caller owns the value and must free it.
-// TRANSFER: the value is transfered from host to library.
-// BORROW: the value is borrowed by the library.
-// NULLABLE: means the value can be NULL.
+// OWNED        : the host/caller owns the value and must free it.
+// TRANSFER     : the value is transfered from host to library.
+// BORROW       : the value is borrowed by the library.
+// NULLABLE     : means the value can be NULL.
+// THREAD_LOCAL : means the function should only be called once per thread.
+// REQUIRES_STD : means that if using `no_std` the function will crash.
 
 use etffi::{borrow_string, create_raw_string, cstring::CStringSafe, free_raw_string, ptr_magic::PtrMagic};
 use shared::{func::pxs_Func, var::pxs_Var};
@@ -2318,7 +2320,7 @@ pub extern "C" fn pxs_json_decode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
 
 /// Initialize the `pxs_mem` module.
 /// 
-/// This needs to be called in each new thread too. Should only be called once per thread.
+/// THREAD_LOCAL
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_meminit() {
     pxs_debug!("pxs_meminit");
@@ -2331,19 +2333,87 @@ pub extern "C" fn pxs_meminit() {
     });
 }
 
-/// Intialize the `yoyo` modules.
+/// Initialize the `pxs` module.
 /// 
-/// This should be called for every thread that wants to use it. Should only be called once per thread.
+/// THREAD_LOCAL
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_yoyoinit() {
-    pxs_debug!("pxs_yoyoinit");
-    assert_initiated!();
-
-    with_feature!("yoyo", {
-        unsafe { yoyo::yoyo::yoyo_init() };
-    }, {
-        panic!("yoyo is not enabled.");
-    });
+pub extern "C" fn pxs_pxsinit() {
+    pxs_debug!()
 }
+
+/// Initialize the `pxs_os` module.
+/// 
+/// THREAD_LOCAL REQUIRES_STD
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_osinit() {
+    pxs_debug!("pxs_osinit");
+    assert_initiated!();
+}
+
+/// Initialize the `pxs_fs` module.
+/// 
+/// THREAD_LOCAL REQUIRES_STD
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_fsinit() {
+    pxs_debug!("pxs_fsinit");
+    assert_initiated!();
+}
+
+/// Initialize the `pxs_shell` module.
+/// 
+/// THREAD_LOCAL REQUIRES_STD
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_shellinit() {
+    pxs_debug!("pxs_shellinit");
+    assert_initiated!();
+}
+
+/// Initialize the `pxs_zip` module.
+/// 
+/// THREAD_LOCAL
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_zipinit() {
+    pxs_debug!("pxs_zipinit");
+    assert_initiated!();
+}
+
+/// Initialize the `pxs_net` module.
+/// 
+/// THREAD_LOCAL
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_netinit() {
+    pxs_debug!("pxs_netinit");
+    assert_initiated!();
+}
+
+/// Initialize all the `pxs_core` modules.
+/// 
+/// THREAD_LOCAL REQUIRES_STD
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_core_initall() {
+    pxs_debug!("pxs_core_initall");
+    assert_initiated!();
+    pxs_meminit();
+    pxs_osinit();
+    pxs_fsinit();
+    pxs_shellinit();
+    pxs_zipinit();
+    pxs_netinit();
+}
+
+// /// Intialize the `yoyo` modules.
+// /// 
+// /// This should be called for every thread that wants to use it. Should only be called once per thread.
+// #[unsafe(no_mangle)]
+// pub extern "C" fn pxs_yoyoinit() {
+//     pxs_debug!("pxs_yoyoinit");
+//     assert_initiated!();
+
+//     with_feature!("yoyo", {
+//         unsafe { yoyo::yoyo::yoyo_init() };
+//     }, {
+//         panic!("yoyo is not enabled.");
+//     });
+// }
 
 // ====================================== Core functions End =========================================
