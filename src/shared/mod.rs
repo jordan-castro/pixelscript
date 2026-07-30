@@ -170,7 +170,7 @@ pub trait PixelScript {
     fn stop();
 
     /// Add a global module to the runtime.
-    fn add_module(source: Arc<module::pxs_Module>);
+    fn add_module(source: &module::pxs_Module);
 
     /// Execute a script in this runtime.
     fn execute(code: &str, file_name: &str) -> PxsResult;

@@ -43,7 +43,7 @@ pub struct pxs_Module {
     /// Variables that need to be added.
     pub variables: Vec<ModuleVariable>,
     /// Internal modules
-    pub modules: Vec<Arc<pxs_Module>>
+    pub modules: Vec<pxs_Module>
 }
 
 /// Wraps a idx with a name.
@@ -98,8 +98,18 @@ impl pxs_Module {
         });
     }
 
+    /// Append the parent name to child.
+    fn add_parent_name(&mut self, parent_name: &str) {
+        self.name = format!("{parent_name}.{}", self.get_name());
+        for child in self.modules.iter_mut() {
+            child.add_parent_name(&self.name);
+        }
+    }
+
     /// Add a internal module.
-    pub fn add_module(&mut self, child: Arc<pxs_Module>) {
+    pub fn add_module(&mut self, mut child: pxs_Module) {
+        child.add_parent_name(&self.name);
+
         self.modules.push(child);
     }
 

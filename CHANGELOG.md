@@ -69,3 +69,4 @@
 - removed `php` support. (Was never completed and it just got in the way.) I will add it back as a optional C++ module in 0.8
 - Added `tst_exception_in_chunk.rs`
 - Updated doc comment for `pxs_newcopy` to be explicit about how the deleter is moved.
+- Fixed module naming for grandchildren.

@@ -316,7 +316,7 @@ impl PixelScript for JSScripting {
         clear(get_js_state());
     }
 
-    fn add_module(source: std::sync::Arc<crate::shared::module::pxs_Module>) {
+    fn add_module(source: &crate::shared::module::pxs_Module) {
         let state = get_js_state();
         unsafe {
             // let modules = state.modules.borrow();
@@ -326,7 +326,7 @@ impl PixelScript for JSScripting {
                 return;
             }
         }
-        module::add_module(get_context(state), &source);
+        module::add_module(get_context(state), source);
     }
 
     fn execute(code: &str, file_name: &str) -> PxsResult {

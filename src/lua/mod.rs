@@ -343,7 +343,7 @@ fn remove_variables_from_table(state: *mut State, table: i32, map: &pxs_VarMap) 
 pub struct LuaScripting;
 
 impl PixelScript for LuaScripting {
-    fn add_module(source: std::sync::Arc<crate::shared::module::pxs_Module>) {
+    fn add_module(source: &crate::shared::module::pxs_Module) {
         let state = get_lua_state();
         let res = module::add_module(state, source);
         if res.is_err() {

@@ -66,7 +66,7 @@ pub(super) fn preload_lua_module(L: *mut lua::lua_State, code: &str, name: &str)
     Ok(())
 }
 
-pub(super) fn add_module(state: *mut State, module: Arc<pxs_Module>) -> PxsRes<()> {
+pub(super) fn add_module(state: *mut State, module: &pxs_Module) -> PxsRes<()> {
     let mut engine = Engine::from_state(state);
 
     // Create module table
@@ -107,7 +107,7 @@ pub(super) fn add_module(state: *mut State, module: Arc<pxs_Module>) -> PxsRes<(
     drop(engine);
 
     for child in module.modules.iter() {
-        add_module(state, Arc::clone(&child))?;
+        add_module(state, &child)?;
     }
 
     Ok(())

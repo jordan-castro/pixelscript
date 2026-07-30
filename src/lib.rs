@@ -341,10 +341,9 @@ pub extern "C" fn pxs_add_submod(parent_ptr: *mut pxs_Module, child_ptr: *mut px
 
     let parent = unsafe { pxs_Module::from_borrow(parent_ptr) };
     // Own child
-    let mut child = pxs_Module::from_raw(child_ptr);
-    child.name = format!("{}.{}", parent.name, child.name);
+    let child = pxs_Module::from_raw(child_ptr);
 
-    parent.add_module(Arc::new(child));
+    parent.add_module(child);
 
     // Child is now owned by parent
 }
@@ -363,17 +362,17 @@ pub extern "C" fn pxs_addmod(module_ptr: *mut pxs_Module) {
         return;
     }
 
-    let module = Arc::new(pxs_Module::from_raw(module_ptr));
+    let module = pxs_Module::from_raw(module_ptr);
 
     // LUA
     with_feature!("lua", {
-        LuaScripting::add_module(Arc::clone(&module));
+        LuaScripting::add_module(&module);
     });
     with_feature!("python", {
-        PythonScripting::add_module(Arc::clone(&module));
+        PythonScripting::add_module(&module);
     });
     with_feature!("js", {
-        JSScripting::add_module(Arc::clone(&module));
+        JSScripting::add_module(&module);
     });
 
     // Module gets dropped here, and that is good!

@@ -436,8 +436,8 @@ impl PixelScript for PythonScripting {
         clear(get_py_state());
     }
 
-    fn add_module(source: std::sync::Arc<crate::shared::module::pxs_Module>) {
-        create_module(&source);
+    fn add_module(source: &crate::shared::module::pxs_Module) {
+        create_module(source);
     }
 
     fn execute(code: &str, file_name: &str) -> PxsResult {

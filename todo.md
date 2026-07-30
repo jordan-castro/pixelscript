@@ -54,8 +54,8 @@
     - add `pxs.net`
     - Important caveat with core modules: THEY MUST NOT USE ANY CRATES! So zip and net are written in C++.
 - Add android build support in `build.py`
-- Fix child modules naming.
-    - Should be renamed when adding module to another module type thingy.
+- ~~Fix child modules naming.~~
+    - ~~Should be renamed when adding module to another module type thingy.~~
 
 ## v0.7 Wasm and Dynamic Language support
 - Add Wren support as a dynamic language (C++)

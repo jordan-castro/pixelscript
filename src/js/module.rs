@@ -34,7 +34,7 @@ unsafe extern "C" fn init_module_function(ctx: *mut quickjs::JSContext, m: *mut 
 }
 
 /// Add a module to JS!
-pub(super) fn add_module(context: *mut quickjs::JSContext, module: &Arc<pxs_Module>) {
+pub(super) fn add_module(context: *mut quickjs::JSContext, module: &pxs_Module) {
     let mut cstrsafe = CStringSafe::new();
 
     // Set it up my man
