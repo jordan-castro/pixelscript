@@ -803,7 +803,7 @@ impl pxs_Var {
             pxs_VarType::pxs_UInt64 => 8,
             pxs_VarType::pxs_Float64 => 8,
             pxs_VarType::pxs_Bool => 1,
-            pxs_VarType::pxs_String => {
+            pxs_VarType::pxs_String | pxs_VarType::pxs_Exception => {
                 let s = self.get_string().unwrap();
                 s.as_bytes().len()
             },

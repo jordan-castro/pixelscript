@@ -36,7 +36,13 @@ js_commonjs = []
 # Include all core libs (toggled by default)
 include-core = [
     "pxs_json",
-    "pxs_mem"
+    "pxs_mem",
+    "pxs_os",
+    "pxs_pxs",
+    "pxs_fs",
+    "pxs_shell",
+    "pxs_net",
+    "pxs_zip"
 ]
 pxs_json = []
 pxs_mem = []
@@ -46,15 +52,13 @@ pxs-debug = []
 
 testing = []
 
-# Yoyo
-yoyo = []
-yoyo_full = ["yoyo", "yoyo_core", "yoyo_os", "yoyo_fs", "yoyo_shell", "yoyo_net", "yoyo_zip"]
-yoyo_core = []
-yoyo_os = []
-yoyo_fs = []
-yoyo_shell = []
-yoyo_net = []
-yoyo_zip = []
+# pxs_core
+pxs_pxs = []
+pxs_os = []
+pxs_fs = []
+pxs_shell = []
+pxs_net = []
+pxs_zip = []
 
 [profile.release]
 opt-level = "z"

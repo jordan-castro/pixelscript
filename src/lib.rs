@@ -44,8 +44,6 @@ pub mod shared;
 
 #[cfg(feature = "include-core")]
 pub mod pxs_core;
-#[cfg(feature = "yoyo")]
-pub mod yoyo;
 #[cfg(feature = "js")]
 pub mod js;
 #[cfg(feature = "lua")]
@@ -85,6 +83,27 @@ macro_rules! with_backend {
         }
     };
 }
+
+/// Setup a core module
+macro_rules! setup_core {
+    ($namestr:expr, $name:ident) => {
+        pxs_debug!("{}init", $namestr);
+        assert_initiated!();
+        with_feature!($namestr, {
+            pxs_core::$name::init();
+        }, {
+            panic!("{$namestr} is not enabled.");
+        });
+    };
+}
+    // pxs_debug!("pxs_osinit");
+    // assert_initiated!();
+    // with_feature!("pxs_os", {
+        // pxs_core::pxs_os::init();
+    // }, {
+        // panic!("pxs_os is not enabled.");
+    // });
+
 
 /// Is initialized?
 static mut IS_INIT: bool = false;
@@ -2323,14 +2342,7 @@ pub extern "C" fn pxs_json_decode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
 /// THREAD_LOCAL
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_meminit() {
-    pxs_debug!("pxs_meminit");
-    assert_initiated!();
-
-    with_feature!("pxs_mem", {
-        pxs_core::pxs_mem::init();
-    }, {
-        panic!("pxs_mem is not enabled.");
-    });
+    setup_core!("pxs_mem", pxs_mem);
 }
 
 /// Initialize the `pxs` module.
@@ -2338,7 +2350,7 @@ pub extern "C" fn pxs_meminit() {
 /// THREAD_LOCAL
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_pxsinit() {
-    pxs_debug!()
+    setup_core!("pxs_pxs", pxs_pxs);
 }
 
 /// Initialize the `pxs_os` module.
@@ -2346,8 +2358,7 @@ pub extern "C" fn pxs_pxsinit() {
 /// THREAD_LOCAL REQUIRES_STD
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_osinit() {
-    pxs_debug!("pxs_osinit");
-    assert_initiated!();
+    setup_core!("pxs_os", pxs_os);
 }
 
 /// Initialize the `pxs_fs` module.
@@ -2355,8 +2366,7 @@ pub extern "C" fn pxs_osinit() {
 /// THREAD_LOCAL REQUIRES_STD
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_fsinit() {
-    pxs_debug!("pxs_fsinit");
-    assert_initiated!();
+    setup_core!("pxs_fs", pxs_fs);
 }
 
 /// Initialize the `pxs_shell` module.
@@ -2364,8 +2374,7 @@ pub extern "C" fn pxs_fsinit() {
 /// THREAD_LOCAL REQUIRES_STD
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_shellinit() {
-    pxs_debug!("pxs_shellinit");
-    assert_initiated!();
+    setup_core!("pxs_shell", pxs_shell);
 }
 
 /// Initialize the `pxs_zip` module.
@@ -2373,8 +2382,7 @@ pub extern "C" fn pxs_shellinit() {
 /// THREAD_LOCAL
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_zipinit() {
-    pxs_debug!("pxs_zipinit");
-    assert_initiated!();
+    setup_core!("pxs_zip", pxs_zip);
 }
 
 /// Initialize the `pxs_net` module.
@@ -2382,8 +2390,7 @@ pub extern "C" fn pxs_zipinit() {
 /// THREAD_LOCAL
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_netinit() {
-    pxs_debug!("pxs_netinit");
-    assert_initiated!();
+    setup_core!("pxs_net", pxs_net);
 }
 
 /// Initialize all the `pxs_core` modules.

@@ -10,9 +10,9 @@ import sys
 
 # Config
 CRATE_NAME = "pixelscript"
-LIB_CRATES = ["mlua", CRATE_NAME]
+LIB_CRATES = [CRATE_NAME]
 SOURCE = "pxsb"
-# TODO: Figure out how WASM will work since it needs to use other libs for it to work, gotta have to link something.
+# TODO: Figure out how WASM will work since it needs to use other libs for it to work, gotta have to link something?
 VALID_EXTENSIONS = ["lib", "a", "so", "dylib"]
 full_lib_size = 0
 
@@ -53,7 +53,7 @@ features = ""
 defaults = True
 debug = False
 run_clear = False
-yoyo = False
+use_zig = False
 
 for arg in argv:
     if "target" in arg:
@@ -70,8 +70,8 @@ for arg in argv:
         debug = True
     elif arg == "clear":
         run_clear = True
-    elif arg == "yoyo":
-        yoyo = True
+    elif arg == "zig":
+        use_zig = True
     elif arg == "help":
         print("""PixelScript script/build.py usage
 Arguments:
@@ -81,25 +81,20 @@ Arguments:
 - debug; a debug build
 - clear; clear the cache
 - help; print this message
-- yoyo; include the yoyo_full
+- zig; use zig to build. This is best for cross platform. Requires `cargo-zigbuild`.
 """)
         exit(0)
 
 build_mode = "release" if not debug else "debug"
 build_flag = "--release" if not debug else ""
 # Build in release mode
-cmd = ["cargo", "build", build_flag]
+cmd = ["cargo", "zigbuild" if use_zig else "build", build_flag]
 # Grab target and features if passed
 if target:
     cmd += [target]
 if not defaults:
     cmd += ["--no-default-features"]
-if len(features) > 0 or yoyo:
-    if yoyo:
-        features = features.split(",") + ["yoyo_full"]
-        features = ",".join(features)
-        if features[0] == ',':
-            features = features[1:]
+if len(features) > 0:
     cmd += ["--features", f'"{features}"']
 # cmd += features
 

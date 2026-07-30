@@ -52,8 +52,10 @@ This will build the project and place the necessary *static* libraries in a `/px
 To include the PixelScript core API, add the `include-core` feature. Or include the specific modules as feature tags.
 | Module name | Module purpose |
 |-------------|----------------|
-| `pxs_json`  | Adds encode/decode functions for all languages. |
-| `pxs_mem`   | Adds memory control to scripting languages.     |
+| `pxs_json`  | Adds encode/decode functions for all languages.         |
+| `pxs_mem`   | Adds memory control to scripting languages.             |
+| `pxs_os`    | Adds os functions/helpers.                              |
+| `pxs_fs`    | Adds file/directory reading/writing/appending/deleting. |
 <!-- | `pxs_time`  | Adds time functions for all languages. Similar to Python `time` module. | | -->
 <!-- | `pxs_io`    | Adds `open`, `File`, `Directory`, `close`, `glob`.      | Requires `pxs_set_filereader`, `pxs_set_filewriter`, and `pxs_set_dirreader` | -->
 <!-- | `pxs_os` | -->
@@ -62,15 +64,32 @@ To include the PixelScript core API, add the `include-core` feature. Or include 
 Overview of what is incldued in `pxs_json` module.
 | Name | Type | Doc Comment |
 |------|------|-------------|
-| `encode` | Function | Encodes a object into a JSON string. |
-| `decode` | Function | Decodes a JSON string into a language object |
+| `encode` | Function(pxs_Object) -> pxs_String | Encodes a object into a JSON string. |
+| `decode` | Function(pxs_String) -> pxs_Object | Decodes a JSON string into a language object |
 
 ### pxs_mem
 Overview of what is included in the `pxs_mem` module.
-| Name | Type | Doc Comment |
-|------|------|-------------|
-| `memdel` | Function | Decreases the refcount for a `PixelObject`. Pass in a `object`, if it does not have `_pxs_ptr` assigned it raises an exception. |
-| `mem_delall` | Function | Calls `memdel` sequentially for a `pxs_VarList` of `pxs_Object`s. |
+| Name | Type | Doc Comment | Can except |
+|------|------|-------------|------------|
+| `memdel` | Function(pxs_Objct) | Decreases the refcount for a `PixelObject`. Pass in a `object`, if it does not have `_pxs_ptr` assigned it raises an exception. | No |
+| `mem_delall` | Function(pxs_List) | Calls `memdel` sequentially for a `pxs_VarList` of `pxs_Object`s. | No |
+
+### pxs_os
+Overview of what is included in `pxs_os` module.
+| Name | Type | Doc Comment | Can except |
+|------|------|-------------|------------|
+| `args`    | pxs_List | Contains the arguments from `std::env::args`. | No |
+| `get_cwd` | Function -> pxs_String | Returns the current working directory. | Yes |
+| `chdir`   | Function(pxs_String) | Change the current working directory. | Yes |
+
+### pxs_fs
+Overview of what is includedin `pxs_fs` module.
+| Name | Type | Doc Comment | Can except |
+|------|------|-------------|------------|
+| `READ_FILE_TEXT`    | pxs_Int64 | To read a file as a pxs_String. | No |
+| `READ_FILE_BYTES` | pxs_Int64 | To read a file as a pxs_List[pxs_Byte] | No |
+| `read_file`   | Function(pxs_String, pxs_Int64?) | Read a file into a pxs_String or pxs_List[pxs_Byte]. | Yes |
+
 
 ## Example
 Here is a "Hello World" example supporting Lua, Python, and JavaScript.
@@ -87,6 +106,9 @@ pxs_VarT println(pxs_VarT args) {
 
     // Free the string
     pxs_freestr(contents_str);
+
+    // Always required to return something. Null works for no result.
+    return pxs_newnull();
 }
 
 int main() {
@@ -148,6 +170,7 @@ int main() {
 
 ## Used in
 - Pixel Ai Dash
+- [epochweb](https://github.com/jordan-castro/epochweb)
 
 <!-- ## Future -->
 <!-- This will ideally be used by all future epochtech games since it allows for modding in multiple languages. 

@@ -13,6 +13,18 @@ use crate::{pxs_varis, shared::var::{pxs_VarT, pxs_VarType}};
 pub mod pxs_json;
 #[cfg(feature="pxs_mem")]
 pub mod pxs_mem;
+#[cfg(feature="pxs_os")]
+pub mod pxs_os;
+#[cfg(feature="pxs_pxs")]
+pub mod pxs_pxs;
+#[cfg(feature="pxs_fs")]
+pub mod pxs_fs;
+#[cfg(feature="pxs_shell")]
+pub mod pxs_shell;
+#[cfg(feature="pxs_zip")]
+pub mod pxs_zip;
+#[cfg(feature="pxs_net")]
+pub mod pxs_net;
 
 /// This will check if the arguments are valid to be passed into a pxs_Func.
 /// This is only used in core functions exposed to lib.

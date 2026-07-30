@@ -9,6 +9,8 @@ import json
 included_tests = sys.argv[1:]
 skip_tests = ["test_repl.rs", "test_example.rs"]
 
+# Set rust flags
+os.environ['RUSTFLAGS'] = '-Awarnings'
 
 if len(included_tests) == 0:
     included_tests = os.listdir("tests")
