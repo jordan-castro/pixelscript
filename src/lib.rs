@@ -42,7 +42,17 @@ use crate::shared::{
 
 pub mod shared;
 
-#[cfg(feature = "include-core")]
+#[cfg(any(
+    feature = "include-core",
+    feature = "pxs_json",
+    feature = "pxs_mem",
+    feature = "pxs_os",
+    feature = "pxs_pxs",
+    feature = "pxs_fs",
+    feature = "pxs_shell",
+    feature = "pxs_net",
+    feature = "pxs_zip"
+))]
 pub mod pxs_core;
 #[cfg(feature = "js")]
 pub mod js;
@@ -2537,7 +2547,7 @@ pub extern "C" fn pxs_json_decode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
         "pxs_json",
         {
             unsafe {
-                if !pxs_core::is_valid_pxs_function(rt, args) {
+                if !crate::pxs_core::is_valid_pxs_function(rt, args) {
                     return pxs_Var::new_exception("Not a valid core call").into_raw();
                 }
             }
