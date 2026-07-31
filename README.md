@@ -56,9 +56,8 @@ To include the PixelScript core API, add the `include-core` feature. Or include 
 | `pxs_mem`   | Adds memory control to scripting languages.             |
 | `pxs_os`    | Adds os functions/helpers.                              |
 | `pxs_fs`    | Adds file/directory reading/writing/appending/deleting. |
-<!-- | `pxs_time`  | Adds time functions for all languages. Similar to Python `time` module. | | -->
-<!-- | `pxs_io`    | Adds `open`, `File`, `Directory`, `close`, `glob`.      | Requires `pxs_set_filereader`, `pxs_set_filewriter`, and `pxs_set_dirreader` | -->
-<!-- | `pxs_os` | -->
+
+To read more about the CoreLib, [Read the docs](https://pixelscript.epochtech.us/docs).
 
 ### pxs_json
 Overview of what is incldued in `pxs_json` module.
@@ -89,7 +88,15 @@ Overview of what is includedin `pxs_fs` module.
 | `READ_FILE_TEXT`    | pxs_Int64 | To read a file as a pxs_String. | No |
 | `READ_FILE_BYTES` | pxs_Int64 | To read a file as a pxs_List[pxs_Byte] | No |
 | `read_file`   | Function(pxs_String, pxs_Int64?) | Read a file into a pxs_String or pxs_List[pxs_Byte]. | Yes |
-
+| `write_file`  | Function(pxs_String, pxs_String|pxs_List[pxs_Byte]) | Write into a file. If path does not exist, it will create it. | Yes |
+| `exists` | Function(pxs_String) -> pxs_Bool | returns if path exists and is public. | Yes |
+| `is_file` | Function(pxs_String) -> pxs_Bool | returns if path is a file. | Yes |
+| `is_dir`  | Function(pxs_String) -> pxs_Bool | returns if path is a directory. | Yes |
+| `remove_file` | Function(pxs_String) | Removes a file. | Yes |
+| `create_dir`  | Function(pxs_String) | Creates a new directory. Is not recursive. | Yes |
+| `create_dirs` | Function(pxs_String) | Creates a new directory recursively. | Yes |
+| `remove_empty_dir`  | Function(pxs_String) | Removes a empty directory. | Yes |
+| `remove_dir` | Function(pxs_String) | Removes a directory regardless if it is not empty. | Yes |
 
 ## Example
 Here is a "Hello World" example supporting Lua, Python, and JavaScript.
@@ -128,7 +135,7 @@ int main() {
         "main.println('Hello World from Lua!')";
     pxs_VarT error = pxs_exec(pxs_Lua, lua_script, "<ctest>");
     // Check error
-    if (!pxs_varis(error, pxs_Null)) {
+    if (pxs_isexception(error)) {
         char* msg = pxs_getstring(error);
         printf("%s", msg);
         pxs_freestr(msg);
@@ -141,7 +148,7 @@ int main() {
 
     pxs_VarT error = pxs_exec(pxs_Python, python_script, "<ctest>");
     // Check error
-    if (!pxs_varis(error, pxs_Null)) {
+    if (pxs_isexception(error)) {
         char* msg = pxs_getstring(error);
         printf("%s", msg);
         pxs_freestr(msg);
@@ -153,7 +160,7 @@ int main() {
                             "main.println('Hello World from JavaScript!');";
     pxs_VarT error = pxs_exec(pxs_JavaScript, js_script, "<ctest>");
     // Check error
-    if (!pxs_varis(error, pxs_Null)) {
+    if (pxs_isexception(error)) {
         char* msg = pxs_getstring(error);
         printf("%s", msg);
         pxs_freestr(msg);

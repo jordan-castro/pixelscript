@@ -2281,6 +2281,216 @@ pub extern "C" fn pxs_vartype(var: pxs_VarT) -> pxs_VarType {
     }
 }
 
+/// Check if variable is `pxs_String`.
+/// 
+/// ```c
+/// bool is_string = pxs_isstring(pxs_arg(args, 0));
+/// ```
+/// 
+/// var:BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_isstring(var: pxs_VarT) -> bool {
+    pxs_debug!("pxs_isstring");
+    assert_initiated!();
+
+    pxs_varis(var, pxs_VarType::pxs_String)
+}
+
+/// Check if variable is `pxs_Int64`.
+/// 
+/// ```c
+/// bool is_int = pxs_isint(pxs_arg(args, 0));
+/// ```
+/// 
+/// var:BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_isint(var: pxs_VarT) -> bool {
+    pxs_debug!("pxs_isint");
+    assert_initiated!();
+
+    pxs_varis(var, pxs_VarType::pxs_Int64)
+}
+
+/// Check if variable is `pxs_UInt64`.
+/// 
+/// ```c
+/// bool is = pxs_isuint(pxs_arg(args, 0));
+/// ```
+/// 
+/// var:BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_isuint(var: pxs_VarT) -> bool {
+    pxs_debug!("pxs_isuint");
+    assert_initiated!();
+
+    pxs_varis(var, pxs_VarType::pxs_UInt64)
+}
+
+/// Check if variable is `pxs_Bool`.
+/// 
+/// ```c
+/// bool is = pxs_isbool(pxs_arg(args, 0));
+/// ```
+/// 
+/// var:BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_isbool(var: pxs_VarT) -> bool {
+    pxs_debug!("pxs_isbool");
+    assert_initiated!();
+
+    pxs_varis(var, pxs_VarType::pxs_Bool)
+}
+
+/// Check if variable is `pxs_Float64`.
+/// 
+/// ```c
+/// bool is = pxs_isfloat(pxs_arg(args, 0));
+/// ```
+/// 
+/// var:BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_isfloat(var: pxs_VarT) -> bool {
+    pxs_debug!("pxs_isfloat");
+    assert_initiated!();
+
+    pxs_varis(var, pxs_VarType::pxs_Float64)
+}
+
+/// Check if variable is `pxs_Null`.
+/// 
+/// ```c
+/// bool is = pxs_isnull(pxs_arg(args, 0));
+/// ```
+/// 
+/// var:BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_isnull(var: pxs_VarT) -> bool {
+    pxs_debug!("pxs_isnull");
+    assert_initiated!();
+
+    pxs_varis(var, pxs_VarType::pxs_Null)
+}
+
+/// Check if variable is `pxs_Object`.
+/// 
+/// ```c
+/// bool is = pxs_isobject(pxs_arg(args, 0));
+/// ```
+/// 
+/// var:BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_isobject(var: pxs_VarT) -> bool {
+    pxs_debug!("pxs_isobject");
+    assert_initiated!();
+
+    pxs_varis(var, pxs_VarType::pxs_Object)
+}
+
+/// Check if variable is `pxs_HostObject`.
+/// 
+/// ```c
+/// bool is = pxs_is_hostobject(pxs_arg(args, 0));
+/// ```
+/// 
+/// var:BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_is_hostobject(var: pxs_VarT) -> bool {
+    pxs_debug!("pxs_is_hostobject");
+    assert_initiated!();
+
+    pxs_varis(var, pxs_VarType::pxs_HostObject)
+}
+
+/// Check if variable is `pxs_List`.
+/// 
+/// ```c
+/// bool is = pxs_islist(pxs_arg(args, 0));
+/// ```
+/// 
+/// var:BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_islist(var: pxs_VarT) -> bool {
+    pxs_debug!("pxs_islist");
+    assert_initiated!();
+
+    pxs_varis(var, pxs_VarType::pxs_List)
+}
+
+/// Check if variable is `pxs_Function`.
+/// 
+/// ```c
+/// bool is = pxs_isfunction(pxs_arg(args, 0));
+/// ```
+/// 
+/// var:BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_isfunction(var: pxs_VarT) -> bool {
+    pxs_debug!("pxs_isfunction");
+    assert_initiated!();
+
+    pxs_varis(var, pxs_VarType::pxs_Function)
+}
+
+/// Check if variable is `pxs_Factory`.
+/// 
+/// ```c
+/// bool is = pxs_isfactory(pxs_arg(args, 0));
+/// ```
+/// 
+/// var:BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_isfactory(var: pxs_VarT) -> bool {
+    pxs_debug!("pxs_isfactory");
+    assert_initiated!();
+
+    pxs_varis(var, pxs_VarType::pxs_Factory)
+}
+
+/// Check if variable is `pxs_Exception`.
+/// 
+/// ```c
+/// bool is = pxs_isexception(pxs_arg(args, 0));
+/// ```
+/// 
+/// var:BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_isexception(var: pxs_VarT) -> bool {
+    pxs_debug!("pxs_isfactory");
+    assert_initiated!();
+
+    pxs_varis(var, pxs_VarType::pxs_Exception)
+}
+
+/// Check if variable is `pxs_Map`.
+/// 
+/// ```c
+/// bool is = pxs_ismap(pxs_arg(args, 0));
+/// ```
+/// 
+/// var:BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_ismap(var: pxs_VarT) -> bool {
+    pxs_debug!("pxs_ismap");
+    assert_initiated!();
+
+    pxs_varis(var, pxs_VarType::pxs_Map)
+}
+
+/// Check if variable is `pxs_Byte`.
+/// 
+/// ```c
+/// bool is = pxs_isbyte(pxs_arg(args, 0));
+/// ```
+/// 
+/// var:BORROW
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_isbyte(var: pxs_VarT) -> bool {
+    pxs_debug!("pxs_isbyte");
+    assert_initiated!();
+
+    pxs_varis(var, pxs_VarType::pxs_Byte)
+}
+
 // ====================================== Core functions Start =======================================
 
 /// Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.

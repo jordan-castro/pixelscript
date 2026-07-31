@@ -1171,6 +1171,160 @@ void pxs_smart_copystring(pxs_VarT rt,
 enum pxs_VarType pxs_vartype(pxs_VarT var);
 
 /**
+ * Check if variable is `pxs_String`.
+ *
+ * ```c
+ * bool is_string = pxs_isstring(pxs_arg(args, 0));
+ * ```
+ *
+ * var:BORROW
+ */
+bool pxs_isstring(pxs_VarT var);
+
+/**
+ * Check if variable is `pxs_Int64`.
+ *
+ * ```c
+ * bool is_int = pxs_isint(pxs_arg(args, 0));
+ * ```
+ *
+ * var:BORROW
+ */
+bool pxs_isint(pxs_VarT var);
+
+/**
+ * Check if variable is `pxs_UInt64`.
+ *
+ * ```c
+ * bool is = pxs_isuint(pxs_arg(args, 0));
+ * ```
+ *
+ * var:BORROW
+ */
+bool pxs_isuint(pxs_VarT var);
+
+/**
+ * Check if variable is `pxs_Bool`.
+ *
+ * ```c
+ * bool is = pxs_isbool(pxs_arg(args, 0));
+ * ```
+ *
+ * var:BORROW
+ */
+bool pxs_isbool(pxs_VarT var);
+
+/**
+ * Check if variable is `pxs_Float64`.
+ *
+ * ```c
+ * bool is = pxs_isfloat(pxs_arg(args, 0));
+ * ```
+ *
+ * var:BORROW
+ */
+bool pxs_isfloat(pxs_VarT var);
+
+/**
+ * Check if variable is `pxs_Null`.
+ *
+ * ```c
+ * bool is = pxs_isnull(pxs_arg(args, 0));
+ * ```
+ *
+ * var:BORROW
+ */
+bool pxs_isnull(pxs_VarT var);
+
+/**
+ * Check if variable is `pxs_Object`.
+ *
+ * ```c
+ * bool is = pxs_isobject(pxs_arg(args, 0));
+ * ```
+ *
+ * var:BORROW
+ */
+bool pxs_isobject(pxs_VarT var);
+
+/**
+ * Check if variable is `pxs_HostObject`.
+ *
+ * ```c
+ * bool is = pxs_is_hostobject(pxs_arg(args, 0));
+ * ```
+ *
+ * var:BORROW
+ */
+bool pxs_is_hostobject(pxs_VarT var);
+
+/**
+ * Check if variable is `pxs_List`.
+ *
+ * ```c
+ * bool is = pxs_islist(pxs_arg(args, 0));
+ * ```
+ *
+ * var:BORROW
+ */
+bool pxs_islist(pxs_VarT var);
+
+/**
+ * Check if variable is `pxs_Function`.
+ *
+ * ```c
+ * bool is = pxs_isfunction(pxs_arg(args, 0));
+ * ```
+ *
+ * var:BORROW
+ */
+bool pxs_isfunction(pxs_VarT var);
+
+/**
+ * Check if variable is `pxs_Factory`.
+ *
+ * ```c
+ * bool is = pxs_isfactory(pxs_arg(args, 0));
+ * ```
+ *
+ * var:BORROW
+ */
+bool pxs_isfactory(pxs_VarT var);
+
+/**
+ * Check if variable is `pxs_Exception`.
+ *
+ * ```c
+ * bool is = pxs_isexception(pxs_arg(args, 0));
+ * ```
+ *
+ * var:BORROW
+ */
+bool pxs_isexception(pxs_VarT var);
+
+/**
+ * Check if variable is `pxs_Map`.
+ *
+ * ```c
+ * bool is = pxs_ismap(pxs_arg(args, 0));
+ * ```
+ *
+ * var:BORROW
+ */
+bool pxs_ismap(pxs_VarT var);
+
+/**
+ * Check if variable is `pxs_Byte`.
+ *
+ * ```c
+ * bool is = pxs_isbyte(pxs_arg(args, 0));
+ * ```
+ *
+ * var:BORROW
+ */
+bool pxs_isbyte(pxs_VarT var);
+
+/**
  * Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.
  * Transfers ownership of args.
  * Basically calls the runtime.pxs_json.encode() function.
