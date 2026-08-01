@@ -10,13 +10,21 @@
 #[allow(unused)]
 #[cfg(test)]
 mod tests {
+    use etffi::{
+        borrow_string, create_raw_string, cstring::CStringSafe, free_raw_string, own_string,
+        ptr_magic::PtrMagic,
+    };
     use pixelscript::{
-        own_var, pxs_addfunc, pxs_addmod, pxs_call, pxs_debugvar, pxs_exec, pxs_finalize, pxs_freearena, pxs_freevar, pxs_getstring, pxs_initialize, pxs_json_decode, pxs_json_encode, pxs_listadd, pxs_listget, pxs_listlen, pxs_meminit, pxs_new_shallowcopy, pxs_newarena, pxs_newcopy, pxs_newint, pxs_newlist, pxs_newmod, pxs_newnull, pxs_tostring, shared::{
+        own_var, pxs_addfunc, pxs_addmod, pxs_arg, pxs_call, pxs_core_initall, pxs_debugvar,
+        pxs_exec, pxs_finalize, pxs_freearena, pxs_freevar, pxs_getbool, pxs_getstring,
+        pxs_initialize, pxs_json_decode, pxs_json_encode, pxs_listadd, pxs_listget, pxs_listlen,
+        pxs_meminit, pxs_new_shallowcopy, pxs_newarena, pxs_newcopy, pxs_newexception, pxs_newint,
+        pxs_newlist, pxs_newmod, pxs_newnull, pxs_tostring,
+        shared::{
             pxs_Runtime, utils,
             var::{pxs_Var, pxs_VarT},
         },
     };
-    use etffi::{cstring::CStringSafe, borrow_string, create_raw_string, free_raw_string, own_string, ptr_magic::PtrMagic};
 
     extern "C" fn call_pxs_json_encode(args: pxs_VarT) -> pxs_VarT {
         let rt = pxs_listget(args, 0);
@@ -57,6 +65,17 @@ mod tests {
         pxs_Var::new_null().into_raw()
     }
 
+    pub extern "C" fn assert_wrapper(args: pxs_VarT) -> pxs_VarT {
+        let bool = pxs_arg(args, 0);
+        // let msg = own_string!(pxs_getstring(pxs_arg(args, 1)));
+
+        if !pxs_getbool(bool) {
+            pxs_newexception(pxs_getstring(pxs_arg(args, 1)))
+        } else {
+            pxs_newnull()
+        }
+    }
+
     #[test]
     fn test_globals() {
         pxs_initialize();
@@ -68,9 +87,10 @@ mod tests {
         pxs_addfunc(module, fname, call_pxs_json_encode);
         pxs_addfunc(module, fname2, call_pxs_json_decode);
         pxs_addfunc(module, print, print_wrapper);
+        pxs_addfunc(module, c"passert".as_ptr(), assert_wrapper);
         pxs_addmod(module);
-        pxs_meminit();
-        utils::setup_pxs();
+        pxs_core_initall();
+        utils::setup_pxs_name("t");
         unsafe {
             free_raw_string!(mname);
             free_raw_string!(fname);
@@ -80,9 +100,10 @@ mod tests {
 
         let pyscript = r#"
 from core import *
-import pxs
+import t as pxs
 import pxs_json
 import pxs_mem
+import pxs_fs
 obj = {"one": 1, "two": 2}
 encoded = pxs_json.encode(obj)
 print(f'encoded: {encoded}')
@@ -102,7 +123,7 @@ pxs_mem.memdel(p)
 
         let luascript = r#"
 local pxs = require('core')
-local Per = require('pxs').Per
+local Per = require('t').Per
 local pxs_mem = require('pxs_mem')
 local obj = {one = 1, two= 2}
 local pxs_json = require('pxs_json')
@@ -127,7 +148,7 @@ pxs_mem.memdel(p)
         let jsscript = r#"
 import {print, encode, decode} from 'core';
 import { memdel, mem_delall } from 'pxs_mem';
-import { Per } from 'pxs';
+import { Per } from 't';
 // import * as pxs_json from 'pxs_json';
 let obj = {one: 1, two: 2};
 // let encoded = pxs_json.encode(obj);

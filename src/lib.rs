@@ -102,18 +102,10 @@ macro_rules! setup_core {
         with_feature!($namestr, {
             pxs_core::$name::init();
         }, {
-            panic!("{$namestr} is not enabled.");
+            panic!("{} is not enabled.", $namestr);
         });
     };
 }
-    // pxs_debug!("pxs_osinit");
-    // assert_initiated!();
-    // with_feature!("pxs_os", {
-        // pxs_core::pxs_os::init();
-    // }, {
-        // panic!("pxs_os is not enabled.");
-    // });
-
 
 /// Is initialized?
 static mut IS_INIT: bool = false;
@@ -1311,7 +1303,13 @@ pub extern "C" fn pxs_varcall(
 
 /// Move ownership of value from `item`.
 ///
-/// `item` still needs to be managed by whoever owns it. But the `deleter` is moved.
+/// `item` still needs to be managed by whoever owns it.
+/// 
+/// In case of:
+/// - pxs_Object
+/// - pxs_Function
+/// 
+/// the deleter from original is moved into the return.
 ///  
 /// item:BORROW
 /// return:OWNED
@@ -1645,10 +1643,15 @@ pub extern "C" fn pxs_listdel(list: pxs_VarT, index: i32) -> bool {
     var_list.del_item(index)
 }
 
-/// Do a Shallow Copy. Which means it gets the same data without get the deleter for (pxs_Object or pxs_Function).
+/// Do a Shallow Copy.
 ///
 /// Memory is owned by caller.
 ///
+/// In case of:
+/// - pxs_Object
+/// - pxs_Function
+/// copy is called, but original keeps deleter.
+/// 
 /// var:BORROW
 /// return:OWNED
 #[unsafe(no_mangle)]
@@ -2620,6 +2623,7 @@ pub extern "C" fn pxs_netinit() {
 pub extern "C" fn pxs_core_initall() {
     pxs_debug!("pxs_core_initall");
     assert_initiated!();
+    pxs_pxsinit();
     pxs_meminit();
     pxs_osinit();
     pxs_fsinit();

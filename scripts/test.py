@@ -24,6 +24,9 @@ results = {}
 for t in included_tests:
     if t in skip_tests:
         continue
+
+    if not t.endswith(".rs"):
+        t += ".rs"
     
     # Get line 9
     line = ""

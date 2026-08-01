@@ -166,9 +166,9 @@ pub extern "C" fn print(args: pxs_VarT) -> pxs_VarT {
 }
 
 #[cfg(feature = "testing")]
-pub fn setup_pxs() {
+pub fn setup_pxs_name(name: &str) {
     let mut cstrgen = CStringSafe::new();
-    let module = create_module("pxs");
+    let module = create_module(name);
     // Add print function
     add_function(module, "print", print);
     add_variable(module, "num", pxs_newint(1));
@@ -176,6 +176,11 @@ pub fn setup_pxs() {
     // Save module
     pxs_addmod(module);
 }
+#[cfg(feature = "testing")]
+pub fn setup_pxs() {
+    setup_pxs_name("pxs");
+}
+
 
 /// Create a private PXS name for a backend
 pub fn create_private_name(name: &str) -> String {

@@ -778,7 +778,13 @@ struct pxs_Var *pxs_varcall(struct pxs_Var *runtime,
 /**
  * Move ownership of value from `item`.
  *
- * `item` still needs to be managed by whoever owns it. But the `deleter` is moved.
+ * `item` still needs to be managed by whoever owns it.
+ *
+ * In case of:
+ * - pxs_Object
+ * - pxs_Function
+ *
+ * the deleter from original is moved into the return.
  *
  * item:BORROW
  * return:OWNED
@@ -897,9 +903,14 @@ pxs_VarT pxs_var_fromname(pxs_VarT rt, const char *name);
 bool pxs_listdel(pxs_VarT list, int32_t index);
 
 /**
- * Do a Shallow Copy. Which means it gets the same data without get the deleter for (pxs_Object or pxs_Function).
+ * Do a Shallow Copy.
  *
  * Memory is owned by caller.
+ *
+ * In case of:
+ * - pxs_Object
+ * - pxs_Function
+ * copy is called, but original keeps deleter.
  *
  * var:BORROW
  * return:OWNED

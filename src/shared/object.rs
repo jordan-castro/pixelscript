@@ -212,6 +212,10 @@ impl pxs_PixelObject {
     /// Remove from reference counting
     pub fn sub_reference(&self) -> u16 {
         let mut guard = self.ref_count.lock().unwrap();
+        // Don't go below 0
+        if *guard == 0 {
+            return 0;
+        }
         *guard -= 1;
 
         *guard

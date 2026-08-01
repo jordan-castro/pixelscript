@@ -199,9 +199,9 @@ dependencies = [
 
 [[package]]
 name = "etffi"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "61bea38cd649f814905011fafc3781d1df5f1bb9b51299c453662f5364671e9c"
+checksum = "e92dcffd695de9c8fe2214a35c74878f6e3a8742afddaac8cb40805ce658baea"
 
 [[package]]
 name = "fastrand"

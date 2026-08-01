@@ -45,8 +45,8 @@
 - Add `name` to exceptions. Make it default to `Error` to be backwards compat.
 - Update how when adding child modules to a module it changes the names correctly. (Only do this at final pxs_addmod).
 - Add more `pxs` core modules
-    - add `pxs_os`    Rust
-    - add `pxs_fs`    Rust
+    - ~~add `pxs_os`    Rust~~
+    - ~~add `pxs_fs`    Rust~~
     - add `pxs_shell` Rust
     - add `pxs_zip`   C++
     - add `pxs_net`   C++
@@ -57,6 +57,7 @@
 - ~~Fix child modules naming.~~
     - ~~Should be renamed when adding module to another module type thingy.~~
 - ~~Remove `c_tests`~~
+- Support static methods in `pxs_HostObject`.
 
 ## v0.7 Wasm and Dynamic Language support
 - Add Wren support as a dynamic language (C++)

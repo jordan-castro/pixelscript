@@ -48,6 +48,7 @@ extern "C" fn chdir(args: pxs_VarT) -> pxs_VarT {
 /// Initialize `pxs_os` module.
 pub(crate) fn init() {
     let pxs_os = pxs_newmod(c"pxs_os".as_ptr());
+    let mut cstring = CStringSafe::new();
 
     // Add args variable
     let p_args = pxs_newlist();
@@ -59,6 +60,7 @@ pub(crate) fn init() {
         }
     }
     pxs_addvar(pxs_os, c"args".as_ptr(), p_args);
+    pxs_addvar(pxs_os, c"name".as_ptr(), pxs_newstring(cstring.new_string(std::env::consts::OS)));
 
     pxs_addfunc(pxs_os, c"get_cwd".as_ptr(), get_cwd);
     pxs_addfunc(pxs_os, c"chdir".as_ptr(), chdir);
