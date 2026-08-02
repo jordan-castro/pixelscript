@@ -16,6 +16,10 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+    - name: Install libcurl
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libcurl4-openssl-dev
     - name: Python setup
       uses: actions/setup-python@v6
       with:

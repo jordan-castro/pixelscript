@@ -2,7 +2,7 @@
 
 #include "http.hpp"
 #include "utils.hpp"
-#include "lib/curl.h"
+#include <curl/curl.h>
 #include <stdexcept>
 #include <string>
 #include <vector>
