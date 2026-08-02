@@ -43,14 +43,13 @@ use crate::shared::{
 pub mod shared;
 
 #[cfg(any(
-    feature = "include-core",
     feature = "pxs_json",
     feature = "pxs_mem",
     feature = "pxs_os",
     feature = "pxs_pxs",
     feature = "pxs_fs",
     feature = "pxs_shell",
-    feature = "pxs_net",
+    feature = "pxs_http",
     feature = "pxs_zip"
 ))]
 pub mod pxs_core;

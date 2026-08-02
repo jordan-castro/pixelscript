@@ -14,3 +14,7 @@ libs/pxs_python/** linguist-vendored=false
 
 # yoyo
 core/yoyo/lib/** linguist-vendored
+
+# pxs_zip
+core/pxs/zip/lib/** linguist-vendored
+core/pxs/http/lib/** linguist-vendored
