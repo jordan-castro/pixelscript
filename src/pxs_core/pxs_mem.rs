@@ -12,7 +12,10 @@ use crate::{
 };
 use etffi::ptr_magic::PtrMagic;
 
+/// @except
 /// Delete a `pxs_Var` `PixelObject`.
+/// args:
+///   - object: `pxs_Object` the object to delete. Must contain `_pxs_ptr`.
 extern "C" fn pxs_mem_delete(args: pxs_VarT) -> pxs_VarT {
     // Check length is 2 only (RT, object)
     let len = pxs_listlen(args);
@@ -38,10 +41,12 @@ extern "C" fn pxs_mem_delete(args: pxs_VarT) -> pxs_VarT {
     apply_ref_count_delete(idx as i32);
 
     pxs_newnull()
-    // pxs_newbool(true)
 }
 
+/// @except
 /// Delete a List of `pxs_Var` `PixelObject`
+/// args:
+///   - objects: `list[pxs_Object]` a list of objects that have `_pxs_ptr` assigned.
 extern "C" fn pxs_mem_delete_all(args: pxs_VarT) -> pxs_VarT {
     let len = pxs_listlen(args);
     if len != 2 {
@@ -69,6 +74,7 @@ extern "C" fn pxs_mem_delete_all(args: pxs_VarT) -> pxs_VarT {
     pxs_newnull()
 }
 
+/// @private
 /// Initialize `pxs_mem` module.
 pub(crate) fn init() {
     let mut cstrgen = CStringSafe::new();

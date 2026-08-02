@@ -1419,6 +1419,10 @@ void pxs_netinit(void);
  */
 void pxs_core_initall(void);
 
+extern void pxs_corelib_zip_init(void);
+
+extern void pxs_corelib_net_init(void);
+
 #ifdef __cplusplus
 }  // extern "C"
 #endif  // __cplusplus

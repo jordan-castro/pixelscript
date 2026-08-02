@@ -127,57 +127,58 @@ fn build_quickjsng(_target_os: &str, target_env: &str) {
     build.compile("quickjs");
 }
 
-// /// Build the yoyo core.
-// #[cfg(feature="yoyo")]
-// fn build_yoyo(_target_os: &str, target_env: &str) {
-//     let mut build = cc::Build::new();
-//     build.warnings(false);
-//     build.cpp(true);
+#[cfg(feature="pxs_zip")]
+/// Build pxs_zip
+fn build_pxs_zip(_target_os: &str, target_env: &str) {
+    let mut build = cc::Build::new();
+    build.warnings(false);
+    build.cpp(true);
 
-//     // Always incldue the libs
-//     build.include("core/yoyo/include");
-//     build.include("core/yoyo/lib");
-//     build.include("./");
-//     build.file("core/yoyo/src/yoyo.cpp");
-//     build.file("core/yoyo/src/utils/exceptions.cpp");
+    // Include pixelscript.h
+    build.include("./");
+    // Include zip dir
+    build.include("core/pxs/zip");
 
-//     #[cfg(feature="yoyo_os")] 
-//     {
-//         build.file("core/yoyo/src/os.cpp");
-//         build.define("YOYO_OS", None);
-//     }
-//     #[cfg(feature="yoyo_net")]
-//     {
-//         build.file("core/yoyo/src/net.cpp");
-//         build.define("YOYO_NET", None);
-//     }
-//     #[cfg(feature="yoyo_shell")]
-//     {
-//         build.file("core/yoyo/src/shell.cpp");
-//         build.define("YOYO_SHELL", None);
-//     }
-//     #[cfg(feature="yoyo_core")]
-//     {
-//         build.define("YOYO_CORE", None);
-//     }
-//     #[cfg(feature="yoyo_fs")]
-//     {
-//         build.file("core/yoyo/src/fs.cpp");
-//         build.define("YOYO_FS", None);
-//     }
-//     #[cfg(feature="yoyo_zip")]
-//     {
-//         build.file("core/yoyo/src/zip.cpp");
-//         build.define("YOYO_ZIP", None);
-//     }
+    // Compile source
+    build.file("core/pxs/zip/zip.cpp");
 
-//     if target_env == "msvc" {
-//         build.static_crt(true);
-//         build.flag("/EHsc");
-//     }
-//     build.std("c++17");
-//     build.compile("yoyo");
-// }
+    if target_env == "msvc" {
+        build.static_crt(true);
+        build.flag("/EHsc");
+    }
+
+    build.std("c++17");
+    build.compile("pxs_zip");
+}
+
+#[cfg(feature="pxs_net")]
+/// Build pxs_net
+fn build_pxs_net(target_os: &str, target_env: &str) {
+    let mut build = cc::Build::new();
+    build.warnings(false);
+    build.cpp(true);
+
+    // Include pixelscript.h and pixelscript_cpp.hpp
+    build.include("./");
+    // Include net dir
+    build.include("core/pxs/net");
+
+    if target_env == "msvc" {
+        build.static_crt(true);
+        build.flag("/EHsc");
+    }
+
+    // Specific impls
+    if target_os == "windows" {
+        build.file("core/pxs/net/net_windows.cpp");
+    }
+
+    // Compile source
+    build.file("core/pxs/net/net.cpp");
+
+    build.std("c++17");
+    build.compile("pxs_net");
+}
 
 /// Create PocketPy Rust bindings
 #[cfg(feature = "python")]
@@ -264,25 +265,6 @@ fn build_lua_bindings() {
         .expect("Couldn't write Lua-5.5.0 bindings!");
 }
 
-// #[cfg(feature = "yoyo")]
-// /// Build yoyo bindings
-// fn build_yoyo_bindings() {
-//     let bindings = bindgen::Builder::default()
-//         .header("core/yoyo/include/yoyo.hpp")
-//         .clang_arg("-I.")
-//         .clang_arg("-xc++")
-//         .clang_arg("-std=c++17")
-//         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
-//         .allowlist_function("yoyo_.*")
-//         .allowlist_var("yoyo_.*")
-//         .allowlist_type("yoyo_.*")
-//         .generate()
-//         .expect("Could not generate yoyo bindings");
-//     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-//     bindings.write_to_file(out_path.join("yoyo_bindings.rs"))
-//         .expect("Couldn't write yoyo bindings!");
-// }
-
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     build_pixelscript_h();
@@ -323,13 +305,16 @@ fn main() {
         println!("cargo:rerun-if-changed=libs/quickjs-ng/quickjs.h");
     }
 
-    // // Compile yoyo
-    // #[cfg(feature = "yoyo")]
-    // {
-    //     build_yoyo(&target_os, &target_env);
-    //     build_yoyo_bindings();
-    //     println!("cargo:rerun-if-changed=core/yoyo/src");
-    //     println!("cargo:rerun-if-changed=core/yoyo/include");
-    //     println!("cargo:rerun-if-changed=core/yoyo/lib");
-    // }
+    #[cfg(feature="pxs_zip")]
+    {
+        build_pxs_zip(&target_os, &target_env);
+        println!("cargo:rerun-if-changed=core/pxs/zip");
+    }
+
+    #[cfg(feature="pxs_net")]
+    {
+        build_pxs_net(&target_os, &target_env);
+        println!("cargo:rerun-if-changed=core/pxs/net");
+    }
+
 }

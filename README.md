@@ -56,10 +56,11 @@ To include the PixelScript core API, add the `include-core` feature. Or include 
 | `pxs_mem`   | Adds memory control to scripting languages.             |
 | `pxs_os`    | Adds os functions/helpers.                              |
 | `pxs_fs`    | Adds file/directory reading/writing/appending/deleting. |
+| `pxs_zip`   | Work with zip files.                                    |
 
 To read more about the CoreLib, [Read the docs](https://pixelscript.epochtech.us/docs).
 
-### pxs_json
+<!-- ### pxs_json
 Overview of what is incldued in `pxs_json` module.
 | Name | Type | Doc Comment |
 |------|------|-------------|
@@ -96,7 +97,7 @@ Overview of what is includedin `pxs_fs` module.
 | `create_dir`  | Function(pxs_String) | Creates a new directory. Is not recursive. | Yes |
 | `create_dirs` | Function(pxs_String) | Creates a new directory recursively. | Yes |
 | `remove_empty_dir`  | Function(pxs_String) | Removes a empty directory. | Yes |
-| `remove_dir` | Function(pxs_String) | Removes a directory regardless if it is not empty. | Yes |
+| `remove_dir` | Function(pxs_String) | Removes a directory regardless if it is not empty. | Yes | -->
 
 ## Example
 Here is a "Hello World" example supporting Lua, Python, and JavaScript.

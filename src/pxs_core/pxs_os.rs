@@ -45,6 +45,7 @@ extern "C" fn chdir(args: pxs_VarT) -> pxs_VarT {
     }
 }
 
+/// @private
 /// Initialize `pxs_os` module.
 pub(crate) fn init() {
     let pxs_os = pxs_newmod(c"pxs_os".as_ptr());

@@ -28,7 +28,15 @@ pub mod pxs_net;
 
 pub(self) enum PxsCoreType {
     File = 1,
-    Logger = 2
+    Logger = 2,
+    #[allow(unused)]
+    ZipFile = 3,
+    Shell = 4,
+    ShellOutput = 5,
+    #[allow(unused)]
+    ClientResponse = 6,
+    #[allow(unused)]
+    Client = 7
 }
 
 

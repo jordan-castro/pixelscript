@@ -1,21 +1,35 @@
 use etffi::{cstring::CStringSafe, own_string, ptr_magic::PtrMagic};
 
-use crate::{pxs_addfunc, pxs_addmod, pxs_addobject, pxs_arenaput, pxs_arg, pxs_argc, pxs_core::PxsCoreType, pxs_freearena, pxs_freevar, pxs_getbool, pxs_getrt, pxs_getstring, pxs_gettype, pxs_is_hostobject, pxs_isbool, pxs_isobject, pxs_isstring, pxs_listadd, pxs_new_shallowcopy, pxs_newarena, pxs_newbool, pxs_newcopy, pxs_newexception, pxs_newhost, pxs_newlist, pxs_newmod, pxs_newnull, pxs_newstring, pxs_newtype, pxs_object_addfunc, pxs_object_addprop, pxs_smart_copystring, pxs_smart_getstring, pxs_varsize, shared::{pxs_Opaque, var::pxs_VarT}};
+use crate::{
+    pxs_addfunc, pxs_addmod, pxs_addobject, pxs_arenaput, pxs_arg, pxs_argc,
+    pxs_core::PxsCoreType,
+    pxs_freearena, pxs_getbool, pxs_getrt, pxs_getstring, pxs_gettype, pxs_isbool,
+    pxs_isobject, pxs_isstring, pxs_listadd, pxs_new_shallowcopy, pxs_newarena, pxs_newbool,
+    pxs_newcopy, pxs_newexception, pxs_newhost, pxs_newlist, pxs_newmod, pxs_newnull,
+    pxs_newstring, pxs_newtype, pxs_object_addfunc, pxs_object_addprop, pxs_smart_getstring,
+    shared::{pxs_Opaque, var::pxs_VarT},
+};
 
 struct Logger {
     seperator: String,
-    end_line: bool
+    end_line: bool,
 }
 
 impl PtrMagic for Logger {}
 impl Logger {
+    /// @private
     extern "C" fn free(ptr: pxs_Opaque) {
         if !ptr.is_null() {
-            let _ = unsafe{ Logger::from_raw_void(ptr) };
+            let _ = unsafe { Logger::from_raw_void(ptr) };
         }
     }
 
-    /// Create a new loggerr
+    /// Create a new logger
+    /// args:
+    ///   - sep: `string=" "` optinal seperator.
+    ///   - end_line: `bool=true` optional to print a \n.
+    ///
+    /// returns `Logger` instance.
     extern "C" fn new(args: pxs_VarT) -> pxs_VarT {
         // Get seperator if any
         let sep = if pxs_isstring(pxs_arg(args, 0)) {
@@ -31,8 +45,17 @@ impl Logger {
         };
 
         // Setup dog
-        let logger = Logger{seperator: sep, end_line}.into_void();
-        let obj = pxs_newtype(logger, Logger::free, c"Logger".as_ptr(), PxsCoreType::Logger as i32);
+        let logger = Logger {
+            seperator: sep,
+            end_line,
+        }
+        .into_void();
+        let obj = pxs_newtype(
+            logger,
+            Logger::free,
+            c"Logger".as_ptr(),
+            PxsCoreType::Logger as i32,
+        );
 
         // Methods
         pxs_object_addfunc(obj, c"print".as_ptr(), Logger::print);
@@ -43,15 +66,23 @@ impl Logger {
         pxs_newhost(obj)
     }
 
-    /// Print
+    /// @except
+    /// @self
+    /// Handle print.
+    /// args:
+    ///   - args: `...` N number of params.
     extern "C" fn print(args: pxs_VarT) -> pxs_VarT {
         // Get this
-        let thisp = pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), PxsCoreType::Logger as i32);
+        let thisp = pxs_gettype(
+            pxs_getrt(args),
+            pxs_arg(args, 0),
+            PxsCoreType::Logger as i32,
+        );
         if thisp.is_null() {
             return pxs_newexception(c"Self required".as_ptr());
         }
-        let this = unsafe{Self::from_borrow_void(thisp)};
-        
+        let this = unsafe { Self::from_borrow_void(thisp) };
+
         // args
         let mut msg = String::new();
         let rt = pxs_getrt(args);
@@ -69,20 +100,32 @@ impl Logger {
         if this.end_line {
             msg.push_str("\n");
         }
-        
+
         // Print
         print!("{msg}");
 
         pxs_newnull()
     }
 
+    /// @except
+    /// @self
+    /// @prop
     /// seperator prop
+    ///
+    /// args:
+    ///   - new_seperator: `string`
+    ///
+    /// returns `string`
     extern "C" fn seperator_prop(args: pxs_VarT) -> pxs_VarT {
-        let thisp = pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), PxsCoreType::Logger as i32);
+        let thisp = pxs_gettype(
+            pxs_getrt(args),
+            pxs_arg(args, 0),
+            PxsCoreType::Logger as i32,
+        );
         if thisp.is_null() {
             return pxs_newexception(c"Self required".as_ptr());
         }
-        let this = unsafe{Self::from_borrow_void(thisp)};
+        let this = unsafe { Self::from_borrow_void(thisp) };
 
         if pxs_argc(args) == 1 {
             // Get
@@ -102,13 +145,24 @@ impl Logger {
         }
     }
 
+    /// @except
+    /// @self
+    /// @prop
     /// end_line prop
+    /// args:
+    ///   - end_line: `bool` new end_line
+    ///
+    /// returns `bool`
     extern "C" fn end_line_prop(args: pxs_VarT) -> pxs_VarT {
-        let thisp = pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), PxsCoreType::Logger as i32);
+        let thisp = pxs_gettype(
+            pxs_getrt(args),
+            pxs_arg(args, 0),
+            PxsCoreType::Logger as i32,
+        );
         if thisp.is_null() {
             return pxs_newexception(c"Self required".as_ptr());
         }
-        let this = unsafe{Self::from_borrow_void(thisp)};
+        let this = unsafe { Self::from_borrow_void(thisp) };
 
         if pxs_argc(args) == 1 {
             // Get
@@ -129,13 +183,22 @@ impl Logger {
 }
 
 /// Print to stdout
+/// args:
+///   - args: `...` n number of args to print. Pass in `Logger` instance to override default.
 extern "C" fn print(args: pxs_VarT) -> pxs_VarT {
     let rt = pxs_getrt(args);
     let arena = pxs_newarena();
     let mut skip_0 = false;
     // Check for logger
     let log_ptr = {
-        let pos = pxs_gettype(rt, pxs_arg(args, 0), PxsCoreType::Logger as i32);
+        // Make sure its actually a object.
+        let arg = pxs_arg(args, 0);
+        let pos = if pxs_isobject(arg) {
+            // Get pointer
+            pxs_gettype(rt, arg, PxsCoreType::Logger as i32)
+        } else {
+            core::ptr::null_mut()
+        };
         if pos.is_null() {
             // Create one
             let nargs = pxs_arenaput(arena, pxs_newlist());
@@ -155,9 +218,9 @@ extern "C" fn print(args: pxs_VarT) -> pxs_VarT {
     } else {
         pxs_listadd(nargs, log_ptr);
     }
-    // pxs_listadd(nargs, log_ptr);
+
     for i in 0..pxs_argc(args) {
-        if i == 0 && skip_0  {
+        if i == 0 && skip_0 {
             continue;
         }
         pxs_listadd(nargs, pxs_new_shallowcopy(pxs_arg(args, i as i32)));
@@ -169,7 +232,11 @@ extern "C" fn print(args: pxs_VarT) -> pxs_VarT {
     res
 }
 
+/// @except
 /// Error if expression is not true
+/// args:
+///   - expr: `bool` the expression being evaluated.
+///   - msg: `string` if failed error this.
 extern "C" fn passert(args: pxs_VarT) -> pxs_VarT {
     let expr = pxs_arg(args, 0);
     if !pxs_isbool(expr) {
@@ -189,6 +256,7 @@ extern "C" fn passert(args: pxs_VarT) -> pxs_VarT {
     pxs_newnull()
 }
 
+/// @private
 /// Initialize `pxs_pxs` module.
 pub(crate) fn init() {
     let pxs_pxs = pxs_newmod(c"pxs".as_ptr());

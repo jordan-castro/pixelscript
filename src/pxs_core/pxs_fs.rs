@@ -46,6 +46,7 @@ struct File {
 // A helper for working with pointers.
 impl PtrMagic for File {}
 impl File {
+    /// @private
     /// Free a `File`
     extern "C" fn free(ptr: pxs_Opaque) {
         if !ptr.is_null() {
@@ -209,6 +210,7 @@ impl File {
     }
 }
 
+/// @private
 /// Internal code for handling (create_dir, create_dirs, remove_dir, remove_dirs, remove_file, is_file, is_dir)
 fn _internal_runner(args: pxs_VarT, method: fn(String) -> Result<(), std::io::Error>) -> pxs_VarT {
     // Check argc
@@ -230,6 +232,7 @@ fn _internal_runner(args: pxs_VarT, method: fn(String) -> Result<(), std::io::Er
     pxs_newnull()
 }
 
+/// @private
 /// Internal code for handling (is_file, is_dir)
 fn _is(args: pxs_VarT, is_file: bool, is_dir: bool) -> pxs_VarT {
     // Check argc
@@ -249,6 +252,7 @@ fn _is(args: pxs_VarT, is_file: bool, is_dir: bool) -> pxs_VarT {
     }
 }
 
+/// @private
 /// Use the internal `File` object for calling a function.
 /// Values are handled.
 fn _call(
@@ -408,6 +412,7 @@ extern "C" fn read_dir(args: pxs_VarT) -> pxs_VarT {
     }
 }
 
+/// @private
 pub(crate) fn init() {
     let pxs_fs = pxs_newmod(c"pxs_fs".as_ptr());
 

@@ -15,7 +15,6 @@
     - ~~Check Factories... why are we not owning the args?~~ (We are)
     - ~~Mark functions as expected return type.~~
 - ~~Add properties to PixelObjects~~ **DONE**
-- Add anonyamous functions. (Get sent to `pxs_anon` module?)
 - ~~Check that function calls that fail dont crash.~~
 - ~~Add `_pxs_delete` method to free internal memory at language level. (core lib)~~ (it's pxs_mem.memdel(obj))
 - ~~Add `arenas`~~
@@ -31,8 +30,7 @@
     - ~~test_vars (Test all types to and from scripting)~~
     - ~~test_exec~~
     - ~~test_eval~~
-    - test_ft (a test that builds pixel ai dashs fast terrain system. If this runs, then it most likely works fine.)
-    - make tests smart with features. Pass in specific features in test.py script that overrides the feature in the file.
+    - ~~test_ft (a test that builds pixel ai dashs fast terrain system. If this runs, then it most likely works fine.)~~
 - Better error messages (as feature 'errors')
     - Explicitly coming from PXS
     - Explicit which runtime
@@ -43,21 +41,28 @@
     - what else needs to go here?
 - Benchmarks
 - Add `name` to exceptions. Make it default to `Error` to be backwards compat.
-- Update how when adding child modules to a module it changes the names correctly. (Only do this at final pxs_addmod).
+- ~~Update how when adding child modules to a module it changes the names correctly. (Only do this at final pxs_addmod).~~
 - Add more `pxs` core modules
     - ~~add `pxs_os`    Rust~~
     - ~~add `pxs_fs`    Rust~~
-    - add `pxs_shell` Rust
-    - add `pxs_zip`   C++
-    - add `pxs_net`   C++
-    - add `pxs_yaml`  C++
+    - ~~add `pxs_shell` Rust~~
+    - ~~add `pxs_zip`   C++~~
+    - add `pxs_parser`  C++
+        - `json`
+        - `yaml`
+        - `toml`
+        - `csv`
+        - the parser library is going to be different than `pxs_json` because `pxs_json` is mainly just a way of adding JSON support to the host via the library.
+            but that will be deprecated in favor of the new parser library.
+    - add `pxs_image`   C++
+        - Will use the STB Libraries.
+    - ~~add `pxs_net`   C++~~
     - Important caveat with core modules: THEY MUST NOT USE ANY CRATES! So zip and net are written in C++.
 - Add android build support in `build.py`
-- Add `zigbuild` support in `build.py`
+- ~~Add `zigbuild` support in `build.py`~~
 - ~~Fix child modules naming.~~
     - ~~Should be renamed when adding module to another module type thingy.~~
 - ~~Remove `c_tests`~~
-- Support static methods in `pxs_HostObject`.
 
 ## v0.7 Wasm and Dynamic Language support
 - Add Wren support as a dynamic language (C++)
