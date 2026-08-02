@@ -166,6 +166,8 @@ fn build_pxs_net(target_os: &str, target_env: &str) {
     build.include("./");
     // Include net dir
     build.include("core/pxs/net");
+    // Include utils
+    build.include("core/pxs");
 
     if target_env == "msvc" {
         build.static_crt(true);

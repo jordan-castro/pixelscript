@@ -8,6 +8,7 @@
 #undef DELETE
 #include "net.hpp"
 #include <stdexcept>
+#include "utils.hpp"
 
 // Convert a std::string into a wide string.
 std::wstring to_wstring(std::string_view utf8_str) {
@@ -41,18 +42,6 @@ std::wstring to_wstring(std::string_view utf8_str) {
     );
 
     return wide_str;
-}
-
-// Join a vector<string> into a string with a delimiter
-std::string join(const std::string& dil, const std::vector<std::string>& v) {
-    std::string res;
-    for (size_t i = 0; i < v.size(); i++) {
-        res += v[i];
-        if (i < v.size() - 1) {
-            res += dil;
-        }
-    }
-    return res;
 }
 
 // Get last error for WinHttp
@@ -203,7 +192,7 @@ ClientResponse* Client::create_request(const std::string& path, const RequestTyp
     auto header_parts = get_header_parts();
     if (header_parts.size() > 0) {
         // Do stuff
-        std::string total = join("\r\n", header_parts);
+        std::string total = utils::join("\r\n", header_parts);
         auto wtotal = to_wstring(total);
         headers_string = wcsdup(wtotal.c_str());
     }
@@ -311,8 +300,5 @@ Client::~Client() {
     if (!this->internal) {
         return;
     }
-
-    #if defined(_WIN32)
-        delete static_cast<HInternetWrapper*>(this->internal);
-    #endif
+    delete static_cast<HInternetWrapper*>(this->internal);
 }
