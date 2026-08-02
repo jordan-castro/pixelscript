@@ -41,7 +41,7 @@ include-core = [
     "pxs_pxs",
     "pxs_fs",
     "pxs_shell",
-    "pxs_net",
+    "pxs_http",
     "pxs_zip"
 ]
 pxs_json = []
@@ -57,7 +57,7 @@ pxs_pxs = []
 pxs_os = []
 pxs_fs = []
 pxs_shell = []
-pxs_net = []
+pxs_http = []
 pxs_zip = []
 
 [profile.release]

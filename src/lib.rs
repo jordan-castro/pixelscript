@@ -2608,12 +2608,12 @@ pub extern "C" fn pxs_zipinit() {
     setup_core!("pxs_zip", pxs_zip);
 }
 
-/// Initialize the `pxs_net` module.
+/// Initialize the `pxs_http` module.
 /// 
 /// THREAD_LOCAL
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_netinit() {
-    setup_core!("pxs_net", pxs_net);
+pub extern "C" fn pxs_httpinit() {
+    setup_core!("pxs_http", pxs_http);
 }
 
 /// Initialize all the `pxs_core` modules.
@@ -2629,7 +2629,7 @@ pub extern "C" fn pxs_core_initall() {
     pxs_fsinit();
     pxs_shellinit();
     pxs_zipinit();
-    pxs_netinit();
+    pxs_httpinit();
 }
 
 // /// Intialize the `yoyo` modules.

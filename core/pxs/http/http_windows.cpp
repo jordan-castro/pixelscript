@@ -6,7 +6,7 @@
 #include <cwchar>
 #pragma comment(lib, "winhttp.lib")
 #undef DELETE
-#include "net.hpp"
+#include "http.hpp"
 #include <stdexcept>
 #include "utils.hpp"
 
@@ -284,13 +284,8 @@ ClientResponse* Client::create_request(const std::string& path, const RequestTyp
 
     // Now lets return the response yo!
     auto cr = new ClientResponse();
-    cr->data.headers = this->data.headers;
+    cr->fill(this->data);
     cr->data.body = response;
-    cr->data.domain_name = this->data.domain_name;
-    cr->data.version = this->data.version;
-    cr->data.user_agent = this->data.user_agent;
-    cr->data.timeout = this->data.timeout;
-    cr->data.request_type = rt;
     cr->status = status_code;
     
     return cr;

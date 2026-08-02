@@ -60,7 +60,7 @@
 - Added more `pxs` core modules. (behind feature flag.)
     - `pxs`
     - `pxs_os`
-    - `pxs_net`
+    - `pxs_http`
     - `pxs_shell`
     - `pxs_zip`
     - `pxs_fs`

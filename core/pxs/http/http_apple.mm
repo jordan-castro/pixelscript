@@ -1,8 +1,11 @@
+// Apple native IMPL uses Fondation
+// Works on all Apple OS.
+
 #import <Foundation/Foundation.h>
 #include <string>
 #include <vector>
 #include <stdexcept>
-#include "net.hpp"
+#include "http.hpp"
 #include "utils.hpp"
 #include <stdexcept>
 #include <dispatch/dispatch.h>
@@ -119,9 +122,6 @@ ClientResponse* Client::create_request(const std::string &path, const RequestTyp
         
         NSData* body_data = [NSData dataWithBytes:this->data.body.data() length:body_size];
         [request setHTTPBody:body_data];
-
-        // NSString* content_length_str = [NSString stringWithFormat:@"%zu", body_size];
-        // [request setValue:content_length_str forHTTPHeaderField:@"Content-Length"];
     }
 
     // setup for response!
@@ -134,6 +134,7 @@ ClientResponse* Client::create_request(const std::string &path, const RequestTyp
 
     NSURLSessionDataTask* task = [wrapper->session dataTaskWithRequest:request
         completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
+            // I use retain because I dont use ARC.
             if (data) {
                 response_data = [data retain];
             }
@@ -149,9 +150,8 @@ ClientResponse* Client::create_request(const std::string &path, const RequestTyp
     [task resume];
     // TODO(jc) do I really want forever here?
     dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
-    #if !__has_feature(objc_arc)
+    // We don't use ARC.
     dispatch_release(semaphore);
-    #endif
     // Error checking
     if (execution_error != nil) {
         std::string msg = [[execution_error localizedDescription] UTF8String];

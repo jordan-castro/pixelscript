@@ -1,5 +1,5 @@
-#ifndef PXS_CORELIB_NET_H
-#define PXS_CORELIB_NET_H
+#ifndef PXS_CORELIB_HTTP_H
+#define PXS_CORELIB_HTTP_H
 
 #include <cstdint>
 #include <string>
@@ -8,8 +8,8 @@
 #include <vector>
 
 extern "C" {
-    // Initialize the net corelib.
-    void pxs_corelib_net_init();
+    // Initialize the http corelib.
+    void pxs_corelib_http_init();
 }
 
 // 
@@ -186,6 +186,15 @@ public:
     //
     // returns `string`|`null`
     static pxs_VarT prop_domain(pxs_VarT args);
+
+    // @self
+    // @prop(get,set)
+    // Tiemout in MS
+    // args:
+    //  - ms: @set `int` milliseconds.
+    //
+    // returns `int`
+    static pxs_VarT prop_timeout(pxs_VarT args); 
 
     // @except
     // @self

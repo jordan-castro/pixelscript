@@ -1406,11 +1406,11 @@ void pxs_shellinit(void);
 void pxs_zipinit(void);
 
 /**
- * Initialize the `pxs_net` module.
+ * Initialize the `pxs_http` module.
  *
  * THREAD_LOCAL
  */
-void pxs_netinit(void);
+void pxs_httpinit(void);
 
 /**
  * Initialize all the `pxs_core` modules.
@@ -1421,7 +1421,7 @@ void pxs_core_initall(void);
 
 extern void pxs_corelib_zip_init(void);
 
-extern void pxs_corelib_net_init(void);
+extern void pxs_corelib_http_init(void);
 
 #ifdef __cplusplus
 }  // extern "C"

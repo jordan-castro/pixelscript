@@ -27,7 +27,7 @@ import pxs_fs
 import pxs_os
 import pxs_zip
 import pxs_shell
-import pxs_net
+import pxs_http
 
 pxs.print("===pxs===")
 pxs.print('Working Python')
@@ -65,11 +65,11 @@ pxs.passert("Hello again, this time from a platform shell!" in output.stdout, "O
 pxs.passert(len(output.stderr.strip()) == 0, "Error is not correct")
 pxs.passert(output.status == 0, "Status is not correct")
 
-pxs.print("===pxs_net===")
-res = pxs_net.client.get("https://jsonplaceholder.typicode.com/todos/1")
+pxs.print("===pxs_http===")
+res = pxs_http.client.get("https://jsonplaceholder.typicode.com/todos/1")
 pxs.print("JSON GET response", res.text)
 pxs.passert(res.status == 200, "Get Status not match")
-res = pxs_net.client.post("https://jsonplaceholder.typicode.com/posts")
+res = pxs_http.client.post("https://jsonplaceholder.typicode.com/posts")
 pxs.print("JSON POST response", res.text)
 pxs.passert(res.status == 201, "Post Status not match")
 "#;

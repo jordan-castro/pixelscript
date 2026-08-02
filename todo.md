@@ -54,10 +54,8 @@
         - `csv`
         - the parser library is going to be different than `pxs_json` because `pxs_json` is mainly just a way of adding JSON support to the host via the library.
             but that will be deprecated in favor of the new parser library.
-    - add `pxs_image`   C++
-        - Will use the STB Libraries.
-    - ~~add `pxs_net`   C++~~
-    - Important caveat with core modules: THEY MUST NOT USE ANY CRATES! So zip and net are written in C++.
+    - ~~add `pxs_http`   C++~~
+    - Important caveat with core modules: THEY MUST NOT USE ANY CRATES! So zip and http are written in C++.
 - Add android build support in `build.py`
 - ~~Add `zigbuild` support in `build.py`~~
 - ~~Fix child modules naming.~~

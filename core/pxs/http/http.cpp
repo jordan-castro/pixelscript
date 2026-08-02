@@ -1,4 +1,4 @@
-#include "net.hpp"
+#include "http.hpp"
 #include <array>
 #include <sstream>
 #include <pixelscript_cpp.hpp>
@@ -98,6 +98,7 @@ pxs_VarT Client::new_client(pxs_VarT args) {
     pxs_object_addprop(object, "body", &Client::prop_body);
     pxs_object_addprop(object, "version", &Client::prop_version);
     pxs_object_addprop(object, "domain", &Client::prop_domain);
+    pxs_object_addprop(object, "timeout", &Client::prop_timeout);
     pxs_object_addfunc(object, "make_request", &Client::make_request);
     return pxs_newhost(object);
 }
@@ -266,6 +267,29 @@ pxs_VarT Client::prop_domain(pxs_VarT args) {
     return pxs_newnull();
 }
 
+pxs_VarT Client::prop_timeout(pxs_VarT args) {
+    auto self = static_cast<Client*>(pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), CLIENT_TYPE));
+    if (!self) {
+        return pxs_newexception("Expected self");
+    }
+
+    auto argc = pxs_argc(args);
+    if (argc == 1) {
+        return pxs_newint(self->data.timeout);
+    }
+
+    if (argc == 2) {
+        auto timeout_var = pxs_arg(args, 1);
+        if (!pxs_isint(timeout_var) && !pxs_isfloat(timeout_var))  {
+            return pxs_newexception("Expected int or float.");
+        }
+        int val = pxs_getint(timeout_var);
+        self->data.timeout = val;
+    }
+
+    return pxs_newnull();
+}
+
 pxs_VarT Client::make_request(pxs_VarT args) {
     auto self = static_cast<Client*>(pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), CLIENT_TYPE));
     if (!self) {
@@ -392,8 +416,8 @@ pxs_VarT post(pxs_VarT args) {
     return result;
 }
 
-void pxs_corelib_net_init() {
-    auto net_mod = pxs_newmod("pxs_net");
+void pxs_corelib_http_init() {
+    auto net_mod = pxs_newmod("pxs_http");
 
     // Variables
     pxs_addvar(net_mod, "HTTP_VERSION_1_1", pxs_newint(static_cast<int>(HttpVersion::HTTP_1_1)));

@@ -23,8 +23,8 @@ pub mod pxs_fs;
 pub mod pxs_shell;
 #[cfg(feature="pxs_zip")]
 pub mod pxs_zip;
-#[cfg(feature="pxs_net")]
-pub mod pxs_net;
+#[cfg(feature="pxs_http")]
+pub mod pxs_http;
 
 pub(self) enum PxsCoreType {
     File = 1,
