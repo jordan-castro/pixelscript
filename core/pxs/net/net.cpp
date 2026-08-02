@@ -32,6 +32,15 @@ std::vector<std::string> Client::get_header_parts() {
     return res;
 }
 
+void ClientResponse::fill(const ResponseData& other) {
+    this->data.headers = other.headers;
+    this->data.request_type = other.request_type;
+    this->data.version = other.version;
+    this->data.timeout = other.timeout;
+    this->data.user_agent = other.user_agent;
+    this->data.domain_name = other.domain_name;
+}
+
 pxs_VarT ClientResponse::into_pxs() {
     auto obj = pxs_newtype(static_cast<pxs_Opaque>(this), free_client_response, "ClientResponse", CLIENT_RESPONSE_TYPE);
     pxs_object_addprop(obj, "version", ClientResponse::prop_version);

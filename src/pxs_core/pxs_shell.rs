@@ -285,7 +285,6 @@ extern "C" fn system(args: pxs_VarT) -> pxs_VarT {
         return pxs_newexception(c"Expected String".as_ptr());
     }
     let command = own_string!(pxs_getstring(command_str));
-    let items: Vec<&str> = command.split(" ").collect();
 
     // Check target
     let (program, f) = if cfg!(target_os = "windows") {
@@ -295,9 +294,7 @@ extern "C" fn system(args: pxs_VarT) -> pxs_VarT {
     };
     let mut cmd = Command::new(program);
     cmd.arg(f);
-    for i in 0..items.len() {
-        cmd.arg(items[i]);
-    }
+    cmd.arg(command);
 
     let status = cmd.status();
     match status {

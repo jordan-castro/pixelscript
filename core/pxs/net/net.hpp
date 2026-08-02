@@ -57,6 +57,10 @@ struct ResponseData {
 class ClientResponse {
 public:
     // @private
+    // Fill from another data obj
+    void fill(const ResponseData& other);
+
+    // @private
     ResponseData data;
 
     // @private

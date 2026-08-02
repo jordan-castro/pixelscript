@@ -177,6 +177,9 @@ fn build_pxs_net(target_os: &str, target_env: &str) {
     // Specific impls
     if target_os == "windows" {
         build.file("core/pxs/net/net_windows.cpp");
+    } else if target_os == "macos" || target_os == "ios" {
+        build.file("core/pxs/net/net_apple.mm");
+        println!("cargo:rustc-link-lib=framework=Foundation");
     }
 
     // Compile source

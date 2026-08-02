@@ -13,4 +13,13 @@ namespace utils {
         }
         return res;
     }
+
+    // Trim whitespace from left
+    inline std::string trim_left(const std::string& str) {
+        std::string res = str;
+        while (!res.empty() && res[0] == ' ') {
+            res.erase(0, 1);
+        }
+        return res;
+    }
 }

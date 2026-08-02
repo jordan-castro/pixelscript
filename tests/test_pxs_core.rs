@@ -59,22 +59,19 @@ pxs.print("===pxs_shell===")
 pxs_shell.system('echo "Hello World from pxs_shell!"')
 shell = pxs_shell.PlatformShell()
 shell.command()
-shell.arg("echo")
-shell.arg("Hello again, this time from a platform shell!")
+shell.arg('echo "Hello again, this time from a platform shell!"')
 output = shell.output()
 pxs.passert("Hello again, this time from a platform shell!" in output.stdout, "Output is not correct.")
 pxs.passert(len(output.stderr.strip()) == 0, "Error is not correct")
 pxs.passert(output.status == 0, "Status is not correct")
 
-# Currently only supporting windows for pxs_net
-if pxs_os.name == "windows":
-    pxs.print("===pxs_net===")
-    res = pxs_net.client.get("https://jsonplaceholder.typicode.com/todos/1")
-    pxs.print("JSON GET response", res.text)
-    pxs.passert(res.status == 200, "Get Status not match")
-    res = pxs_net.client.post("https://jsonplaceholder.typicode.com/posts")
-    pxs.print("JSON POST response", res.text)
-    pxs.passert(res.status == 201, "Post Status not match")
+pxs.print("===pxs_net===")
+res = pxs_net.client.get("https://jsonplaceholder.typicode.com/todos/1")
+pxs.print("JSON GET response", res.text)
+pxs.passert(res.status == 200, "Get Status not match")
+res = pxs_net.client.post("https://jsonplaceholder.typicode.com/posts")
+pxs.print("JSON POST response", res.text)
+pxs.passert(res.status == 201, "Post Status not match")
 "#;
         let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_Python);
         assert!(res.is_null(), "Python error is not null: {:#?}", res);

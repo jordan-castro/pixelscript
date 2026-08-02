@@ -142,6 +142,7 @@ struct ZipFile {
         // Get data
         auto data_arg = pxs_arg(args, 2);
         std::string data;
+        data.resize(pxs_varsize(data_arg) / sizeof(char));
         if (!pxs_varis(data_arg, pxs_String) && !pxs_varis(data_arg, pxs_List)) {
             return pxs_newexception("Expected String or List[Byte]");
         }
