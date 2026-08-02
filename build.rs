@@ -145,6 +145,10 @@ fn build_pxs_zip(_target_os: &str, target_env: &str) {
     if target_env == "msvc" {
         build.static_crt(true);
         build.flag("/EHsc");
+    } else {
+        build.flag("-fpermissive");
+        build.flag("-include");
+        build.flag("cstring");
     }
 
     build.std("c++17");
