@@ -76,3 +76,6 @@
 - Added `pxs_Exception` to `pxs_varsize`. Uses the same logic as `pxs_String`
 - Updated README to not have docs for the CoreLib.
 - Started Documentation.
+
+## 0.6.6
+- Added benchmarks.

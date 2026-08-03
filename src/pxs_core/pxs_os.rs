@@ -1,11 +1,8 @@
-use etffi::{cstring::CStringSafe, own_string};
+use etffi::{cstring::CStringSafe, own_string, ptr_magic::PtrMagic};
 
 use crate::{
-    pxs_addfunc, pxs_addmod, pxs_addvar, pxs_arg, pxs_argc, pxs_getstring, pxs_listadd,
-    pxs_newexception, pxs_newlist, pxs_newmod, pxs_newnull, pxs_newstring, pxs_varis,
-    shared::var::{
-        pxs_VarT,
-        pxs_VarType::{pxs_String},
+    pxs_addfunc, pxs_addmod, pxs_addvar, pxs_arg, pxs_argc, pxs_getstring, pxs_isstring, pxs_listadd, pxs_newexception, pxs_newlist, pxs_newmod, pxs_newnull, pxs_newstring, pxs_varis, shared::var::{
+        pxs_Var, pxs_VarT, pxs_VarType::pxs_String,
     },
 };
 
@@ -45,6 +42,59 @@ extern "C" fn chdir(args: pxs_VarT) -> pxs_VarT {
     }
 }
 
+/// @except
+/// Read a enviroment variable.
+/// args:
+///  - key: `string` the key to read.
+/// 
+/// returns `string?`
+extern "C" fn read_env(args: pxs_VarT) -> pxs_VarT {
+    if pxs_argc(args) != 1 {
+        return pxs_newexception(c"Expected 1 arg".as_ptr());
+    }
+
+    let arg = pxs_arg(args, 0);
+    if !pxs_isstring(arg) {
+        return pxs_newexception(c"Expected string".as_ptr());
+    }
+    let key = own_string!(pxs_getstring(arg));
+
+    match std::env::var(key) {
+        Ok(val) => {
+            let mut cstring = CStringSafe::new();
+            pxs_newstring(cstring.new_string(&val))
+        },
+        Err(err) => {
+            pxs_Var::new_exception(err).into_raw()
+        },
+    }
+}
+
+/// @except
+/// Set a enviroment variable.
+/// args:
+///  - key: `string` the key to set.
+///  - value: `string` the value.
+extern "C" fn set_env(args: pxs_VarT) -> pxs_VarT {
+    if pxs_argc(args) != 2 {
+        return pxs_newexception(c"Expected 2 args".as_ptr());
+    }
+
+    let key_arg = pxs_arg(args, 0);
+    if !pxs_isstring(key_arg) {
+        return pxs_newexception(c"Expected string key".as_ptr());
+    }
+    let value_arg = pxs_arg(args, 1);
+    if !pxs_isstring(value_arg) {
+        return pxs_newexception(c"Expected string value".as_ptr());
+    }
+    let key = own_string!(pxs_getstring(key_arg));
+    let value = own_string!(pxs_getstring(value_arg));
+    unsafe { std::env::set_var(key, value) };
+    
+    pxs_newnull()
+}
+
 /// @private
 /// Initialize `pxs_os` module.
 pub(crate) fn init() {
@@ -65,6 +115,8 @@ pub(crate) fn init() {
 
     pxs_addfunc(pxs_os, c"get_cwd".as_ptr(), get_cwd);
     pxs_addfunc(pxs_os, c"chdir".as_ptr(), chdir);
+    pxs_addfunc(pxs_os, c"read_env".as_ptr(), read_env);
+    pxs_addfunc(pxs_os, c"set_env".as_ptr(), set_env);
 
     pxs_addmod(pxs_os);
 }

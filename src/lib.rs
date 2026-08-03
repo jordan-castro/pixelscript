@@ -117,7 +117,7 @@ pub extern "C" fn pxs_version() -> u32 {
     pxs_debug!("pxs_version");
     let major = 0;
     let minor = 6;
-    let patch = 5;
+    let patch = 6;
     (major << 16) | (minor << 8) | patch
 }
 
@@ -2630,20 +2630,5 @@ pub extern "C" fn pxs_core_initall() {
     pxs_zipinit();
     pxs_httpinit();
 }
-
-// /// Intialize the `yoyo` modules.
-// /// 
-// /// This should be called for every thread that wants to use it. Should only be called once per thread.
-// #[unsafe(no_mangle)]
-// pub extern "C" fn pxs_yoyoinit() {
-//     pxs_debug!("pxs_yoyoinit");
-//     assert_initiated!();
-
-//     with_feature!("yoyo", {
-//         unsafe { yoyo::yoyo::yoyo_init() };
-//     }, {
-//         panic!("yoyo is not enabled.");
-//     });
-// }
 
 // ====================================== Core functions End =========================================

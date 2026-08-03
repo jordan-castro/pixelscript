@@ -17,3 +17,4 @@ cpp_compat = true
 
 [export]
 include = []
+exclude = ["pxs_corelib_zip_init", "pxs_corelib_http_init"]
