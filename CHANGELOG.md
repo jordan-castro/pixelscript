@@ -63,7 +63,6 @@
     - `pxs_shell`
     - `pxs_zip`
     - `pxs_fs`
-    - `pxs_yaml`
 - Added `test_bytes.rs`
 - Added `test_yoyo.rs`
 - removed `php` support. (Was never completed and it just got in the way.) I will add it back as a optional C++ module in 0.8
@@ -79,3 +78,4 @@
 
 ## 0.6.6
 - Added benchmarks.
+- Add `read_env`, `set_env` to `pxs_os`
