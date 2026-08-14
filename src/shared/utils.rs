@@ -176,11 +176,11 @@ pub fn setup_pxs_name(name: &str) {
     // Save module
     pxs_addmod(module);
 }
+
 #[cfg(feature = "testing")]
 pub fn setup_pxs() {
     setup_pxs_name("pxs");
 }
-
 
 /// Create a private PXS name for a backend
 pub fn create_private_name(name: &str) -> String {

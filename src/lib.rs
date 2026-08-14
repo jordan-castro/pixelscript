@@ -843,7 +843,8 @@ pub extern "C" fn pxs_getstring(var: *mut pxs_Var) -> *mut c_char {
     }
 
     let bv = borrow_var!(var);
-    if !bv.is_string() {
+    // Must be either string OR exception.
+    if !bv.is_string() && !bv.is_exception() {
         return ptr::null_mut();
     }
 
