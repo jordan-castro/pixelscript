@@ -19,7 +19,7 @@
 - ~~Add `_pxs_delete` method to free internal memory at language level. (core lib)~~ (it's pxs_mem.memdel(obj))
 - ~~Add `arenas`~~
 - ~~Promises in JS.~~ (Decided to not support them.)
-- Why (globals, locals) are null sometimes?
+- ~~Why (globals, locals) are null sometimes?~~ (because sometimes they are literally not passed.)
 
 ## v0.6 STD, Tests, Errors
 - ~~Use libs/lua-5.5.0/* src instead of mlua.~~
@@ -61,6 +61,10 @@
 - ~~Fix child modules naming.~~
     - ~~Should be renamed when adding module to another module type thingy.~~
 - ~~Remove `c_tests`~~
+- Add name to `compile`.
+- remove locals from python and JS backends. Make them override the global scope.
+    - in Python (just set and unset keys) (never pass locals. Or do but pass a nulll?)
+    - in JS (do the same thing...)
 
 ## v0.7 Wasm and Dynamic Language support
 - Add Wren support as a dynamic language (C++)
