@@ -38,15 +38,12 @@ unsafe extern "C" fn pxsutils_freestring(ptr: *mut core::ffi::c_char) {
     }
 }
 
-#[allow(non_camel_case_types)]
 /// Function Type for Loading a file.
 pub type pxs_LoadFileFn = unsafe extern "C" fn(file_path: *const c_char) -> pxs_VarT;
 
-#[allow(non_camel_case_types)]
 /// Function Type for reading a Dir. Should return a `pxs_List`
 pub type pxs_ReadDirFn = unsafe extern "C" fn(dir_path: *const c_char) -> pxs_VarT;
 
-#[allow(non_camel_case_types)]
 pub type pxs_Opaque = *mut c_void;
 
 /// Error type in PXS
@@ -192,7 +189,7 @@ pub trait PixelScript {
     /// Compile and save for future use.
     /// Pass in a optional global scope, if null, defaults to empty Map.
     /// Result will be a list with: [Runtime, Compiled Object, ...]
-    fn compile(code: &str, global_scope: pxs_Var) -> PxsResult;
+    fn compile(code: &str, global_scope: pxs_Var, name: String) -> PxsResult;
 
     /// Execute a code object.
     /// The code variable will always be a List with: [Runtime, Compiled Object, ...].

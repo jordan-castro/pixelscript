@@ -367,16 +367,26 @@ impl PixelScript for JSScripting {
         init(state);
     }
 
-    fn compile(code: &str, global_scope: crate::shared::var::pxs_Var) -> PxsResult {
+    fn compile(code: &str, global_scope: crate::shared::var::pxs_Var, name: String) -> PxsResult {
         // Compile object
         let mod_obj = run_js(
             code,
-            "<code_object>",
+            &name,
             (quickjs::JS_EVAL_FLAG_COMPILE_ONLY | quickjs::JS_EVAL_TYPE_MODULE) as i32,
         );
         if mod_obj.is_exception() || mod_obj.is_error() {
             return pxs_error!("{}", mod_obj.get_error_exception().unwrap());
         }
+
+        // Check if global_scope is not a map or null.
+        // if null then create a empty object
+        let global_scope_obj = if global_scope.is_null() {
+            SmartJSValue::new_object(mod_obj.context)
+        } else if global_scope.is_map() {
+            pxs_into_js(mod_obj.context, &global_scope)?
+        } else {
+            return Ok(pxs_Var::new_exception(format!("Unsupported scope for JS {:#?}", global_scope)));
+        };
 
         // Execute it for the first time (there needs to be a specific function).
         let res = SmartJSValue::new_owned(
@@ -392,10 +402,8 @@ impl PixelScript for JSScripting {
         // Save the `mod_obj` as pxs
         let pxs_val = js_into_pxs(&mod_obj)?;
 
-        // Now lets convert global_scope into a JS object, then into a PXS object
-        let global_scope_js_object = pxs_into_js(mod_obj.context, &global_scope)?;
         // Now back to pxs
-        let global_scope_pxs = js_into_pxs(&global_scope_js_object)?;
+        let global_scope_pxs = js_into_pxs(&global_scope_obj)?;
 
         // Now lets return our [CodeObject, Global Scope reference]
         let result = pxs_Var::new_list();
@@ -415,12 +423,13 @@ impl PixelScript for JSScripting {
     ) -> PxsResult {
         let state = get_js_state();
         let list = code.get_list().unwrap();
+        let context = get_context(state);
 
         let code_object_pxs = list.get_item(1).unwrap();
         let global_scope = list.get_item(2).unwrap();
 
         // Convert code object to JS
-        let code_object_js = pxs_into_js(get_context(state), &code_object_pxs)?;
+        let code_object_js = pxs_into_js(context, &code_object_pxs)?;
         if !code_object_js.is_module() {
             return pxs_error!("Expected module, found: {}", code_object_js.type_string());
         }
@@ -435,13 +444,42 @@ impl PixelScript for JSScripting {
             );
         }
 
-        let args = vec![
-            pxs_into_js(get_context(state), &global_scope)?,
-            pxs_into_js(get_context(state), &local_scope)?,
-        ];
+        // Convert global_scope to JS
+        let global_scope_obj = pxs_into_js(context, &global_scope)?;
+
+        // If local_scope is a map, then we should add it to global scope and then remove it.
+        if local_scope.is_map() {
+            let map = local_scope.get_map().unwrap();
+            let keys = map.keys();
+
+            for key in keys {
+                // Ensure item.
+                let item = map.get_item(key);
+                if item.is_none() {
+                    continue;
+                }
+                let js_key = pxs_into_js(context, key)?;
+                let mut js_val = pxs_into_js(context, item.unwrap())?;
+
+                global_scope_obj.set_prop_value(&js_key, &mut js_val);
+            }
+        }
+
+        let args = vec![global_scope_obj.clone()];
 
         // Call method
         let res = pxs_method.call_as_source(&args);
+
+        // Remove local_scope
+        if local_scope.is_map() {
+            let map = local_scope.get_map().unwrap();
+            let keys = map.keys();
+
+            for key in keys {
+                let js_key = pxs_into_js(context, key)?;
+                global_scope_obj.del_prop(&js_key);
+            }
+        }
 
         if res.is_exception() {
             Ok(pxs_Var::new_exception(res.get_error_exception().unwrap()))

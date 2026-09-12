@@ -21,19 +21,18 @@ use crate::shared::{PtrMagic, var::pxs_Var};
 /// Here is a simple example.
 ///
 /// ```c
-/// Module* m = pixelmods_new_module("math");
+/// pxs_Module* m = pxs_newmod("math");
 ///
-/// pixelmods_module_add_callback(m, ...);
-/// pixelmods_module_add_variable(m, ...);
+/// pxs_addfunc(m, ...);
+/// pxs_addvar(m, ...);
 ///
-/// pixelmods_add_module(m);
+/// pxs_addmod(m);
 /// ```
 ///
 /// You never free the module pointer because the runtime takes ownership.
 ///
 /// Callbacks within modules use the same FUNCTION_LOOKUP global static variable.
 #[derive(Clone)]
-#[allow(non_camel_case_types)]
 pub struct pxs_Module {
     /// Name of the module.
     pub name: String,

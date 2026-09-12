@@ -82,3 +82,7 @@
 - Added `test_strings.rs` this is for testing the `pxs_tostring` method works for reals not for fakes.
 - Added `test_exception.rs` this is for testing the `pxs_getstring` method works with exceptions too.
 - Fixed `pxs_getstring` to work with exceptions.
+- Migrated from globals, locals to just globals. Locals passed will override globals in compiled chunks. **BREAKING**
+    - This means that any `__pxs__(globals, locals)` should be migrated to `__pxs__(args)`.
+- Added `name` to `pxs_compile` for better debugging. **BREAKING**
+- Updated pocketpy version to 2.2.0 from 2.1.8 

@@ -6,6 +6,7 @@
 //
 // Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 //
+#![allow(non_camel_case_types)]
 
 // Doc comment convention:
 // OWNED        : the host/caller owns the value and must free it.
@@ -1680,16 +1681,18 @@ pub extern "C" fn pxs_compile(
     runtime: pxs_Runtime,
     code: *const c_char,
     global_scope: pxs_VarT,
+    name: *const c_char
 ) -> pxs_VarT {
     pxs_debug!("pxs_compile");
     assert_initiated!();
 
-    if code.is_null() || global_scope.is_null() {
+    if code.is_null() || global_scope.is_null() || name.is_null() {
         return pxs_Var::null_params_ep().into_raw();
     }
 
     let rcode = borrow_string!(code);
     let scope = own_var!(global_scope);
+    let rname = borrow_string!(name);
 
     // Make sure scope is map or is null.
     if !scope.is_map() && !scope.is_null() {
@@ -1697,7 +1700,7 @@ pub extern "C" fn pxs_compile(
     }
 
     let res = with_backend!(runtime, Backend => {
-        let res = Backend::compile(rcode, scope);
+        let res = Backend::compile(rcode, scope, rname.to_string());
         if res.is_err() {
             pxs_Var::new_exception(res.unwrap_err().to_string())
         } else {

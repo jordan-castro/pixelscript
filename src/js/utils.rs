@@ -427,7 +427,7 @@ impl SmartJSValue {
 
     /// Set a property
     /// 
-    /// Un owns property
+    /// Un owns property.
     pub fn set_prop_pos(&self, key: u32, value: &mut SmartJSValue) {
         value.owned = false;
         unsafe {

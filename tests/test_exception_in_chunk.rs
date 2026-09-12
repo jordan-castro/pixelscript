@@ -36,7 +36,7 @@ mod tests {
 
     fn compile_execute(script: &str, rt: pxs_Runtime, num: i32) {
         let mut cstring = CStringSafe::new();
-        let co = pxs_compile(rt, cstring.new_string(script), pxs_newnull());
+        let co = pxs_compile(rt, cstring.new_string(script), pxs_newnull(), cstring.new_string("<test_exception_in_chunk>"));
         let res = pxs_execobject(pxs_new_shallowcopy(co), pxs_newnull());
         assert!(!res.is_null(), "Result is null");
         let reso = own_var!(res);

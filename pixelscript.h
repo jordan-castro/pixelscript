@@ -98,12 +98,12 @@ typedef struct pxs_FactoryHolder pxs_FactoryHolder;
  * Here is a simple example.
  *
  * ```c
- * Module* m = pixelmods_new_module("math");
+ * pxs_Module* m = pxs_newmod("math");
  *
- * pixelmods_module_add_callback(m, ...);
- * pixelmods_module_add_variable(m, ...);
+ * pxs_addfunc(m, ...);
+ * pxs_addvar(m, ...);
  *
- * pixelmods_add_module(m);
+ * pxs_addmod(m);
  * ```
  *
  * You never free the module pointer because the runtime takes ownership.
@@ -928,7 +928,10 @@ pxs_VarT pxs_new_shallowcopy(pxs_VarT var);
  * global_scope:TRANSFER
  * return:OWNED
  */
-pxs_VarT pxs_compile(enum pxs_Runtime runtime, const char *code, pxs_VarT global_scope);
+pxs_VarT pxs_compile(enum pxs_Runtime runtime,
+                     const char *code,
+                     pxs_VarT global_scope,
+                     const char *name);
 
 /**
  * Execute a compiled code object.

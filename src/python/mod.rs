@@ -14,9 +14,7 @@ use etffi::{borrow_string, create_raw_string, cstring::CStringSafe, free_raw_str
 
 use crate::{
     pxs_debug, pxs_error, python::{
-        func::{get_builtin, pocketpy_bridge, py_assign},
-        module::create_module,
-        var::{PythonPointer, pocketpyref_to_var, var_to_pocketpyref},
+        func::{get_builtin, pocketpy_bridge, py_assign}, module::create_module, var::{PythonPointer, pocketpyref_to_var, var_to_pocketpyref},
     }, shared::{
         PixelScript, PxsRes, PxsResult, pxs_Opaque, read_file, read_file_dir, var::{ObjectMethods, pxs_Var, pxs_VarList}
     }, with_feature
@@ -508,9 +506,9 @@ impl PixelScript for PythonScripting {
         }
     }
 
-    fn compile(code: &str, scope: pxs_Var) -> PxsResult {
+    fn compile(code: &str, scope: pxs_Var, name:String) -> PxsResult {
         let source = create_raw_string!(code);
-        let file_name = create_raw_string!("<compile>");
+        let file_name = create_raw_string!(name);
         unsafe {
             let ok = pocketpy::py_compile(source, file_name, pocketpy::py_CompileMode::EXEC_MODE, true);
             free_raw_string!(source);
@@ -555,13 +553,10 @@ impl PixelScript for PythonScripting {
         }
     }
     
-    fn exec_object(code: pxs_Var, scope: pxs_Var) -> PxsResult {
+    fn exec_object(code: pxs_Var, local_scope: pxs_Var) -> PxsResult {
         // Check if a list or a regular obj
         let code_obj = unsafe{pocketpy::py_pushtmp()};
         let code_scope = unsafe{pocketpy::py_pushtmp()};
-        let code_locals = unsafe{pocketpy::py_pushtmp()};
-        // let code_obj: &mut PythonPointer;
-        // let code_scope: Option<&mut PythonPointer>;
         if code.is_list() {
             // Ensure there are 3 elements (runtime, objectscope)
             let list = code.get_list().unwrap();
@@ -590,12 +585,32 @@ impl PixelScript for PythonScripting {
         }
 
         // Check if a optional scope
-        if scope.is_map() {
-            // Setup
-            var_to_pocketpyref(code_locals, &scope, None);
-        } else {
-            unsafe{
-                pocketpy::py_newdict(code_locals);
+        if local_scope.is_map() {
+            // Add to code_scope
+            let map = local_scope.get_map().unwrap();
+            let keys = map.keys();
+            unsafe {
+                for key in keys {
+                    // Make sure item is gettable.
+                    let item = map.get_item(key);
+                    if item.is_none() {
+                        continue;
+                    }
+
+                    let py_key = pocketpy::py_pushtmp();
+                    var_to_pocketpyref(py_key, key, None);
+                    let py_value = pocketpy::py_pushtmp();
+                    var_to_pocketpyref(py_value, item.unwrap(), None);
+
+                    let ok = pocketpy::py_dict_setitem(code_scope, py_key, py_value);
+                    if !ok {
+                        let _err = consume_error();
+                        pxs_debug!("exec_object error: {_err}");
+                    }
+
+                    pocketpy::py_pop();
+                    pocketpy::py_pop();
+                }
             }
         }
 
@@ -609,15 +624,47 @@ impl PixelScript for PythonScripting {
             pocketpy::py_pushnil();
             pocketpy::py_push(code_obj);
             pocketpy::py_push(code_scope);
-            pocketpy::py_push(code_locals);
-            let ok = pocketpy::py_vectorcall(3, 0);
+            let ok = pocketpy::py_vectorcall(2, 0);
             // Pop tmps created by me.
             pocketpy::py_pop();
             pocketpy::py_pop();
-            pocketpy::py_pop();
-            if !ok {
-                let err = consume_error();
-                return Ok(pxs_Var::new_exception(err));
+
+            let err = if !ok {
+                Some(consume_error())
+            } else {
+                None
+            };
+            // TODO: fix removal.
+            // // Remove any local variables set to global scope
+            // if local_scope.is_map() {
+            //     // Recreate the code scope to access it again.
+            //     let code_scope = pocketpy::py_pushtmp();
+            //     let scope = code.get_list().unwrap().get_item(2).unwrap();
+            //     var_to_pocketpyref(code_scope, &scope, None);
+
+            //     let map = local_scope.get_map().unwrap();
+            //     let keys = map.keys();
+
+            //     for key in keys {
+            //         // Convert to Python.
+            //         let py_key = pocketpy::py_pushtmp();
+            //         var_to_pocketpyref(py_key, key, None);
+
+            //         let res = pocketpy::py_dict_delitem(code_scope, py_key);
+            //         println!("REs: {res}");
+            //         if res == -1 {
+            //             let _err = consume_error();
+            //             println!("{_err} when deleting");
+            //             pxs_debug!("Error in removing from global scope: {_err}");
+            //         }
+            //         pocketpy::py_pop();
+            //     }
+            //     // pop scope.
+            //     pocketpy::py_pop();
+            // }
+
+            if err.is_some() {
+                return Ok(pxs_Var::new_exception(err.unwrap()));
             }
 
             Ok(pocketpyref_to_var(pocketpy::py_retval()))            

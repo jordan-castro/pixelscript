@@ -140,6 +140,7 @@ import pxs
 def init():
     self.set_if_null('name', "Jordan")
     self.set_if_null('age', 24)
+    pxs.print('I can still call this!')
 
 init()
 name = self.get('name')
@@ -150,14 +151,17 @@ self.set('age', age + 1)
 pxs.print(f'Current loop idx: {loop_id}')
 "#;
         let raw_code = create_raw_string!(code);
+        let raw_name = create_raw_string!("<test_scope>");
         // Compile python code to object
         let code_object = pxs_compile(
             pixelscript::shared::pxs_Runtime::pxs_Python,
             raw_code,
             scope(),
+            raw_name
         );
         unsafe {
             free_raw_string!(raw_code);
+            free_raw_string!(raw_name);
         }
 
         // Print code object just to test
@@ -201,10 +205,12 @@ self:set('age', age + 1)
 pxs.print("Current loop idx: " .. tostring(loop_id))
 "#;
         let raw_code = create_raw_string!(code);
+        let raw_name = create_raw_string!("<test_scope>");
         // Compile python code to object
-        let code_object = pxs_compile(pixelscript::shared::pxs_Runtime::pxs_Lua, raw_code, scope());
+        let code_object = pxs_compile(pixelscript::shared::pxs_Runtime::pxs_Lua, raw_code, scope(), raw_name);
         unsafe {
             free_raw_string!(raw_code);
+            free_raw_string!(raw_name);
         }
 
         let loop_name = create_raw_string!("loop_id");
@@ -231,7 +237,7 @@ import * as pxs from 'pxs';
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 // JS requires wrapping in a function.
-export async function __pxs__(globals, locals) {
+export async function __pxs__(globals) {
     let self = globals.self;
     const init = () => {
         self.set_if_null('name', "Jordan");
@@ -244,18 +250,21 @@ export async function __pxs__(globals, locals) {
     let age = self.get('age');
     pxs.print("Hi my name is " + name + " and I am " + age.toString() + " years old");
     self.set('age', age + 1);
-    pxs.print("Current loop idx: " + locals.loop_id.toString());
+    pxs.print("Current loop idx: " + globals.loop_id.toString());
 }
 "#;
         let raw_code = create_raw_string!(code);
+        let raw_name = create_raw_string!("<test_scope>");
         // Compile python code to object
         let code_object = pxs_compile(
             pixelscript::shared::pxs_Runtime::pxs_JavaScript,
             raw_code,
             scope(),
+            raw_name
         );
         unsafe {
             free_raw_string!(raw_code);
+            free_raw_string!(raw_name);
         }
 
         let co = borrow_var!(code_object);

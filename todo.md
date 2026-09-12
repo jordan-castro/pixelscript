@@ -9,24 +9,24 @@
 - ~~Reimp pxs_DirHandle to be a pxs_VarList~~ **DONE**
 - ~~add pxs_compile which will return a `pxs_Code` object.~~ **DONE**
 - ~~Add Map~~ **DONE**
-- ~~Review memory management:~~
+- ~~Review memory management:~~ **DONE**
     - ~~All functions return pxs_Var~~
     - ~~All functions need to be explicit in their docs on ownership~~
     - ~~Check Factories... why are we not owning the args?~~ (We are)
     - ~~Mark functions as expected return type.~~
 - ~~Add properties to PixelObjects~~ **DONE**
-- ~~Check that function calls that fail dont crash.~~
-- ~~Add `_pxs_delete` method to free internal memory at language level. (core lib)~~ (it's pxs_mem.memdel(obj))
-- ~~Add `arenas`~~
+- ~~Check that function calls that fail dont crash.~~ **DONE**
+- ~~Add `_pxs_delete` method to free internal memory at language level. (core lib)~~ (it's pxs_mem.memdel(obj)) **DONE**
+- ~~Add `arenas`~~ **DONE**
 - ~~Promises in JS.~~ (Decided to not support them.)
 - ~~Why (globals, locals) are null sometimes?~~ (because sometimes they are literally not passed.)
 
 ## v0.6 STD, Tests, Errors
-- ~~Use libs/lua-5.5.0/* src instead of mlua.~~
-- ~~Remove lua hacks (io, os, what else?)~~
-- ~~Add file_name to `pxs_eval`.~~
-- ~~Support commonJS.~~
-- Tests
+- ~~Use libs/lua-5.5.0/* src instead of mlua.~~ **DONE**
+- ~~Remove lua hacks (io, os, what else?)~~ **DONE**
+- ~~Add file_name to `pxs_eval`.~~ **DONE**
+- ~~Support commonJS.~~ **DONE**
+- ~~Tests~~ **DONE**
     - ~~test_vars (Test all types to and from scripting)~~
     - ~~test_exec~~
     - ~~test_eval~~
@@ -41,57 +41,49 @@
     - what else needs to go here?
 - Benchmarks
 - Add `name` to exceptions. Make it default to `Error` to be backwards compat.
-- ~~Update how when adding child modules to a module it changes the names correctly. (Only do this at final pxs_addmod).~~
+- ~~Update how when adding child modules to a module it changes the names correctly. (Only do this at final pxs_addmod).~~ **DONE**
 - Add more `pxs` core modules
-    - ~~add `pxs_os`    Rust~~
-    - ~~add `pxs_fs`    Rust~~
-    - ~~add `pxs_shell` Rust~~
-    - ~~add `pxs_zip`   C++~~
-    - add `pxs_parser`  C++
+    - ~~add `pxs_os`   ~~
+    - ~~add `pxs_fs`   ~~
+    - ~~add `pxs_shell`~~
+    - add `pxs_zip`
+    - add `pxs_parser`
         - `json`
         - `yaml`
         - `toml`
         - `csv`
         - the parser library is going to be different than `pxs_json` because `pxs_json` is mainly just a way of adding JSON support to the host via the library.
             but that will be deprecated in favor of the new parser library.
-    - ~~add `pxs_http`   C++~~
-    - Important caveat with core modules: THEY MUST NOT USE ANY CRATES! So zip and http are written in C++.
-- Add android build support in `build.py`
-- ~~Add `zigbuild` support in `build.py`~~
-- ~~Fix child modules naming.~~
-    - ~~Should be renamed when adding module to another module type thingy.~~
-- ~~Remove `c_tests`~~
-- Add name to `compile`.
-- remove locals from python and JS backends. Make them override the global scope.
-    - in Python (just set and unset keys) (never pass locals. Or do but pass a nulll?)
-    - in JS (do the same thing...)
+    - add `pxs_http`
+    - ~~Important caveat with core modules: THEY MUST NOT USE ANY CRATES! So zip and http are written in C++.~~ (This is wrong now, I actually need to convert
+    those modules into rust but without adding crates. So they will be using extern c callbacks. For zip I will either write a library or remove it from core.).
 
-## v0.7 Wasm and Dynamic Language support
-- Add Wren support as a dynamic language (C++)
-- Add `dynamic` language support meaning a host language can add its own bindings backend that interops perfectly with Pxs.
-    - This will be useful when a developer wants to create a custom DSL.
+- Add android build support in `build.py`
+- ~~Add `zigbuild` support in `build.py`~~ **DONE**
+- ~~Fix child modules naming.~~ **DONE**
+    - ~~Should be renamed when adding module to another module type thingy.~~
+- ~~Remove `c_tests`~~ **DONE**
+- ~~Add name to `compile`.~~ **DONE**
+- ~~remove locals from python and JS backends. Make them override the global scope.~~ **DONE**
+    - ~~in Python (just set and unset keys) (never pass locals. Or do but pass a nulll?)~~
+    - ~~in JS (do the same thing...)~~
+- ~~update pocketpy version.~~ **DONE**
+- Fix the python memory leak of locals not being removed from globals.
+
+
+## v0.7 Wasm ~~and Dynamic Language support~~ (Dynamic support will not be supported. If you want to add a custom language)
+- ~~Add `dynamic` language support meaning a host language can add its own bindings backend that interops perfectly with Pxs.~~ (Developers should add fork and add their own backend following the docs. If they want to add it to pixelscript they will need to do a PR.)
+    ~~- This will be useful when a developer wants to create a custom DSL.~~
 - WASM support + Wasm web page similar to pocketpy live playground.
-- Add PHP support as a dynamic language (C++) (this is just for funsies)
 
 ## v0.8 Cross language
 - Cross language support. Calling JS from Python, Lua from JS, Python from JS, etc.
 
-## LSP
-- Remove ModuleCallbacks just use Function
-- Remove ModuleVariables just use PixelVariable {name, var}
-
-## Modules
-
-## Objects
-- Drop pxs_Object created from factory when it's no longer needed.
-
-## Vars
-
-## Python (PocketPy)
-- Make callback global. i.e. one per thread
-- Make object callbacks global. i.e. one per object
-- When dirreader, filereader, filewriter are set, allow with open().
-- Add a test for HostObject that holds another HostObject as reference. (FastTerrain)
+## v0.9 Backends
+- Add native python support.
+- Add V8 JS support.
+- Add Wren support
+- Add PHP support
 
 ## Maybes
 - Enums?

@@ -11,18 +11,22 @@
 
 // clang-format off
 
-#define PK_VERSION				"2.1.8"
+#define PK_VERSION				"2.2.0"
 #define PK_VERSION_MAJOR            2
-#define PK_VERSION_MINOR            1
-#define PK_VERSION_PATCH            8
+#define PK_VERSION_MINOR            2
+#define PK_VERSION_PATCH            0
 
 /*************** feature settings ***************/
 #ifndef PK_ENABLE_OS                // can be overridden by cmake
 #define PK_ENABLE_OS                1
 #endif
 
-#ifndef PK_ENABLE_THREADS           // can be overridden by cmake
-#define PK_ENABLE_THREADS           1
+#ifndef PK_ENABLE_THREADS           // must be enabled from cmake
+#define PK_ENABLE_THREADS           0
+#endif
+
+#ifndef PK_ENABLE_DLL               // must be enabled from cmake
+#define PK_ENABLE_DLL               0
 #endif
 
 #ifndef PK_ENABLE_DETERMINISM       // must be enabled from cmake
@@ -318,6 +322,12 @@ typedef struct py_Callbacks {
 typedef struct py_AppCallbacks {
     void (*on_vm_ctor)(int index);
     void (*on_vm_dtor)(int index);
+    /// Debugger callbacks default to DAP when PK_ENABLE_OS is enabled, otherwise NULL.
+    PY_MAYBENULL void (*debugger_waitforattach)(const char* hostname, unsigned short port);
+    /// 0: detached, 1: attached and running user code, 2: attached and running debugger code.
+    PY_MAYBENULL int (*debugger_status)();
+    PY_MAYBENULL void (*debugger_exceptionbreakpoint)(py_Ref exc);
+    PY_MAYBENULL void (*debugger_exit)(int code);
 } py_AppCallbacks;
 
 /// Native function signature.
@@ -821,7 +831,10 @@ PK_API bool py_hash(py_Ref, py_i64* out) PY_RAISE;
 /// Get the iterator of the object.
 PK_API bool py_iter(py_Ref) PY_RAISE PY_RETURN;
 /// Get the next element from the iterator.
-/// 1: success, 0: StopIteration, -1: error
+/// 1: a value was produced into `py_retval()`
+/// 0: the iterator is exhausted; `py_retval()` holds the `StopIteration` value,
+///    or `nil` if there is none
+/// -1: error
 PK_API int py_next(py_Ref) PY_RAISE PY_RETURN;
 /// Python equivalent to `str(val)`.
 PK_API bool py_str(py_Ref val) PY_RAISE PY_RETURN;
@@ -897,17 +910,18 @@ PK_API bool StopIteration() PY_RAISE;
 
 /************* Debugger *************/
 
-#if PK_ENABLE_OS
-PK_API void py_debugger_waitforattach(const char* hostname, unsigned short port);
-PK_API int py_debugger_status();
-PK_API void py_debugger_exceptionbreakpoint(py_Ref exc);
-PK_API void py_debugger_exit(int code);
-#else
-#define py_debugger_waitforattach(hostname, port)
-#define py_debugger_status() 0
-#define py_debugger_exceptionbreakpoint(exc)
-#define py_debugger_exit(code)
-#endif
+#define py_debugger_waitforattach(hostname, port) \
+    (py_appcallbacks()->debugger_waitforattach \
+         ? py_appcallbacks()->debugger_waitforattach((hostname), (port)) \
+         : (void)0)
+#define py_debugger_status() \
+    (py_appcallbacks()->debugger_status ? py_appcallbacks()->debugger_status() : 0)
+#define py_debugger_exceptionbreakpoint(exc) \
+    (py_appcallbacks()->debugger_exceptionbreakpoint \
+         ? py_appcallbacks()->debugger_exceptionbreakpoint((exc)) \
+         : (void)0)
+#define py_debugger_exit(code) \
+    (py_appcallbacks()->debugger_exit ? py_appcallbacks()->debugger_exit((code)) : (void)0)
 
 /************* PyTuple *************/
 
@@ -1034,6 +1048,9 @@ PK_API char* py_profiler_report();
 /************* Others *************/
 int64_t time_ns();
 int64_t time_monotonic_ns();
+py_i64 cpy312__int_floordiv(py_i64 a, py_i64 b);
+py_i64 cpy312__int_mod(py_i64 a, py_i64 b);
+void cpy312__float_divmod(double vx, double wx, double *floordiv, double *mod);
 
 /// An utility function to read a line from stdin for REPL.
 PK_API int py_replinput(char* buf, int max_size);
@@ -1074,6 +1091,7 @@ enum py_PredefinedType {
     tp_BaseException,
     tp_Exception,
     tp_bytes,
+    tp_bytes_iterator,
     tp_namedict,
     tp_locals,
     tp_code,
@@ -1094,6 +1112,7 @@ enum py_PredefinedType {
     tp_SyntaxError,
     tp_RecursionError,
     tp_OSError,
+    tp_PermissionError,
     tp_NotImplementedError,
     tp_TypeError,
     tp_IndexError,

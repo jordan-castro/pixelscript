@@ -392,11 +392,11 @@ impl PixelScript for LuaScripting {
         engine.from_lua(-1)
     }
 
-    fn compile(code: &str, global_scope: pxs_Var) -> PxsResult {
+    fn compile(code: &str, global_scope: pxs_Var, name: String) -> PxsResult {
         let state = get_lua_state();
         let mut engine = Engine::from_state(state);
         // Compile chunk
-        let chunk = engine.compile_chunk(code, "<lua_chunk>")?;
+        let chunk = engine.compile_chunk(code, &name)?;
         // Create a scope table and set a meta table that has __index == globals
         let env_table = if global_scope.is_map() {
             // 2
