@@ -77,7 +77,6 @@
 - Started Documentation.
 
 ## 0.6.6
-- Added benchmarks.
 - Add `read_env`, `set_env` to `pxs_os`
 - Added `test_strings.rs` this is for testing the `pxs_tostring` method works for reals not for fakes.
 - Added `test_exception.rs` this is for testing the `pxs_getstring` method works with exceptions too.

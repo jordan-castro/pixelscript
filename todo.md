@@ -39,7 +39,8 @@
     - add `pxs_setalloc`
     - add `pxs_setfree`
     - what else needs to go here?
-- Benchmarks
+- ~~Benchmarks~~ (This will NOT be added. Mostly becuase as I started writing them I realized that what needs to be benchmarked are the BACKENDS. Which
+already have their own benchmarks in the own repos. Please look at their documentation to see benchmarks for each backend. It is backend driven afterall.)
 - Add `name` to exceptions. Make it default to `Error` to be backwards compat.
 - ~~Update how when adding child modules to a module it changes the names correctly. (Only do this at final pxs_addmod).~~ **DONE**
 - Add more `pxs` core modules
