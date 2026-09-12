@@ -540,8 +540,8 @@ namespace pxs {
     }
 
     // Compile a script into a code object. Runtime is not inferred.
-    inline Var compile(pxs_Runtime runtime, const std::string& code, pxs_VarT global_scope) {
-        auto res = pxs_compile(runtime, code.c_str(), global_scope);
+    inline Var compile(pxs_Runtime runtime, const std::string& code, pxs_VarT global_scope, const std::string& name) {
+        auto res = pxs_compile(runtime, code.c_str(), global_scope, name.c_str());
         return pxs::Var(pxs_newint(static_cast<int>(runtime)), res);
     }
 
