@@ -18,7 +18,7 @@ mod tests {
         own_var, pxs_addfunc, pxs_addmod, pxs_arg, pxs_call, pxs_core_initall, pxs_debugvar,
         pxs_exec, pxs_finalize, pxs_freearena, pxs_freevar, pxs_getbool, pxs_getstring,
         pxs_initialize, pxs_json_decode, pxs_json_encode, pxs_listadd, pxs_listget, pxs_listlen,
-        pxs_meminit, pxs_new_shallowcopy, pxs_newarena, pxs_newcopy, pxs_newexception, pxs_newint,
+        pxs_new_shallowcopy, pxs_newarena, pxs_newcopy, pxs_newexception, pxs_newint,
         pxs_newlist, pxs_newmod, pxs_newnull, pxs_tostring,
         shared::{
             pxs_Runtime, utils,
@@ -102,8 +102,8 @@ mod tests {
 from core import *
 import t as pxs
 import pxs_json
-import pxs_mem
-import pxs_fs
+from pxs import mem as pxs_mem
+from pxs import fs as pxs_fs
 obj = {"one": 1, "two": 2}
 encoded = pxs_json.encode(obj)
 print(f'encoded: {encoded}')
@@ -124,7 +124,7 @@ pxs_mem.memdel(p)
         let luascript = r#"
 local pxs = require('core')
 local Per = require('t').Per
-local pxs_mem = require('pxs_mem')
+local pxs_mem = require('pxs.mem')
 local obj = {one = 1, two= 2}
 local pxs_json = require('pxs_json')
 local encoded = pxs_json.encode(obj)
@@ -147,7 +147,7 @@ pxs_mem.memdel(p)
 
         let jsscript = r#"
 import {print, encode, decode} from 'core';
-import { memdel, mem_delall } from 'pxs_mem';
+import { memdel, mem_delall } from 'pxs.mem';
 import { Per } from 't';
 // import * as pxs_json from 'pxs_json';
 let obj = {one: 1, two: 2};

@@ -589,6 +589,7 @@ impl PixelScript for PythonScripting {
             // Add to code_scope
             let map = local_scope.get_map().unwrap();
             let keys = map.keys();
+            // Copy the code scope. This is what will be sent 
             unsafe {
                 for key in keys {
                     // Make sure item is gettable.
@@ -634,7 +635,7 @@ impl PixelScript for PythonScripting {
             } else {
                 None
             };
-            // TODO: fix removal.
+            // TODO: fix removal. (Maybe not necessary?)
             // // Remove any local variables set to global scope
             // if local_scope.is_map() {
             //     // Recreate the code scope to access it again.
@@ -651,7 +652,6 @@ impl PixelScript for PythonScripting {
             //         var_to_pocketpyref(py_key, key, None);
 
             //         let res = pocketpy::py_dict_delitem(code_scope, py_key);
-            //         println!("REs: {res}");
             //         if res == -1 {
             //             let _err = consume_error();
             //             println!("{_err} when deleting");
@@ -660,7 +660,6 @@ impl PixelScript for PythonScripting {
             //         pocketpy::py_pop();
             //     }
             //     // pop scope.
-            //     pocketpy::py_pop();
             // }
 
             if err.is_some() {

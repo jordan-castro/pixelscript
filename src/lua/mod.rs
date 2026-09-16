@@ -457,15 +457,16 @@ impl PixelScript for LuaScripting {
 
         let res = engine.get_top_pxs()?;
 
-        // Remove locals if necessary
-        if !local_scope.is_null() {
-            engine.push_pxs(global_scope)?;
-            remove_variables_from_table(
-                get_lua_state(),
-                engine.get_top(),
-                local_scope.get_map().unwrap(),
-            )?;
-        }
+        // TODO (jc): Is this necessary?
+        // // Remove locals if necessary
+        // if !local_scope.is_null() {
+        //     engine.push_pxs(global_scope)?;
+        //     remove_variables_from_table(
+        //         get_lua_state(),
+        //         engine.get_top(),
+        //         local_scope.get_map().unwrap(),
+        //     )?;
+        // }
 
         Ok(res)
     }

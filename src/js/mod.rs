@@ -470,16 +470,17 @@ impl PixelScript for JSScripting {
         // Call method
         let res = pxs_method.call_as_source(&args);
 
-        // Remove local_scope
-        if local_scope.is_map() {
-            let map = local_scope.get_map().unwrap();
-            let keys = map.keys();
+        // TODO (jc): is it necessary to remove local_scope?
+        // // Remove local_scope
+        // if local_scope.is_map() {
+        //     let map = local_scope.get_map().unwrap();
+        //     let keys = map.keys();
 
-            for key in keys {
-                let js_key = pxs_into_js(context, key)?;
-                global_scope_obj.del_prop(&js_key);
-            }
-        }
+        //     for key in keys {
+        //         let js_key = pxs_into_js(context, key)?;
+        //         global_scope_obj.del_prop(&js_key);
+        //     }
+        // }
 
         if res.is_exception() {
             Ok(pxs_Var::new_exception(res.get_error_exception().unwrap()))

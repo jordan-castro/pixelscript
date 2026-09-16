@@ -155,23 +155,23 @@ typedef struct pxs_PixelArena pxs_PixelArena;
  *     // TODO
  * }
  * pxs_VarT person_set_name(pxs_VarT args) {
- *     void* self = pxs_gethost(pxs_listget(args, 1));
+ *     void* self = pxs_gethost(pxs_arg(args, 0));
  *     Person* p = (Person*)self;
- *     p->set_name(name.value.string_val);
+ *     p->set_name(pxs_getstring(pxs_arg(args, 1)));
  *     return NULL;
  * }
  * pxs_VarT new_person(int argc, Var** argv, void* opaque) {
  *     Person* p = malloc();
- *     PixelObject* object_ptr = pixelscript_new_object(p, free_person);
- *     pixelscript_object_add_callback(object_ptr, "set_name", person_set_name);
- *     return pixelscript_var_object(object_ptr);
+ *     pxs_PixelObject* object_ptr = pxs_newobject(p, free_person);
+ *     pxs_object_addfunc(object_ptr, "set_name", person_set_name);
+ *     return pxs_newhost(object_ptr);
  * }
  *
  * // OOP base
- * pixelscript_add_object("Person", new_person);
+ * pxs_addobject("Person", new_person);
  *
  * // Or functional
- * pixelscript_add_callback("new_person", new_person);
+ * pxs_addfunc("new_person", new_person);
  * ```
  *
  * In a JS example:
@@ -1367,53 +1367,11 @@ pxs_VarT pxs_json_decode(pxs_VarT rt,
                          pxs_VarT args);
 
 /**
- * Initialize the `pxs_mem` module.
+ * Initalize core modules
  *
  * THREAD_LOCAL
  */
-void pxs_meminit(void);
-
-/**
- * Initialize the `pxs` module.
- *
- * THREAD_LOCAL
- */
-void pxs_pxsinit(void);
-
-/**
- * Initialize the `pxs_os` module.
- *
- * THREAD_LOCAL REQUIRES_STD
- */
-void pxs_osinit(void);
-
-/**
- * Initialize the `pxs_fs` module.
- *
- * THREAD_LOCAL REQUIRES_STD
- */
-void pxs_fsinit(void);
-
-/**
- * Initialize the `pxs_shell` module.
- *
- * THREAD_LOCAL REQUIRES_STD
- */
-void pxs_shellinit(void);
-
-/**
- * Initialize the `pxs_zip` module.
- *
- * THREAD_LOCAL
- */
-void pxs_zipinit(void);
-
-/**
- * Initialize the `pxs_http` module.
- *
- * THREAD_LOCAL
- */
-void pxs_httpinit(void);
+void pxs_core_init(uint8_t modules);
 
 /**
  * Initialize all the `pxs_core` modules.

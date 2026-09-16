@@ -1,9 +1,9 @@
 use etffi::{cstring::CStringSafe, own_string, ptr_magic::PtrMagic};
 
 use crate::{
-    pxs_addfunc, pxs_addmod, pxs_addvar, pxs_arg, pxs_argc, pxs_getstring, pxs_isstring, pxs_listadd, pxs_newexception, pxs_newlist, pxs_newmod, pxs_newnull, pxs_newstring, pxs_varis, shared::var::{
+    pxs_add_submod, pxs_addfunc, pxs_addvar, pxs_arg, pxs_argc, pxs_getstring, pxs_isstring, pxs_listadd, pxs_newexception, pxs_newlist, pxs_newmod, pxs_newnull, pxs_newstring, pxs_varis, shared::{module::pxs_Module, var::{
         pxs_Var, pxs_VarT, pxs_VarType::pxs_String,
-    },
+    }},
 };
 
 /// Get the current working directory
@@ -97,8 +97,8 @@ extern "C" fn set_env(args: pxs_VarT) -> pxs_VarT {
 
 /// @private
 /// Initialize `pxs_os` module.
-pub(crate) fn init() {
-    let pxs_os = pxs_newmod(c"pxs_os".as_ptr());
+pub(crate) fn init(module: *mut pxs_Module) {
+    let pxs_os = pxs_newmod(c"os".as_ptr());
     let mut cstring = CStringSafe::new();
 
     // Add args variable
@@ -118,5 +118,5 @@ pub(crate) fn init() {
     pxs_addfunc(pxs_os, c"read_env".as_ptr(), read_env);
     pxs_addfunc(pxs_os, c"set_env".as_ptr(), set_env);
 
-    pxs_addmod(pxs_os);
+    pxs_add_submod(module, pxs_os);
 }

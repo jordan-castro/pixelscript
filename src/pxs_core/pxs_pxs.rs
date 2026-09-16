@@ -1,13 +1,13 @@
 use etffi::{cstring::CStringSafe, own_string, ptr_magic::PtrMagic};
 
 use crate::{
-    pxs_addfunc, pxs_addmod, pxs_addobject, pxs_arenaput, pxs_arg, pxs_argc,
+    pxs_addfunc, pxs_addobject, pxs_arenaput, pxs_arg, pxs_argc,
     pxs_core::PxsCoreType,
-    pxs_freearena, pxs_getbool, pxs_getrt, pxs_getstring, pxs_gettype, pxs_isbool,
-    pxs_isobject, pxs_isstring, pxs_listadd, pxs_new_shallowcopy, pxs_newarena, pxs_newbool,
-    pxs_newcopy, pxs_newexception, pxs_newhost, pxs_newlist, pxs_newmod, pxs_newnull,
-    pxs_newstring, pxs_newtype, pxs_object_addfunc, pxs_object_addprop, pxs_smart_getstring,
-    shared::{pxs_Opaque, var::pxs_VarT},
+    pxs_freearena, pxs_getbool, pxs_getrt, pxs_getstring, pxs_gettype, pxs_isbool, pxs_isobject,
+    pxs_isstring, pxs_listadd, pxs_new_shallowcopy, pxs_newarena, pxs_newbool, pxs_newcopy,
+    pxs_newexception, pxs_newhost, pxs_newlist, pxs_newnull, pxs_newstring,
+    pxs_newtype, pxs_object_addfunc, pxs_object_addprop, pxs_smart_getstring,
+    shared::{module::pxs_Module, pxs_Opaque, var::pxs_VarT},
 };
 
 struct Logger {
@@ -257,16 +257,13 @@ extern "C" fn passert(args: pxs_VarT) -> pxs_VarT {
 }
 
 /// @private
-/// Initialize `pxs_pxs` module.
-pub(crate) fn init() {
-    let pxs_pxs = pxs_newmod(c"pxs".as_ptr());
-
+/// Add `pxs` module functions and objects.
+/// Without this, it will not be possible to print or assert using the pxs native.
+pub(crate) fn init(module: *mut pxs_Module) {
     // Methods
-    pxs_addfunc(pxs_pxs, c"print".as_ptr(), print);
-    pxs_addfunc(pxs_pxs, c"passert".as_ptr(), passert);
+    pxs_addfunc(module, c"print".as_ptr(), print);
+    pxs_addfunc(module, c"passert".as_ptr(), passert);
 
     // Objects
-    pxs_addobject(pxs_pxs, c"Logger".as_ptr(), Logger::new);
-
-    pxs_addmod(pxs_pxs);
+    pxs_addobject(module, c"Logger".as_ptr(), Logger::new);
 }

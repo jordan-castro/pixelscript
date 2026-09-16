@@ -94,19 +94,6 @@ macro_rules! with_backend {
     };
 }
 
-/// Setup a core module
-macro_rules! setup_core {
-    ($namestr:expr, $name:ident) => {
-        pxs_debug!("{}init", $namestr);
-        assert_initiated!();
-        with_feature!($namestr, {
-            pxs_core::$name::init();
-        }, {
-            panic!("{} is not enabled.", $namestr);
-        });
-    };
-}
-
 /// Is initialized?
 static mut IS_INIT: bool = false;
 /// Is killed?
@@ -2563,60 +2550,29 @@ pub extern "C" fn pxs_json_decode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
     )
 }
 
-/// Initialize the `pxs_mem` module.
+/// Initalize core modules
 /// 
 /// THREAD_LOCAL
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_meminit() {
-    setup_core!("pxs_mem", pxs_mem);
-}
-
-/// Initialize the `pxs` module.
-/// 
-/// THREAD_LOCAL
-#[unsafe(no_mangle)]
-pub extern "C" fn pxs_pxsinit() {
-    setup_core!("pxs_pxs", pxs_pxs);
-}
-
-/// Initialize the `pxs_os` module.
-/// 
-/// THREAD_LOCAL REQUIRES_STD
-#[unsafe(no_mangle)]
-pub extern "C" fn pxs_osinit() {
-    setup_core!("pxs_os", pxs_os);
-}
-
-/// Initialize the `pxs_fs` module.
-/// 
-/// THREAD_LOCAL REQUIRES_STD
-#[unsafe(no_mangle)]
-pub extern "C" fn pxs_fsinit() {
-    setup_core!("pxs_fs", pxs_fs);
-}
-
-/// Initialize the `pxs_shell` module.
-/// 
-/// THREAD_LOCAL REQUIRES_STD
-#[unsafe(no_mangle)]
-pub extern "C" fn pxs_shellinit() {
-    setup_core!("pxs_shell", pxs_shell);
-}
-
-/// Initialize the `pxs_zip` module.
-/// 
-/// THREAD_LOCAL
-#[unsafe(no_mangle)]
-pub extern "C" fn pxs_zipinit() {
-    setup_core!("pxs_zip", pxs_zip);
-}
-
-/// Initialize the `pxs_http` module.
-/// 
-/// THREAD_LOCAL
-#[unsafe(no_mangle)]
-pub extern "C" fn pxs_httpinit() {
-    setup_core!("pxs_http", pxs_http);
+pub extern "C" fn pxs_core_init(modules:u8) {
+    pxs_debug!("pxs_core_init");
+    assert_initiated!();
+    #[cfg(any(
+        feature = "pxs_json",
+        feature = "pxs_mem",
+        feature = "pxs_os",
+        feature = "pxs_pxs",
+        feature = "pxs_fs",
+        feature = "pxs_shell",
+        feature = "pxs_http",
+        feature = "pxs_zip"
+    ))] 
+    {
+        unsafe { pxs_core::setup_core_modules(modules); }
+        return;
+    }
+    #[allow(unused)]
+    panic!("No core modules are enabled.");
 }
 
 /// Initialize all the `pxs_core` modules.
@@ -2626,13 +2582,31 @@ pub extern "C" fn pxs_httpinit() {
 pub extern "C" fn pxs_core_initall() {
     pxs_debug!("pxs_core_initall");
     assert_initiated!();
-    pxs_pxsinit();
-    pxs_meminit();
-    pxs_osinit();
-    pxs_fsinit();
-    pxs_shellinit();
-    pxs_zipinit();
-    pxs_httpinit();
+    let mut modules : u8 = 0;
+
+    with_feature!("pxs_os", {
+        modules |= pxs_core::pxs_ModuleFlag::pxs_OS as u8;
+    });
+    with_feature!("pxs_mem", {
+        modules |= pxs_core::pxs_ModuleFlag::pxs_MEM as u8;
+    });
+    with_feature!("pxs_pxs", {
+        modules |= pxs_core::pxs_ModuleFlag::pxs_PXS as u8;
+    });
+    with_feature!("pxs_fs", {
+        modules |= pxs_core::pxs_ModuleFlag::pxs_FS as u8;
+    });
+    with_feature!("pxs_shell", {
+        modules |= pxs_core::pxs_ModuleFlag::pxs_SHELL as u8;
+    });
+    with_feature!("pxs_zip", {
+        modules |= pxs_core::pxs_ModuleFlag::pxs_ZIP as u8;
+    });
+    with_feature!("pxs_http", {
+        modules |= pxs_core::pxs_ModuleFlag::pxs_HTTP as u8;
+    });
+
+    pxs_core_init(modules);
 }
 
 // ====================================== Core functions End =========================================

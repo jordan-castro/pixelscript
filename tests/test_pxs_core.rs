@@ -23,11 +23,11 @@ mod tests {
     fn test_python() {
         let script = r#"
 import pxs
-import pxs_fs
-import pxs_os
-import pxs_zip
-import pxs_shell
-import pxs_http
+from pxs import fs as pxs_fs
+from pxs import os as pxs_os
+from pxs import zip as pxs_zip
+from pxs import shell as pxs_shell
+from pxs import http as pxs_http
 
 pxs.print("===pxs===")
 pxs.print('Working Python')
@@ -105,10 +105,6 @@ pxs.print('Working JS');
 
         print_helper("PYTHON");
         test_python();
-        // print_helper("LUA");
-        // test_lua();
-        // print_helper("JS");
-        // test_js();
 
         pxs_finalize();
     }

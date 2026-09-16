@@ -1,11 +1,12 @@
 use etffi::cstring::CStringSafe;
 
 use crate::{
-    borrow_var, own_var, pxs_addfunc, pxs_addmod, pxs_arenaput, pxs_debug, pxs_freearena,
+    borrow_var, own_var, pxs_add_submod, pxs_addfunc, pxs_arenaput, pxs_debug, pxs_freearena,
     pxs_listadd, pxs_listget, pxs_listlen, pxs_new_shallowcopy, pxs_newarena, pxs_newcopy,
     pxs_newlist, pxs_newmod, pxs_newnull, pxs_objectget,
     shared::{
         PXS_PTR_NAME,
+        module::pxs_Module,
         object::apply_ref_count_delete,
         var::{pxs_Var, pxs_VarT, pxs_VarType},
     },
@@ -76,15 +77,16 @@ extern "C" fn pxs_mem_delete_all(args: pxs_VarT) -> pxs_VarT {
 
 /// @private
 /// Initialize `pxs_mem` module.
-pub(crate) fn init() {
+pub(crate) fn init(module: *mut pxs_Module) {
     let mut cstrgen = CStringSafe::new();
 
-    let pxs_mem = pxs_newmod(cstrgen.new_string("pxs_mem"));
+    let pxs_mem = pxs_newmod(cstrgen.new_string("mem"));
     pxs_addfunc(pxs_mem, cstrgen.new_string("memdel"), pxs_mem_delete);
     pxs_addfunc(
         pxs_mem,
         cstrgen.new_string("mem_delall"),
         pxs_mem_delete_all,
     );
-    pxs_addmod(pxs_mem);
+
+    pxs_add_submod(module, pxs_mem);
 }

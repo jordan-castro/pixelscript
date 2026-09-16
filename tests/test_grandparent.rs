@@ -11,10 +11,15 @@
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
-    use pixelscript::{
-        pxs_add_submod, pxs_addfunc, pxs_addmod, pxs_arg, pxs_finalize, pxs_freearena, pxs_freestr, pxs_getrt, pxs_initialize, pxs_newarena, pxs_newmod, pxs_newnull, pxs_smart_getstring, shared::{module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT},
+    use etffi::{
+        borrow_string, create_raw_string, cstring::CStringSafe, free_raw_string, own_string,
+        ptr_magic::PtrMagic,
     };
-    use etffi::{cstring::CStringSafe, borrow_string, create_raw_string, free_raw_string, own_string, ptr_magic::PtrMagic};
+    use pixelscript::{
+        pxs_add_submod, pxs_addfunc, pxs_addmod, pxs_arg, pxs_finalize, pxs_freearena, pxs_freestr,
+        pxs_getrt, pxs_initialize, pxs_newarena, pxs_newmod, pxs_newnull, pxs_smart_getstring,
+        shared::{module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT},
+    };
 
     fn print_helper(lang: &str) {
         println!("====================== {lang} ===================");
@@ -24,7 +29,7 @@ mod tests {
         let msg = own_string!(pxs_smart_getstring(pxs_getrt(args), pxs_arg(args, 0)));
 
         println!("{msg}");
-        
+
         pxs_newnull()
     }
 

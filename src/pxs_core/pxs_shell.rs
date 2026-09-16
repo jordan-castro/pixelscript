@@ -6,12 +6,13 @@ use std::{
 use etffi::{cstring::CStringSafe, own_string, ptr_magic::PtrMagic};
 
 use crate::{
-    pxs_addfunc, pxs_addmod, pxs_addobject, pxs_arg, pxs_argc,
+    pxs_add_submod, pxs_addfunc, pxs_addobject, pxs_arg, pxs_argc,
     pxs_core::PxsCoreType,
     pxs_freevar, pxs_getrt, pxs_getstring, pxs_gettype, pxs_isstring, pxs_listadd,
-    pxs_new_shallowcopy, pxs_newexception, pxs_newhost, pxs_newint, pxs_newlist,
-    pxs_newmod, pxs_newnull, pxs_newstring, pxs_newtype, pxs_object_addfunc, pxs_object_addprop,
+    pxs_new_shallowcopy, pxs_newexception, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmod,
+    pxs_newnull, pxs_newstring, pxs_newtype, pxs_object_addfunc, pxs_object_addprop,
     shared::{
+        module::pxs_Module,
         pxs_Opaque,
         var::{pxs_Var, pxs_VarT},
     },
@@ -303,8 +304,8 @@ extern "C" fn system(args: pxs_VarT) -> pxs_VarT {
     }
 }
 
-pub(crate) fn init() {
-    let pxs_shell = pxs_newmod(c"pxs_shell".as_ptr());
+pub(crate) fn init(module: *mut pxs_Module) {
+    let pxs_shell = pxs_newmod(c"shell".as_ptr());
 
     // Functions
     pxs_addfunc(pxs_shell, c"system".as_ptr(), system);
@@ -313,5 +314,5 @@ pub(crate) fn init() {
     pxs_addobject(pxs_shell, c"Shell".as_ptr(), Shell::new);
     pxs_addobject(pxs_shell, c"PlatformShell".as_ptr(), Shell::platform);
 
-    pxs_addmod(pxs_shell);
+    pxs_add_submod(module, pxs_shell);
 }

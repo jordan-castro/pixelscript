@@ -94,23 +94,23 @@ pub struct ObjectCallback {
 ///     // TODO
 /// }
 /// pxs_VarT person_set_name(pxs_VarT args) {
-///     void* self = pxs_gethost(pxs_listget(args, 1));
+///     void* self = pxs_gethost(pxs_arg(args, 0));
 ///     Person* p = (Person*)self;
-///     p->set_name(name.value.string_val);
+///     p->set_name(pxs_getstring(pxs_arg(args, 1)));
 ///     return NULL;
 /// }
 /// pxs_VarT new_person(int argc, Var** argv, void* opaque) {
 ///     Person* p = malloc();
-///     PixelObject* object_ptr = pixelscript_new_object(p, free_person);
-///     pixelscript_object_add_callback(object_ptr, "set_name", person_set_name);
-///     return pixelscript_var_object(object_ptr);
+///     pxs_PixelObject* object_ptr = pxs_newobject(p, free_person);
+///     pxs_object_addfunc(object_ptr, "set_name", person_set_name);
+///     return pxs_newhost(object_ptr);
 /// }
 ///
 /// // OOP base
-/// pixelscript_add_object("Person", new_person);
+/// pxs_addobject("Person", new_person);
 ///
 /// // Or functional
-/// pixelscript_add_callback("new_person", new_person);
+/// pxs_addfunc("new_person", new_person);
 /// ```
 ///
 /// In a JS example:

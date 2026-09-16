@@ -6,15 +6,16 @@ use std::{
 use etffi::{cstring::CStringSafe, own_string, ptr_magic::PtrMagic};
 
 use crate::{
-    pxs_addfunc, pxs_addmod, pxs_addobject, pxs_addvar, pxs_arenaput, pxs_arg, pxs_argc,
+    pxs_add_submod, pxs_addfunc, pxs_addobject, pxs_addvar, pxs_arenaput, pxs_arg, pxs_argc,
     pxs_copybytes,
     pxs_core::PxsCoreType,
     pxs_freearena, pxs_getint, pxs_getrt, pxs_gettype, pxs_listadd, pxs_newarena, pxs_newbool,
-    pxs_newbytes, pxs_newcopy, pxs_newexception, pxs_newhost, pxs_newint,
-    pxs_newlist, pxs_newmod, pxs_newnull, pxs_newstring, pxs_newtype, pxs_object_addfunc,
-    pxs_object_addprop, pxs_smart_getstring, pxs_varsize,
+    pxs_newbytes, pxs_newcopy, pxs_newexception, pxs_newhost, pxs_newint, pxs_newlist, pxs_newmod,
+    pxs_newnull, pxs_newstring, pxs_newtype, pxs_object_addfunc, pxs_object_addprop,
+    pxs_smart_getstring, pxs_varsize,
     shared::{
         func::pxs_Func,
+        module::pxs_Module,
         pxs_Opaque,
         var::{pxs_Var, pxs_VarT},
     },
@@ -413,8 +414,8 @@ extern "C" fn read_dir(args: pxs_VarT) -> pxs_VarT {
 }
 
 /// @private
-pub(crate) fn init() {
-    let pxs_fs = pxs_newmod(c"pxs_fs".as_ptr());
+pub(crate) fn init(module: *mut pxs_Module) {
+    let pxs_fs = pxs_newmod(c"fs".as_ptr());
 
     // Enums
     pxs_addvar(pxs_fs, c"READ_FILE_TEXT".as_ptr(), pxs_newint(1));
@@ -454,5 +455,5 @@ pub(crate) fn init() {
 
     // Factories
 
-    pxs_addmod(pxs_fs);
+    pxs_add_submod(module, pxs_fs);
 }
