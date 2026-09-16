@@ -25,7 +25,8 @@ mod tests {
 import pxs
 from pxs import fs as pxs_fs
 from pxs import os as pxs_os
-from pxs import zip as pxs_zip
+#from pxs import zip as pxs_zip
+import pxs_zip
 from pxs import shell as pxs_shell
 from pxs import http as pxs_http
 

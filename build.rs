@@ -155,42 +155,42 @@ fn build_pxs_zip(_target_os: &str, target_env: &str) {
     build.compile("pxs_zip");
 }
 
-#[cfg(feature="pxs_http")]
-/// Build pxs_http
-fn build_pxs_http(target_os: &str, target_env: &str) {
-    let mut build = cc::Build::new();
-    build.warnings(false);
-    build.cpp(true);
+// #[cfg(feature="pxs_http")]
+// /// Build pxs_http
+// fn build_pxs_http(target_os: &str, target_env: &str) {
+//     let mut build = cc::Build::new();
+//     build.warnings(false);
+//     build.cpp(true);
 
-    // Include pixelscript.h and pixelscript_cpp.hpp
-    build.include("./");
-    // Include http dir
-    build.include("core/pxs/http");
-    // Include utils
-    build.include("core/pxs");
+//     // Include pixelscript.h and pixelscript_cpp.hpp
+//     build.include("./");
+//     // Include http dir
+//     build.include("core/pxs/http");
+//     // Include utils
+//     build.include("core/pxs");
 
-    if target_env == "msvc" {
-        build.static_crt(true);
-        build.flag("/EHsc");
-    }
+//     if target_env == "msvc" {
+//         build.static_crt(true);
+//         build.flag("/EHsc");
+//     }
 
-    // Specific impls
-    if target_os == "windows" {
-        build.file("core/pxs/http/http_windows.cpp");
-    } else if target_os == "macos" || target_os == "ios" {
-        build.file("core/pxs/http/http_apple.mm");
-        println!("cargo:rustc-link-lib=framework=Foundation");
-    } else if target_os == "linux" {
-        build.file("core/pxs/http/http_linux.cpp");
-        println!("cargo:rustc-link-lib=curl");
-    }
+//     // Specific impls
+//     if target_os == "windows" {
+//         build.file("core/pxs/http/http_windows.cpp");
+//     } else if target_os == "macos" || target_os == "ios" {
+//         build.file("core/pxs/http/http_apple.mm");
+//         println!("cargo:rustc-link-lib=framework=Foundation");
+//     } else if target_os == "linux" {
+//         build.file("core/pxs/http/http_linux.cpp");
+//         println!("cargo:rustc-link-lib=curl");
+//     }
 
-    // Compile source
-    build.file("core/pxs/http/http.cpp");
+//     // Compile source
+//     build.file("core/pxs/http/http.cpp");
 
-    build.std("c++17");
-    build.compile("pxs_http");
-}
+//     build.std("c++17");
+//     build.compile("pxs_http");
+// }
 
 /// Create PocketPy Rust bindings
 #[cfg(feature = "python")]
@@ -321,12 +321,6 @@ fn main() {
     {
         build_pxs_zip(&target_os, &target_env);
         println!("cargo:rerun-if-changed=core/pxs/zip");
-    }
-
-    #[cfg(feature="pxs_http")]
-    {
-        build_pxs_http(&target_os, &target_env);
-        println!("cargo:rerun-if-changed=core/pxs/net");
     }
 
 }
