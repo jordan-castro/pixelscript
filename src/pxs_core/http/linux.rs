@@ -191,7 +191,6 @@ unsafe extern "C" {
     fn curl_easy_perform(curl: CURL_PTR) -> CURLcode;
     fn curl_easy_strerror(error: CURLcode) -> *const std::ffi::c_char;
     fn curl_easy_getinfo(curl: CURL_PTR, info: i32, ...) -> CURLcode;
-
 }
 
 // ======= End Bindings =======

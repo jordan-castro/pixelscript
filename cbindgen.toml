@@ -17,4 +17,17 @@ cpp_compat = true
 
 [export]
 include = []
-exclude = ["pxs_corelib_zip_init", "pxs_corelib_http_init"]
+exclude = [
+    "pxs_corelib_zip_init", 
+    "pxs_corelib_http_init", 
+    "curl_easy_cleanup", 
+    "curl_slist_free_all", 
+    "curl_global_init",
+    "curl_easy_init",
+    "curl_easy_reset",
+    "curl_easy_setopt",
+    "curl_slist_append",
+    "curl_easy_perform",
+    "curl_easy_strerror",
+    "curl_easy_getinfo"
+]

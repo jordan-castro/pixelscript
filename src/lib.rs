@@ -2566,13 +2566,10 @@ pub extern "C" fn pxs_core_init(modules:u8) {
         feature = "pxs_shell",
         feature = "pxs_http",
         feature = "pxs_zip"
-    ))] 
+    ))]
     {
         unsafe { pxs_core::setup_core_modules(modules); }
-        return;
     }
-    #[allow(unused)]
-    panic!("No core modules are enabled.");
 }
 
 /// Initialize all the `pxs_core` modules.
