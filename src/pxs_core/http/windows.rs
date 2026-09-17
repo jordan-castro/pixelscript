@@ -7,7 +7,7 @@ use std::ptr::null_mut;
 
 use etffi::cstring::CStringSafe;
 
-use crate::pxs_core::http::{Client, ClientResponse, RequestType, get_header_parts};
+use crate::pxs_core::http::{Client, ClientCallbacks, ClientResponse, RequestType, get_header_parts};
 use crate::shared::pxs_Opaque;
 
 // ======== WinHTTP Binding ========
@@ -175,217 +175,220 @@ fn get_request_type(rt: RequestType) -> WideString {
     }
 }
 
-/// Free the value in Client.
-pub(super) fn free(value: HINTERNET) {
-    if value.is_null() {
-        return;
+pub(super) struct WindowsHTTP {}
+
+impl ClientCallbacks for WindowsHTTP {
+    fn setup(client: &mut Client) -> Result<(), String> {
+        // Already setup!
+        if client.value != null_mut() {
+            return Ok(());
+        }
+
+        let mut user_agent = to_wstring(&client.data.user_agent);
+        let h_session = unsafe { WinHttpOpen(
+            user_agent.as_mut_ptr(), 
+            WINHTTP_ACCESS_TYPE_NO_PROXY, 
+            WINHTTP_NO_PROXY_NAME, 
+            WINHTTP_NO_PROXY_BYPASS, 
+            0
+        )};
+
+        if h_session.is_null() {
+            return Err("Client.win32.value is null.".to_string());
+        }
+
+        client.value = h_session;
+        Ok(())
     }
-    unsafe { WinHttpCloseHandle(value) };
+
+    fn create_request(client: &mut Client, path: String, rt: RequestType) -> Result<ClientResponse, String> {
+        if client.value.is_null() {
+            return Err("Client.win32.value is null.".to_string());
+        }
+
+        let mut domain_name = to_wstring(&client.data.domain_name);
+        let mut wpath = to_wstring(&path);
+
+        // Set timeouts
+        unsafe { WinHttpSetTimeouts(
+            client.value, 
+            client.data.timeout as i32, 
+            client.data.timeout as i32, 
+            client.data.timeout as i32, 
+            client.data.timeout as i32
+        )};
+
+        // Get the port, HTTP/s
+        let default_port = if client.https {
+            INTERNET_DEFAULT_HTTPS_PORT
+        } else {
+            INTERNET_DEFAULT_HTTP_PORT
+        };
+
+        // Connect to server
+        let h_connect = unsafe { WinHttpConnect(
+            client.value,
+            domain_name.as_mut_ptr(),
+            default_port as u16,
+            0
+        ) };
+
+        if h_connect.is_null() {
+            return Err(get_error());
+        }
+
+        // Get request type
+        let mut request_type = get_request_type(rt);
+        // TODO: // Get version
+        // let version = match client.data.version {
+        //     super::HTTPVersion::HTTP_1_1 => todo!(),
+        //     super::HTTPVersion::HTTP_2 => todo!(),
+        //     super::HTTPVersion::HTTP_3 => todo!(),
+        // };
+
+        // Create request
+        let h_request = unsafe { WinHttpOpenRequest(
+            h_connect, 
+            request_type.as_mut_ptr(), 
+            wpath.as_mut_ptr(), 
+            null_mut(), 
+            WINHTTP_NO_REFERER, 
+            WINHTTP_DEFAULT_ACCEPT_TYPES, 
+            WINHTTP_FLAG_SECURE
+        ) };
+
+        if h_request.is_null() {
+            Self::free(h_connect);
+            return Err(get_error());
+        }
+
+        // Get headers
+        let headers = get_header_parts(&client.data.headers);
+        let mut header_string: WideString = vec![];
+        // Make the headers use what windows expects.
+        if headers.len() > 0 {
+            // Do stuff....
+            let total = headers.join("\r\n");
+            header_string = to_wstring(&total);
+        }
+        let header_ptr = if header_string.len() > 0 {
+            header_string.as_mut_ptr()
+        } else {
+            null_mut()
+        };
+
+        let mut cstring = CStringSafe::new();
+        // The body
+        let body: LPVOID = if client.data.body.len() > 0 {
+            // This gets freed on rop.
+            cstring.new_string(&client.data.body) as pxs_Opaque
+        } else {
+            null_mut()
+        };
+
+        // Send request
+        let ok = unsafe { match rt {
+            RequestType::GET => {
+                WinHttpSendRequest(
+                    h_request, 
+                    header_ptr, 
+                    0, 
+                    WINHTTP_NO_REQUEST_DATA, 
+                    0, 
+                    0,
+                    0
+                )
+            },
+            RequestType::POST => {
+                WinHttpSendRequest(
+                    h_request, 
+                    header_ptr, 
+                    -1, 
+                    body, 
+                    client.data.body.len() as i32, 
+                    client.data.body.len() as i32, 
+                0)
+            },
+            RequestType::PUT => todo!(),
+            RequestType::PATCH => todo!(),
+            RequestType::DELETE => todo!(),
+        }};
+
+        if ok == FALSE {
+            Self::free(h_connect);
+            Self::free(h_request);
+            return Err(get_error());
+        }
+
+        let ok = unsafe { WinHttpReceiveResponse(h_request, null_mut()) };
+        if ok == FALSE {
+            Self::free(h_connect);
+            Self::free(h_request);
+            return Err(get_error());
+        }
+
+        // Read response
+        let mut response = vec![];
+        let mut bytes_avail: DWORD = 0;
+        unsafe { loop {
+            let bytes_avail_ptr: LPDWORD = &mut bytes_avail as LPDWORD;
+            if WinHttpQueryDataAvailable(h_request, bytes_avail_ptr) == FALSE {
+                break;
+            }
+            if bytes_avail == 0 {
+                break;
+            }
+
+            let mut buffer = vec![0;bytes_avail as usize];
+            let mut bytes_read: DWORD = 0;
+            let bytes_read_ptr: LPDWORD = &mut bytes_read as LPDWORD;
+
+            if WinHttpReadData(h_request, buffer.as_mut_ptr() as LPVOID, bytes_avail, bytes_read_ptr) == FALSE {
+                break;
+            }
+            response.append(&mut buffer);
+
+            if bytes_avail <= 0 {
+                break;
+            }
+        } }
+
+        // Status code
+        let mut status_code: DWORD = 0;
+        let mut size = size_of::<DWORD>() as i32;
+
+        let status_code_ptr: LPVOID = &mut status_code as LPDWORD as LPVOID;
+        let size_ptr: LPDWORD = &mut size as LPDWORD;
+
+        unsafe { WinHttpQueryHeaders(
+            h_request, 
+            WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, 
+            WINHTTP_HEADER_NAME_BY_INDEX, 
+            status_code_ptr, 
+            size_ptr, 
+            WINHTTP_NO_HEADER_INDEX
+        ) };
+
+        Self::free(h_request);
+        Self::free(h_connect);
+
+        // Now to create the client response
+        let mut client_response = ClientResponse::new();
+        client_response.fill(&client.data);
+        match String::from_utf8(response) {
+            Ok(val) => client_response.data.body = val,
+            Err(err) => return Err(err.to_string()),
+        }
+        client_response.status = status_code;
+        Ok(client_response)
+    }
+
+    fn free(value: HINTERNET) {
+        if value.is_null() {
+            return;
+        }
+        unsafe { WinHttpCloseHandle(value) };
+    }
 }
 
-/// Setup the windows enviroment for Client.
-pub(super) fn setup(client: &mut Client) -> Result<(), String> {
-    // Already setup!
-    if client.value != null_mut() {
-        return Ok(());
-    }
 
-    let mut user_agent = to_wstring(&client.data.user_agent);
-    let h_session = unsafe { WinHttpOpen(
-        user_agent.as_mut_ptr(), 
-        WINHTTP_ACCESS_TYPE_NO_PROXY, 
-        WINHTTP_NO_PROXY_NAME, 
-        WINHTTP_NO_PROXY_BYPASS, 
-        0
-    )};
-
-    if h_session.is_null() {
-        return Err("Client.win32.value is null.".to_string());
-    }
-
-    client.value = h_session;
-    Ok(())
-}
-
-/// Create a `ClientResponse` using WinHTTP.
-pub(super) fn create_request(client: &Client, path: String, rt: RequestType) -> Result<ClientResponse, String> {
-    if client.value.is_null() {
-        return Err("Client.win32.value is null.".to_string());
-    }
-
-    let mut domain_name = to_wstring(&client.data.domain_name);
-    let mut wpath = to_wstring(&path);
-
-    // Set timeouts
-    unsafe { WinHttpSetTimeouts(
-        client.value, 
-        client.data.timeout as i32, 
-        client.data.timeout as i32, 
-        client.data.timeout as i32, 
-        client.data.timeout as i32
-    )};
-
-    // Get the port, HTTP/s
-    let default_port = if client.https {
-        INTERNET_DEFAULT_HTTPS_PORT
-    } else {
-        INTERNET_DEFAULT_HTTP_PORT
-    };
-
-    // Connect to server
-    let h_connect = unsafe { WinHttpConnect(
-        client.value,
-        domain_name.as_mut_ptr(),
-        default_port as u16,
-        0
-    ) };
-
-    if h_connect.is_null() {
-        return Err(get_error());
-    }
-
-    // Get request type
-    let mut request_type = get_request_type(rt);
-    // TODO: // Get version
-    // let version = match client.data.version {
-    //     super::HTTPVersion::HTTP_1_1 => todo!(),
-    //     super::HTTPVersion::HTTP_2 => todo!(),
-    //     super::HTTPVersion::HTTP_3 => todo!(),
-    // };
-
-    // Create request
-    let h_request = unsafe { WinHttpOpenRequest(
-        h_connect, 
-        request_type.as_mut_ptr(), 
-        wpath.as_mut_ptr(), 
-        null_mut(), 
-        WINHTTP_NO_REFERER, 
-        WINHTTP_DEFAULT_ACCEPT_TYPES, 
-        WINHTTP_FLAG_SECURE
-    ) };
-
-    if h_request.is_null() {
-        free(h_connect);
-        return Err(get_error());
-    }
-
-    // Get headers
-    let headers = get_header_parts(&client.data.headers);
-    let mut header_string: WideString = vec![];
-    // Make the headers use what windows expects.
-    if headers.len() > 0 {
-        // Do stuff....
-        let total = headers.join("\r\n");
-        header_string = to_wstring(&total);
-    }
-    let header_ptr = if header_string.len() > 0 {
-        header_string.as_mut_ptr()
-    } else {
-        null_mut()
-    };
-
-    let mut cstring = CStringSafe::new();
-    // The body
-    let body: LPVOID = if client.data.body.len() > 0 {
-        // This gets freed on rop.
-        cstring.new_string(&client.data.body) as pxs_Opaque
-    } else {
-        null_mut()
-    };
-
-    // Send request
-    let ok = unsafe { match rt {
-        RequestType::GET => {
-            WinHttpSendRequest(
-                h_request, 
-                header_ptr, 
-                0, 
-                WINHTTP_NO_REQUEST_DATA, 
-                0, 
-                0,
-                0
-            )
-        },
-        RequestType::POST => {
-            WinHttpSendRequest(
-                h_request, 
-                header_ptr, 
-                -1, 
-                body, 
-                client.data.body.len() as i32, 
-                client.data.body.len() as i32, 
-            0)
-        },
-        RequestType::PUT => todo!(),
-        RequestType::PATCH => todo!(),
-        RequestType::DELETE => todo!(),
-    }};
-
-    if ok == FALSE {
-        free(h_connect);
-        free(h_request);
-        return Err(get_error());
-    }
-
-    let ok = unsafe { WinHttpReceiveResponse(h_request, null_mut()) };
-    if ok == FALSE {
-        free(h_connect);
-        free(h_request);
-        return Err(get_error());
-    }
-
-    // Read response
-    let mut response = vec![];
-    let mut bytes_avail: DWORD = 0;
-    unsafe { loop {
-        let bytes_avail_ptr: LPDWORD = &mut bytes_avail as LPDWORD;
-        if WinHttpQueryDataAvailable(h_request, bytes_avail_ptr) == FALSE {
-            break;
-        }
-        if bytes_avail == 0 {
-            break;
-        }
-
-        let mut buffer = vec![0;bytes_avail as usize];
-        let mut bytes_read: DWORD = 0;
-        let bytes_read_ptr: LPDWORD = &mut bytes_read as LPDWORD;
-
-        if WinHttpReadData(h_request, buffer.as_mut_ptr() as LPVOID, bytes_avail, bytes_read_ptr) == FALSE {
-            break;
-        }
-        response.append(&mut buffer);
-
-        if bytes_avail <= 0 {
-            break;
-        }
-    } }
-
-    // Status code
-    let mut status_code: DWORD = 0;
-    let mut size = size_of::<DWORD>() as i32;
-
-    let status_code_ptr: LPVOID = &mut status_code as LPDWORD as LPVOID;
-    let size_ptr: LPDWORD = &mut size as LPDWORD;
-
-    unsafe { WinHttpQueryHeaders(
-        h_request, 
-        WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER, 
-        WINHTTP_HEADER_NAME_BY_INDEX, 
-        status_code_ptr, 
-        size_ptr, 
-        WINHTTP_NO_HEADER_INDEX
-    ) };
-
-    free(h_request);
-    free(h_connect);
-
-    // Now to create the client response
-    let mut client_response = ClientResponse::new();
-    client_response.fill(&client.data);
-    match String::from_utf8(response) {
-        Ok(val) => client_response.data.body = val,
-        Err(err) => return Err(err.to_string()),
-    }
-    client_response.status = status_code;
-    Ok(client_response)
-}

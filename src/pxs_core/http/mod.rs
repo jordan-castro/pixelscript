@@ -296,10 +296,21 @@ impl Drop for Client {
         }
 
         // Handle platform specific (value).
-        #[cfg(target_os = "windows")]
-        windows::free(self.value);
-        // todo!()
+        #[cfg(target_os = "windows")] 
+        {
+            windows::WindowsHTTP::free(self.value);
+        }
+        #[cfg(target_os = "linux")]
+        {
+            linux::LinuxHTTP::free(self.value);
+        }
     }
+}
+
+trait ClientCallbacks {
+    fn setup(client: &mut Client) -> Result<(), String>;
+    fn create_request(client: &mut Client, path: String, rt: RequestType) -> Result<ClientResponse, String>;
+    fn free(v:pxs_Opaque);
 }
 
 impl Client {
@@ -320,7 +331,11 @@ impl Client {
 
         #[cfg(target_os = "windows")]
         {
-            let _ = windows::setup(&mut client);
+            let _ = windows::WindowsHTTP::setup(&mut client);
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let _ = linux::LinuxHTTP::setup(&mut client);
         }
         client
     }
@@ -333,13 +348,13 @@ impl Client {
     ) -> Result<ClientResponse, String> {
         // TODO: Call the correct platform function here.
         #[cfg(target_os = "windows")]
-        windows::create_request(self, path, request_type)
+        return windows::WindowsHTTP::create_request(self, path, request_type);
 
         // #[cfg(target_vendor="apple")]
         // pub mod apple;
 
-        // #[cfg(target_os="linux")]
-        // pub mod linux;
+        #[cfg(target_os="linux")]
+        return linux::LinuxHTTP::create_request(self, path, request_type);
     }
 
     extern "C" fn free(ptr: pxs_Opaque) {
