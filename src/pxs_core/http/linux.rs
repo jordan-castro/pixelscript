@@ -243,7 +243,7 @@ extern "C" fn write_callback(contents: *mut std::ffi::c_void, size: usize, nmemb
     total_size
 }
 
-struct LinuxHTTP {}
+pub(super) struct LinuxHTTP {}
 
 impl ClientCallbacks for LinuxHTTP {
     fn setup(client: &mut super::Client) -> Result<(), String> {
