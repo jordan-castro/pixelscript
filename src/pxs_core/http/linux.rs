@@ -250,7 +250,7 @@ impl ClientCallbacks for LinuxHTTP {
             return Ok(());
         }
     
-        unsafe { curl_global_init(CURL_GLOBAL_DEFAULT) };
+        unsafe { curl_global_init(CURL_GLOBAL_DEFAULT as i64) };
         let wrapper = CurlWrapper::new(unsafe { curl_easy_init() });
         client.value = wrapper.into_void();
         Ok(())
