@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PixelScript online</title>
+
+</head>
+<body>
+<script>
+    var Module = {
+        // onRuntimeInitialized: function() {
+        //     console.log("Emscripten runtime is ready!");
+
+        //     // 1. Wrap your exported function using cwrap for easy calling
+        //     // cwrap(FunctionName, ReturnType, [ArgumentTypes])
+        //     // Types can be 'number', 'string', or 'array'
+        //     const evalScript = Module.cwrap('pxs_', 'string', ['string']);
+
+        //     // 2. Trigger it when you want
+        //     document.getElementById('runBtn').addEventListener('click', () => {
+        //         const codeSnippet = "print('Hello from PixelScript web client!');";
+                
+        //         console.log("Sending code to Rust...");
+        //         const response = evalScript(codeSnippet);
+                
+        //         document.getElementById('output').innerText = "Result: " + response;
+        //     });
+        // }
+    };
+</script>
+<script src="pixelscript.js"></script>    
+</body>
+</html>
