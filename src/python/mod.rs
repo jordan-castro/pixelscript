@@ -17,17 +17,18 @@ use crate::{
         func::{get_builtin, pocketpy_bridge, py_assign}, module::create_module, var::{PythonPointer, pocketpyref_to_var, var_to_pocketpyref},
     }, shared::{
         PixelScript, PxsRes, PxsResult, pxs_Opaque, read_file, read_file_dir, var::{ObjectMethods, pxs_Var, pxs_VarList}
-    }, with_feature
+    }, with_feature,
+    bindings::pocketpy as pocketpy
 };
 
 // Allow for the binidngs only
-#[allow(unused)]
-#[allow(non_camel_case_types)]
-#[allow(non_upper_case_globals)]
-#[allow(dead_code)]
-pub(self) mod pocketpy {
-    include!(concat!(env!("OUT_DIR"), "/pocketpy_bindings.rs"));
-}
+// #[allow(unused)]
+// #[allow(non_camel_case_types)]
+// #[allow(non_upper_case_globals)]
+// #[allow(dead_code)]
+// pub(self) mod pocketpy {
+    // include!(concat!(env!("OUT_DIR"), "/pocketpy_bindings.rs"));
+// }
 
 mod func;
 mod module;

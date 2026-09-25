@@ -102,16 +102,13 @@ pub(super) fn add_module(context: *mut quickjs::JSContext, module: &pxs_Module) 
 pub(super) fn add_local_module(context: *mut quickjs::JSContext, code: &str, name: &str) -> *mut quickjs::JSModuleDef {
     let mut cstrsafe = CStringSafe::new();
 
+    let module_eval_res = unsafe { quickjs::JS_Eval(context, cstrsafe.new_string(code), code.len(), cstrsafe.new_string(name), (quickjs::JS_EVAL_TYPE_MODULE | quickjs::JS_EVAL_FLAG_COMPILE_ONLY) as i32) };
     // Compile module
-    let smart_module = SmartJSValue::new_owned(unsafe {
-        quickjs::JS_Eval(context, cstrsafe.new_string(code), code.len(), cstrsafe.new_string(name), (quickjs::JS_EVAL_TYPE_MODULE | quickjs::JS_EVAL_FLAG_COMPILE_ONLY) as i32)
-    }, context);
-
+    let smart_module = SmartJSValue::new_owned(module_eval_res, context);
     // Check exception
     if smart_module.is_exception() || smart_module.is_error() {
         pxs_debug!("Error compiling module");
         return std::ptr::null_mut();
     }
-
     smart_module.get_module_ptr()
 }

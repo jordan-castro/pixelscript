@@ -14,6 +14,9 @@ use crate::{
     shared::{PxsRes, module::pxs_Module, pxs_Opaque, var::pxs_VarT},
 };
 
+#[cfg(target_arch = "wasm32")]
+pub mod wasm;
+
 #[cfg(target_os = "windows")]
 pub mod windows;
 
@@ -340,6 +343,7 @@ impl Client {
         client
     }
 
+    #[allow(unreachable_code)]
     /// Crate a non pxs `ClientResponse`.
     fn create_request(
         &mut self,
@@ -355,6 +359,8 @@ impl Client {
 
         #[cfg(target_os="linux")]
         return linux::LinuxHTTP::create_request(self, path, request_type);
+
+        return Err("HTTP not supported".to_string());
     }
 
     extern "C" fn free(ptr: pxs_Opaque) {

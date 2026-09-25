@@ -55,7 +55,7 @@ already have their own benchmarks in the own repos. Please look at their documen
         - `csv`
         - the parser library is going to be different than `pxs_json` because `pxs_json` is mainly just a way of adding JSON support to the host via the library.
             but that will be deprecated in favor of the new parser library.
-    - add `pxs_http`
+    - ~~add `pxs_http`~~ (Converted to Rust.)
     - ~~Important caveat with core modules: THEY MUST NOT USE ANY CRATES! So zip and http are written in C++.~~ (This is wrong now, I actually need to convert
     those modules into rust but without adding crates. So they will be using extern c callbacks. For zip I will either write a library or remove it from core.).
 
@@ -69,22 +69,35 @@ already have their own benchmarks in the own repos. Please look at their documen
     - ~~in Python (just set and unset keys) (never pass locals. Or do but pass a nulll?)~~
     - ~~in JS (do the same thing...)~~
 - ~~update pocketpy version.~~ **DONE**
-- Fix the python memory leak of locals not being removed from globals.
+- ~~Fix the python memory leak of locals not being removed from globals.~~ (Not doing this anymore.)
+- Add stack errors. This is just a regular pxs_Exception that is programmed to also save a stack msg.
+- Update python backend to not write raw strings for object creation.
+- Add custom bindings:
+    - ~~pocketpy~~
+    - lua
+    - quickjsng
+    This is to support WASM, better cross platform control, and remove (bindgen, cbindgen) from build dependencies.
 
 
-## v0.7 Wasm ~~and Dynamic Language support~~ (Dynamic support will not be supported. If you want to add a custom language)
+## v0.7 Wasm and Docs ~~and Dynamic Language support~~ (Dynamic support will not be supported. If you want to add a custom language)
 - ~~Add `dynamic` language support meaning a host language can add its own bindings backend that interops perfectly with Pxs.~~ (Developers should add fork and add their own backend following the docs. If they want to add it to pixelscript they will need to do a PR.)
     ~~- This will be useful when a developer wants to create a custom DSL.~~
-- WASM support + Wasm web page similar to pocketpy live playground.
+- WASM support + Wasm web page similar to pocketpy live playground. (at pixelscript.epochtech.us/playground)
+- Write documentation at (pixelscript.epochtech.us)
 
-## v0.8 Cross language
+## v0.8 Cross language, Binary (pxs), Wren backend
 - Cross language support. Calling JS from Python, Lua from JS, Python from JS, etc.
-
-## v0.9 Backends
-- Add native python support.
-- Add V8 JS support.
+- Add a pxs binary for:
+    - Compiling PXS programs.
+    - Using pixelscript as a full runtime.
 - Add Wren support
-- Add PHP support
+
+## v0.9 API, Backends
+- Add `pxs_addmod2(module:pxs_Module, runtimes:pxs_List[pxs_Int])` which would take a module and a runtime so that you add a specific module to specific runtimes.
+- Add C python api support.
+- Add Node JS api support.
+- Add C python backend.
+- Add Add V8 backend.
 
 ## Maybes
 - Enums?

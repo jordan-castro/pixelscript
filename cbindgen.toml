@@ -29,5 +29,8 @@ exclude = [
     "curl_slist_append",
     "curl_easy_perform",
     "curl_easy_strerror",
-    "curl_easy_getinfo"
+    "curl_easy_getinfo",
+    "objc_getClass",
+    "sel_registerName",
+    "objc_msgSend"
 ]

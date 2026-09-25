@@ -85,3 +85,8 @@
     - This means that any `__pxs__(globals, locals)` should be migrated to `__pxs__(args)`.
 - Added `name` to `pxs_compile` for better debugging. **BREAKING**
 - Updated pocketpy version to 2.2.0 from 2.1.8 
+- Added pocketpy bindings.
+- Moved pxs_core to be prefixed with `pxs` and uses dot notation now.
+- Moved `pxs_http` (pxs.http now) module to be in rust using FFI.
+- Added wasm support in `build.py`
+- Added binary support in `build.py`

@@ -42,9 +42,9 @@ This will build the project and place the necessary *static* libraries in a `/px
 ## Supported languages
 | Feature flag     | Language          | Engine                | Notes                           |
 |------------------|-------------------|-----------------------|---------------------------------|
-| `lua`            | Lua               | [lua](https://lua.org/)                                 | v5.5, requires a small shim in `libs/pxs_lua`.       |
+| `lua`            | Lua               | [lua](https://lua.org/)                                 | v5.5.                              |
 | `python`         | Python            | [pocketpy](https://github.com/pocketpy/pocketpy)        | May require MSVC on Windows        |
-| `js`             | JavaScript        | [quickjs-ng](https://github.com/quickjs-ng/quickjs)     | QuickJS-NG small library. Supports ES2027 |
+| `js`             | JavaScript        | [quickjs-ng](https://github.com/quickjs-ng/quickjs)     | QuickJS-NG small library.          |
 <!-- | `easyjs`         | easyjs            | [easyjs](https://github.com/jordan-castro/easyjs)       | Modern syntax, compiles to JS   | -->
 <!-- | `php`            | PHP               | PH7                   | Only supports v5.3 and the engine is not maintained anymore | -->
 

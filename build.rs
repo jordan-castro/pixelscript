@@ -3,6 +3,35 @@ extern crate cbindgen;
 use std::path::PathBuf;
 use std::{env, fs};
 
+/// Adds emsdk includes. This is only required for emscripten backend.
+macro_rules! add_emsdk_include {
+    ($bindings:expr, $target:expr) => {{
+        if $target == "emscripten" {
+            let emsdk = env::var("EMSDK").expect("EMSDK is not setup.");
+            let emsdk_sysroot = format!("{emsdk}/upstream/emscripten/cache/sysroot");
+            let emsdk_include_path = format!("{emsdk_sysroot}/include");
+
+            $bindings = $bindings.clang_arg(format!("--sysroot={emsdk_sysroot}"));
+            $bindings = $bindings.clang_arg(format!("-I{emsdk_include_path}"));
+            $bindings = $bindings.clang_arg("-D__EMSCRIPTEN__");
+            $bindings = $bindings.clang_arg("-target").clang_arg("wasm32-unknown-emscripten");
+        }
+    }};
+}
+
+/// Adds builder flags for emscripten backend
+macro_rules! add_emscripten_flags {
+    ($builder:expr, $target:expr) => {{
+        if $target == "emscripten" {
+            $builder.flag("-fwasm-exceptions")
+                    .flag("-sSUPPORT_LONGJMP=wasm")
+                    .flag("-sPTHREAD_POOL_SIZE=4")
+                    .flag("-sALLOW_MEMORY_GROWTH=1")
+                    .flag("-sALLOW_TABLE_GROWTH=1");
+        }
+    }};
+}
+
 /// Read dir
 fn read_dir(path: PathBuf) -> Vec<String> {
     let paths = fs::read_dir(path).unwrap();
@@ -11,8 +40,22 @@ fn read_dir(path: PathBuf) -> Vec<String> {
         .collect()
 }
 
+/// Build the emscripten flags for pixelscript
+fn build_emscripten_flags() {
+    println!("cargo:rustc-link-arg=-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','UTF8ToString']");
+    println!("cargo:rustc-link-arg=-sSUPPORT_LONGJMP=wasm");
+    println!("cargo:rustc-link-arg=-fwasm-exceptions");
+    println!("cargo:rustc-link-arg=-sENVIRONMENT=web");
+    println!("cargo:rustc-link-arg=-sALLOW_MEMORY_GROWTH=1");
+    println!("cargo:rustc-link-arg=-sASSERTIONS=1");
+    println!("cargo:rustc-link-arg=-sPTHREAD_POOL_SIZE=4");
+    println!("cargo:rustc-link-arg=-sSTACK_SIZE=5242880");
+    println!("cargo:rustc-link-arg=-sSTACK_OVERFLOW_CHECK=2");
+    println!("cargo:rustc-link-arg=-sALLOW_TABLE_GROWTH=1");
+}
+
 /// Build the pixelscript.h C bindings
-fn build_pixelscript_h() {
+fn build_pixelscript_h(target_os: &str) {
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let package_name = env::var("CARGO_PKG_NAME").unwrap();
     let output_file = PathBuf::from(&crate_dir).join(format!("{}.h", package_name));
@@ -20,6 +63,10 @@ fn build_pixelscript_h() {
     cbindgen::generate(crate_dir)
         .expect("Unable to generate bindings")
         .write_to_file(output_file);
+
+    if target_os == "emscripten" {
+        build_emscripten_flags();
+    }
 }
 
 #[cfg(feature = "lua")]
@@ -44,6 +91,8 @@ fn build_lua(target_os: &str, target_env: &str) {
     build.include("libs/lua-5.5.0");
     build.include("libs/pxs_lua");
     build.include("libs/pxs_utils");
+
+    add_emscripten_flags!(build, target_os);
 
     if target_env == "msvc" {
         build.static_crt(true);
@@ -78,6 +127,8 @@ fn build_pocketpy(_target_os: &str, target_env: &str) {
 
     // Set c11
     build.std("c11");
+
+    add_emscripten_flags!(build, _target_os);
 
     // When MSVC, gotta set some stuff
     if target_env == "msvc" {
@@ -114,6 +165,8 @@ fn build_quickjsng(_target_os: &str, target_env: &str) {
     build.std("c11");
     build.define("_GNU_SOURCE", None);
 
+    add_emscripten_flags!(build, _target_os);
+
     if target_env == "msvc" {
         build.flag("/experimental:c11atomics");
         build.static_crt(true);
@@ -127,101 +180,51 @@ fn build_quickjsng(_target_os: &str, target_env: &str) {
     build.compile("quickjs");
 }
 
-#[cfg(feature="pxs_zip")]
-/// Build pxs_zip
-fn build_pxs_zip(_target_os: &str, target_env: &str) {
-    let mut build = cc::Build::new();
-    build.warnings(false);
-    build.cpp(true);
+// #[cfg(feature="pxs_zip")]
+// /// Build pxs_zip
+// fn build_pxs_zip(_target_os: &str, target_env: &str, taget_arch: &str) {
+//     let mut build = cc::Build::new();
+//     build.warnings(false);
+//     build.cpp(true);
 
-    // Include pixelscript.h
-    build.include("./");
-    // Include zip dir
-    build.include("core/pxs/zip");
-
-    // Compile source
-    build.file("core/pxs/zip/zip.cpp");
-
-    if target_env == "msvc" {
-        build.static_crt(true);
-        build.flag("/EHsc");
-    } else {
-        build.flag("-fpermissive");
-        build.flag("-include");
-        build.flag("cstring");
-    }
-
-    build.std("c++17");
-    build.compile("pxs_zip");
-}
-
-// #[cfg(feature="pxs_http")]
-// /// Build pxs_http
-// fn build_pxs_http(target_os: &str, _target_env: &str) {
-//     // Specific impls
-//     if target_os == "windows" {
-//         // build.file("core/pxs/http/http_windows.cpp");
-//     } else if target_os == "macos" || target_os == "ios" {
-//         // build.file("core/pxs/http/http_apple.mm");
-//         println!("cargo:rustc-link-lib=framework=Foundation");
-//     } else if target_os == "linux" {
-//         // build.file("core/pxs/http/http_linux.cpp");
-//         println!("cargo:rustc-link-lib=curl");
-//     }
+//     // Include pixelscript.h
+//     build.include("./");
+//     // Include zip dir
+//     build.include("core/pxs/zip");
 
 //     // Compile source
-//     // build.file("core/pxs/http/http.cpp");
+//     build.file("core/pxs/zip/zip.cpp");
 
-//     // build.std("c++17");
-//     // build.compile("pxs_http");
+//     if target_env == "msvc" {
+//         build.static_crt(true);
+//         build.flag("/EHsc");
+//     } else {
+//         build.flag("-fpermissive");
+//         build.flag("-include");
+//         build.flag("cstring");
+//     }
+
+//     build.std("c++17");
+//     build.compile("pxs_zip");
 // }
-
-/// Create PocketPy Rust bindings
-#[cfg(feature = "python")]
-fn build_pocketpy_bindings() {
-    // This might be a problem when using GCC on windows.
-    // I don't, but if anyone requires this please apply a solution if it does not work currently.
-
-    let builder = bindgen::Builder::default()
-        .header("libs/pocketpy/pocketpy.h")
-        .header("libs/pxs_python/pxs_python.h")
-        .clang_arg("-DPK_IS_PUBLIC_INCLUDE")
-        .clang_arg("-Ilibs/pocketpy")
-        .default_enum_style(bindgen::EnumVariation::Rust {
-            non_exhaustive: false,
-        })
-        .size_t_is_usize(true)
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
-        .allowlist_function("py_.*")
-        .allowlist_type("py_.*")
-        .allowlist_var("py_.*")
-        .allowlist_function("pxspython_.*")
-        .allowlist_var("PXSPYTHON_.*");
-
-    let bindings = builder
-        .generate()
-        .expect("Unable to build Pocketpy rust bindings");
-
-    // Write bindings
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-    bindings
-        .write_to_file(out_path.join("pocketpy_bindings.rs"))
-        .expect("Couldn't write PocketPy bindings!");
-}
 
 /// Create QuickJS-NG Rust bindings
 #[cfg(feature = "js")]
-fn build_quickjsng_bindings() {
-    let bindings = bindgen::Builder::default()
+fn build_quickjsng_bindings(target_os: &str) {
+    let mut bindings = bindgen::Builder::default()
         .header("libs/quickjs-ng/quickjs.h")
         .allowlist_function("js_.*")
         .allowlist_function("JS_.*")
         .allowlist_type("js_.*")
         .allowlist_type("JS_.*")
         .allowlist_var("JS_.*")
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
-        .generate()
-        .expect("Could not generate QuickJS-NG bindings");
+        .layout_tests(false)
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()));
+        // .generate()
+        // .expect("Could not generate QuickJS-NG bindings");
+
+    add_emsdk_include!(bindings, target_os);
+    let bindings = bindings.generate().expect("Could not generate QuickJS-NG bindings");
 
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
     bindings
@@ -230,8 +233,8 @@ fn build_quickjsng_bindings() {
 }
 
 #[cfg(feature = "lua")]
-fn build_lua_bindings() {
-    let bindings = bindgen::Builder::default()
+fn build_lua_bindings(target_os: &str) {
+    let mut bindings = bindgen::Builder::default()
         .header("libs/lua-5.5.0/lua.h")
         .clang_args(vec![
             "-include",
@@ -252,9 +255,12 @@ fn build_lua_bindings() {
         .allowlist_type("lua_.*")
         .allowlist_type("luaL_.*")
         .allowlist_var("LUA_.*")
-        .allowlist_function("pxslua_.*")
-        .generate()
-        .expect("Could not generate Lua-5.5.0 bindings");
+        .layout_tests(false)
+        .allowlist_function("pxslua_.*");
+
+    add_emsdk_include!(bindings, target_os);
+    let bindings = bindings.generate().expect("Could not generate Lua-5.5.0 bindings");
+
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
     bindings
         .write_to_file(out_path.join("lua_bindings.rs"))
@@ -263,18 +269,20 @@ fn build_lua_bindings() {
 
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
-    build_pixelscript_h();
     println!("cargo:rerun-if-changed=src/lib.rs");
     println!("cargo:rerun-if-changed=cbindgen.toml");
 
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
     let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default();
+    // let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+
+    build_pixelscript_h(&target_os);
 
     // Compile lua
     #[cfg(feature = "lua")]
     {
         build_lua(&target_os, &target_env);
-        build_lua_bindings();
+        build_lua_bindings(&target_os);
         println!("cargo:rerun-if-changed=libs/lua-5.5.0");
         println!("cargo:rerun-if-changed=libs/pxs_lua/pxs_lua.c");
         println!("cargo:rerun-if-changed=libs/pxs_lua/pxs_lua.h");
@@ -285,7 +293,6 @@ fn main() {
     #[cfg(feature = "python")]
     {
         build_pocketpy(&target_os, &target_env);
-        build_pocketpy_bindings();
         println!("cargo:rerun-if-changed=libs/pocketpy/pocketpy.c");
         println!("cargo:rerun-if-changed=libs/pocketpy/pocketpy.h");
         println!("cargo:rerun-if-changed=libs/pxs_python");
@@ -296,16 +303,16 @@ fn main() {
     #[cfg(feature = "js")]
     {
         build_quickjsng(&target_os, &target_env);
-        build_quickjsng_bindings();
+        build_quickjsng_bindings(&target_os);
         println!("cargo:rerun-if-changed=libs/quickjs-ng/quickjs-amalgam.c");
         println!("cargo:rerun-if-changed=libs/quickjs-ng/quickjs.h");
     }
 
-    #[cfg(feature="pxs_zip")]
-    {
-        build_pxs_zip(&target_os, &target_env);
-        println!("cargo:rerun-if-changed=core/pxs/zip");
-    }
+    // #[cfg(feature="pxs_zip")]
+    // {
+    //     build_pxs_zip(&target_os, &target_env, &target_arch);
+    //     println!("cargo:rerun-if-changed=core/pxs/zip");
+    // }
 
     // #[cfg(feature="pxs_http")]
     // {

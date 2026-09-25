@@ -8,7 +8,11 @@ description = "Multi language scripting runtime"
 repository = "https://github.com/jordan-castro/pixelscript"
 
 [lib]
-crate-type = ["staticlib", "rlib"]
+crate-type = ["staticlib", "rlib", "cdylib"]
+
+[[bin]]
+name = "pxs"
+path = "src/main.rs"
 
 [dependencies]
 etffi = "0.1.3"

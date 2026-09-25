@@ -8,6 +8,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#define PXSPYTHON_IS_DIR -2
+
+#define PXSPYTHON_NOT_FOUND -1
+
 /**
  * This represents the variable type that is being read or created.
  */
@@ -75,6 +79,31 @@ typedef enum pxs_Runtime {
   pxs_JavaScript = 2,
   pxs_Wren = 3,
 } pxs_Runtime;
+
+/**
+ * Python compiler modes.
+ * + `EXEC_MODE`: for statements.
+ * + `EVAL_MODE`: for expressions.
+ * + `SINGLE_MODE`: for REPL or jupyter notebook execution.
+ * + `RELOAD_MODE`: for reloading a module without allocating new types if possible.
+ */
+enum py_CompileMode
+#ifdef __cplusplus
+  : int32_t
+#endif // __cplusplus
+ {
+  EXEC_MODE = 0,
+  EVAL_MODE = 1,
+  SINGL_MODE = 2,
+  RELOAD_MODE = 3,
+};
+#ifndef __cplusplus
+typedef int32_t py_CompileMode;
+#endif // __cplusplus
+
+typedef struct Option_import_file_func Option_import_file_func;
+
+typedef struct Option_py_CFunction Option_py_CFunction;
 
 /**
  * A Factory variable data holder.
@@ -330,6 +359,96 @@ typedef pxs_VarT (*pxs_LoadFileFn)(const char *file_path);
  * Function Type for reading a Dir. Should return a `pxs_List`
  */
 typedef pxs_VarT (*pxs_ReadDirFn)(const char *dir_path);
+
+/**
+ * An integer that represents a python type. `0` is invalid.
+ */
+typedef int16_t py_Type;
+
+/**
+ * A specific location in the value stack of the VM.
+ */
+typedef struct py_TValue *py_StackRef;
+
+typedef bool (*py_CFunction)(int argc, py_StackRef argv);
+
+/**
+ * Union for `py_TValue`
+ */
+typedef union py_TValue_Union {
+  int64_t _i64;
+  double _f64;
+  bool _bool;
+  py_CFunction _cfunc;
+  void *_obj;
+  void *_ptr;
+  char _chars[16];
+} py_TValue_Union;
+
+/**
+ * A opaque type that represents a python object. You cannot access its members directly.
+ */
+typedef struct py_TValue {
+  py_Type _type;
+  bool is_ptr;
+  int extra;
+  union py_TValue_Union _data;
+} py_TValue;
+
+/**
+ * A global reference which has the same lifespan as the VM.
+ */
+typedef struct py_TValue *py_GlobalRef;
+
+/**
+ * A generic reference to a python object.
+ */
+typedef struct py_TValue *py_Ref;
+
+/**
+ * A struct contains the callbacks of the VM.
+ */
+typedef struct py_Callbacks {
+  struct Option_import_file_func importfile;
+  py_GlobalRef (*lazyimport)(const char*);
+  void (*print)(const char*);
+  void (*flush)(void);
+  int (*getchr)(void);
+  void (*gc_mark)(void(*)(py_Ref val, void *ctx), void *ctx);
+  bool (*displayhook)(py_Ref val);
+} py_Callbacks;
+
+/**
+ * An output reference for returning a value. Only use this for function arguments.
+ */
+typedef struct py_TValue *py_OutRef;
+
+/**
+ * A 64-bit integer type. Corresponds to `int` in python.
+ */
+typedef int64_t py_i64;
+
+/**
+ * A 64-bit floating-point type. Corresponds to `float` in python.
+ */
+typedef double py_f64;
+
+/**
+ * A helper struct for `py_Name`.
+ */
+typedef struct py_OpaqueName {
+  uint8_t _unused[0];
+} py_OpaqueName;
+
+/**
+ * A pointer that represents a python identifier. For fast name resolution.
+ */
+typedef struct py_OpaqueName *py_Name;
+
+/**
+ * An item reference to a container object. It invalidates when the container is modified.
+ */
+typedef struct py_TValue *py_ItemRef;
 
 #ifdef __cplusplus
 extern "C" {
@@ -1379,6 +1498,303 @@ void pxs_core_init(uint8_t modules);
  * THREAD_LOCAL REQUIRES_STD
  */
 void pxs_core_initall(void);
+
+/**
+ * Initialize pocketpy and the default VM.
+ */
+extern void py_initialize(void);
+
+/**
+ * Finalize pocketpy and free all VMs. This opearation is irreversible.
+ * After this call, you cannot use any function from this header anymore.
+ */
+extern void py_finalize(void);
+
+/**
+ * Get the current VM index.
+ */
+extern int py_currentvm(void);
+
+/**
+ * Switch to a VM.
+ * @param index index of the VM ranging from 0 to 16 (exclusive). `0` is the default VM.
+ */
+extern void py_switchvm(int index);
+
+/**
+ * Reset the current VM.
+ */
+extern void py_resetvm(void);
+
+/**
+ * Reset All VMs.
+ */
+extern void py_resetallvm(void);
+
+/**
+ * Setup the callbacks for the current VM.
+ */
+extern struct py_Callbacks *py_callbacks(void);
+
+/**
+ * Invoke the garbage collector.
+ */
+extern int py_gc_collect(void);
+
+/**
+ * Wrapper for `PK_FREE(ptr)`.
+ */
+extern void py_free(void *ptr);
+
+/**
+ * Compile a source string into a code object.
+ * Use python's `exec()` or `eval()` to execute it.
+ */
+extern bool py_compile(const char *source,
+                       const char *filename,
+                       py_CompileMode mode,
+                       bool is_dynamic);
+
+/**
+ * Run a source string.
+ * @param source source string.
+ * @param filename filename (for error messages).
+ * @param mode compile mode. Use `EXEC_MODE` for statements `EVAL_MODE` for expressions.
+ * @param module target module. Use NULL for the main module.
+ * @return `true` if the execution is successful or `false` if an exception is raised.
+ */
+extern bool py_exec(const char *source, const char *filename, py_CompileMode mode, py_Ref module);
+
+/**
+ * Create an `int` object.
+ */
+extern void py_newint(py_OutRef source, py_i64 value);
+
+/**
+ * Create a `float` object.
+ */
+extern void py_newfloat(py_OutRef source, py_f64 value);
+
+/**
+ * Create a `bool` object.
+ */
+extern void py_newbool(py_OutRef source, bool value);
+
+/**
+ * Create a `str` object from a null-terminated string (utf-8).
+ */
+extern void py_newstr(py_OutRef source, const char *value);
+
+/**
+ * Create a `None` object.
+ */
+extern void py_newnone(py_OutRef source);
+
+/**
+ * Convert a null-terminated string to a name.
+ */
+extern py_Name py_name(const char *str);
+
+/**
+ * Bind a function to the object via "argc-based" style.
+ * @param obj the target object.
+ * @param name name of the function.
+ * @param f function to bind.
+ */
+extern void py_bindfunc(py_Ref obj, const char *name, struct Option_py_CFunction f);
+
+/**
+ * Convert an `int` object in python to `int64_t`.
+ */
+extern py_i64 py_toint(py_Ref pref);
+
+/**
+ * Convert a `float` object in python to `double`.
+ */
+extern py_f64 py_tofloat(py_Ref pref);
+
+/**
+ * Convert a `bool` object in python to `bool`.
+ */
+extern bool py_tobool(py_Ref pref);
+
+/**
+ * Convert a `str` object in python to null-terminated string.
+ */
+extern const char *py_tostr(py_Ref pref);
+
+/**
+ * Get the type of the object.
+ */
+extern py_Type py_typeof(py_Ref pref);
+
+/**
+ * Get the current `module` object where the code is executed.
+ * Return `NULL` if not available.
+ */
+extern py_GlobalRef py_inspect_currentmodule(void);
+
+/**
+ * Get the last return value.
+ * Please note that `py_retval()` cannot be used as input argument.
+ */
+extern py_GlobalRef py_retval(void);
+
+/**
+ * Get an item from the object's `__dict__`.
+ * Return `NULL` if not found.
+ */
+extern py_ItemRef py_getdict(py_Ref pref, py_Name name);
+
+/**
+ * Get variable in the `builtins` module.
+ */
+extern py_ItemRef py_getbuiltin(py_Name name);
+
+/**
+ * Get variable in the `__main__` module.
+ */
+extern py_ItemRef py_getglobal(py_Name name);
+
+/**
+ * Push the object to the stack.
+ */
+extern void py_push(py_Ref pref);
+
+/**
+ * Push a `nil` object to the stack.
+ */
+extern void py_pushnil(void);
+
+/**
+ * Pop an object from the stack.
+ */
+extern void py_pop(void);
+
+/**
+ * Get a temporary variable from the stack.
+ */
+extern py_StackRef py_pushtmp(void);
+
+/**
+ * Call a callable object via pocketpy's calling convention.
+ * You need to prepare the stack using the following format:
+ * `callable, self/nil, arg1, arg2, ..., k1, v1, k2, v2, ...`.
+ * `argc` is the number of positional arguments excluding `self`.
+ * `kwargc` is the number of keyword arguments.
+ * The result will be set to `py_retval()`.
+ * The stack size will be reduced by `2 + argc + kwargc * 2`.
+ */
+extern bool py_vectorcall(uint16_t argc, uint16_t kwargc);
+
+/**
+ * Call a type to create a new instance.
+ */
+extern bool py_tpcall(py_Type t, int argc, py_Ref argv);
+
+/**
+ * Python equivalent to `len(val)`.
+ */
+extern bool py_len(py_Ref val);
+
+/**
+ * Python equivalent to `getattr(self, name)`.
+ */
+extern bool py_getattr(py_Ref s, py_Name name);
+
+/**
+ * Python equivalent to `setattr(self, name, val)`.
+ */
+extern bool py_setattr(py_Ref s, py_Name name, py_Ref val);
+
+/**
+ * Python equivalent to `delattr(self, name)`.
+ */
+extern bool py_delattr(py_Ref s, py_Name name);
+
+/**
+ * Python equivalent to `self[key]`.
+ */
+extern bool py_getitem(py_Ref s, py_Ref key);
+
+/**
+ * Python equivalent to `self[key] = val`.
+ */
+extern bool py_setitem(py_Ref s, py_Ref key, py_Ref val);
+
+/**
+ * Python equivalent to `del self[key]`.
+ */
+extern bool py_delitem(py_Ref s, py_Ref key);
+
+/**
+ * Get a module by path.
+ */
+extern py_GlobalRef py_getmodule(const char *path);
+
+/**
+ * Create a new module.
+ */
+extern py_GlobalRef py_newmodule(const char *path);
+
+/**
+ * Clear the unhandled exception.
+ * @param p0 the unwinding point. Use `NULL` if not needed.
+ */
+extern void py_clearexc(py_StackRef p0);
+
+/**
+ * Format the unhandled exception and return a null-terminated string.
+ * The returned string should be freed by the caller.
+ */
+extern char *py_formatexc(void);
+
+/**
+ * Raise an exception object. Always return false.
+ */
+extern bool py_raise(py_Ref exc);
+
+/**
+ * Override for the pocketpy.callbacks.import function.
+ */
+extern char *pxspython_import(const char *path, int *size);
+
+/**
+ * Create an empty `list`.
+ */
+extern void py_newlist(py_OutRef oref);
+
+extern void py_list_append(py_Ref s, py_Ref val);
+
+/**
+ * Create an empty `dict`.
+ */
+extern void py_newdict(py_OutRef oref);
+
+/**
+ * -1: error, 0: not found, 1: found
+ */
+extern int py_dict_getitem(py_Ref s, py_Ref k);
+
+/**
+ * true: success, false: error
+ */
+extern bool py_dict_setitem(py_Ref s, py_Ref key, py_Ref val);
+
+/**
+ * -1: error, 0: not found, 1: found (and deleted)
+ */
+extern int py_dict_delitem(py_Ref s, py_Ref key);
+
+/**
+ * -1: error, 0: not found, 1: found
+ */
+extern int py_dict_getitem_by_int(py_Ref s, py_i64 key);
+
+/**
+ * -1: error, 0: not found, 1: found (and deleted)
+ */
+extern int py_dict_delitem_by_int(py_Ref s, py_i64 key);
 
 #ifdef __cplusplus
 }  // extern "C"

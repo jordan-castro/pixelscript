@@ -6,3 +6,7 @@
 /.vscode
 
 test.ej
+
+*.wasm
+pixelscript.js
+pxs.js

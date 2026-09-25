@@ -127,13 +127,13 @@ pub(crate) unsafe fn setup_core_modules(modules: u8) {
             panic!("pxs_shell is not enabled");
         });
     }
-    if modules & pxs_ModuleFlag::pxs_ZIP as u8 != 0 {
-        with_feature!("pxs_zip", {
-            pxs_zip::init(pxs_module);
-        }, {
-            panic!("pxs_zip is not enabled");
-        });
-    }
+    // if modules & pxs_ModuleFlag::pxs_ZIP as u8 != 0 {
+    //     with_feature!("pxs_zip", {
+    //         pxs_zip::init(pxs_module);
+    //     }, {
+    //         panic!("pxs_zip is not enabled");
+    //     });
+    // }
     if modules & pxs_ModuleFlag::pxs_HTTP as u8 != 0 {
         with_feature!("pxs_http", {
             http::init(pxs_module);

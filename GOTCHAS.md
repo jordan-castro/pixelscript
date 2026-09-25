@@ -41,3 +41,9 @@ use `null`.
 - In general when working with JS and threads it is a trial and error to get it working just right. But it does work! I got it working in [Pixel Ai Dash](https://play.google.com/store/apps/details?id=us.epochtech.pixelaidash&hl=es_CR). Just be patient. Although as a general rule when you add JS you have to be more `explicit` in how memory works. When to clear the state, when to start/stop a thread, etc.
 - `pxs_Module`s can not be redefined. It won't crash but it will skip any redefined module names.
 - In Javascript `pxs_exec` runs in its own module everytime. To make something global, you have to use `globalThis`.
+
+## Linking
+When linking if you are using the `pxs.http` module you will need to link:
+- winhttp for Windows
+- Foundation for AppleOS
+- Curl for linux

@@ -61,6 +61,9 @@ pub mod lua;
 #[cfg(feature = "python")]
 pub mod python;
 
+// Handwritten bindings.
+pub mod bindings;
+
 /// Assert that the module is initiated.
 macro_rules! assert_initiated {
     () => {{
@@ -130,7 +133,7 @@ pub extern "C" fn pxs_initialize() {
                 JSScripting::start();
             });
         }
-            IS_INIT = true;
+        IS_INIT = true;
     }
 }
 
