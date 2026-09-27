@@ -29,7 +29,6 @@ fn build_emscripten_flags() {
     println!("cargo:rustc-link-arg=-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','UTF8ToString']");
     println!("cargo:rustc-link-arg=-sSUPPORT_LONGJMP=wasm");
     println!("cargo:rustc-link-arg=-fwasm-exceptions");
-    // println!("cargo:rustc-link-arg=-sENVIRONMENT=web");
     println!("cargo:rustc-link-arg=-sALLOW_MEMORY_GROWTH=1");
     println!("cargo:rustc-link-arg=-sASSERTIONS=1");
     println!("cargo:rustc-link-arg=-sPTHREAD_POOL_SIZE=4");

@@ -98,3 +98,4 @@
 - Added `pxs_addmod2` which lets the host language add a module to a specific runtime.
 - Added `pxs_ModuleFlag` to C header.
 - Added `test_addmod2.rs`
+- Added working WASM.

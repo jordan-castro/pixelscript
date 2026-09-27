@@ -80,7 +80,7 @@ already have their own benchmarks in the own repos. Please look at their documen
 ## v0.7 Wasm and Docs ~~and Dynamic Language support~~ (Dynamic support will not be supported. If you want to add a custom language)
 - ~~Add `dynamic` language support meaning a host language can add its own bindings backend that interops perfectly with Pxs.~~ (Developers should add fork and add their own backend following the docs. If they want to add it to pixelscript they will need to do a PR.)
     ~~- This will be useful when a developer wants to create a custom DSL.~~
-- WASM support + Wasm web page similar to pocketpy live playground. (at pixelscript.epochtech.us/playground)
+- ~~WASM support~~ + Wasm web page similar to pocketpy live playground. (at pixelscript.epochtech.us/playground)
 - Write documentation at (pixelscript.epochtech.us)
 
 ## v0.8 Cross language, Binary (pxs), Wren backend
