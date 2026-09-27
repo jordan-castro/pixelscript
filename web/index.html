@@ -8,10 +8,21 @@
 </head>
 <body>
 <script>
+    function say_hello(args) {
+        console.log('Hello dude!');
+        return pxs_newnull();
+    }
+
     var Module = {
         onRuntimeInitialized: function() {
             console.log("PXS is ready.");
             pxs_wrap(Module);
+
+            // Add a function
+            let t = pxs_newmod("test");
+            let new_func = Module.addFunction(say_hello, pxs_Func);
+            pxs_addfunc(t, "say_hello", new_func);
+            pxs_addmod(t);
         }
     };
 </script>
