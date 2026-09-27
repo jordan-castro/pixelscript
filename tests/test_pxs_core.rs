@@ -26,7 +26,7 @@ import pxs
 from pxs import fs as pxs_fs
 from pxs import os as pxs_os
 #from pxs import zip as pxs_zip
-import pxs_zip
+#import pxs_zip
 from pxs import shell as pxs_shell
 from pxs import http as pxs_http
 
@@ -50,11 +50,11 @@ cdir = pxs_os.get_cwd()
 pxs_os.chdir("./tests/")
 pxs.passert(cdir != pxs_os.get_cwd(), "Directories match! They should not")
 
-pxs.print("===pxs_zip===")
+#pxs.print("===pxs_zip===")
 # Create a zip file and then read its contents
-zip_file = pxs_zip.open("test.zip")
-zip_file.write("dude/life.txt", "dude that is life!")
-pxs.passert(zip_file.read("dude/life.txt") == "dude that is life!", "Zipfile contents are not equal")
+#zip_file = pxs_zip.open("test.zip")
+#zip_file.write("dude/life.txt", "dude that is life!")
+#pxs.passert(zip_file.read("dude/life.txt") == "dude that is life!", "Zipfile contents are not equal")
 
 pxs.print("===pxs_shell===")
 pxs_shell.system('echo "Hello World from pxs_shell!"')

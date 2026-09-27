@@ -31,7 +31,7 @@ use crate::lua::LuaScripting;
 #[cfg(feature = "python")]
 use crate::python::PythonScripting;
 
-use crate::{pxs_core::pxs_ModuleFlag, shared::{
+use crate::{shared::{
     PXS_PTR_NAME, PixelScript,
     arena::pxs_PixelArena,
     func::{clear_function_lookup, lookup_add_function},
@@ -43,16 +43,16 @@ use crate::{pxs_core::pxs_ModuleFlag, shared::{
 
 pub mod shared;
 
-#[cfg(any(
-    feature = "pxs_json",
-    feature = "pxs_mem",
-    feature = "pxs_os",
-    feature = "pxs_pxs",
-    feature = "pxs_fs",
-    feature = "pxs_shell",
-    feature = "pxs_http",
-    feature = "pxs_zip"
-))]
+// #[cfg(any(
+//     feature = "pxs_json",
+//     feature = "pxs_mem",
+//     feature = "pxs_os",
+//     feature = "pxs_pxs",
+//     feature = "pxs_fs",
+//     feature = "pxs_shell",
+//     feature = "pxs_http",
+//     feature = "pxs_zip"
+// ))]
 pub mod pxs_core;
 #[cfg(feature = "js")]
 /// cbindgen:ignore
@@ -107,7 +107,7 @@ static mut IS_INIT: bool = false;
 static mut IS_KILLED: bool = false;
 
 /// This is just to expose `pxs_ModuleFlag` enum.
-pub const PXS_MODULE_FLAG_NONE : pxs_ModuleFlag = pxs_ModuleFlag::pxs_NONE;
+pub const PXS_MODULE_FLAG_NONE : pxs_core::pxs_ModuleFlag = pxs_core::pxs_ModuleFlag::pxs_NONE;
 
 /// Current pixelscript version.
 #[unsafe(no_mangle)]

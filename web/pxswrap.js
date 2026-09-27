@@ -65,7 +65,17 @@ function pxs_wrap(module, start=true) {
     pxs_eval = module.cwrap('pxs_eval', 'number', ['string', 'number']);
     pxs_exec = module.cwrap('pxs_exec', 'number', ['number', 'string', 'string']);
     pxs_newmod = module.cwrap('pxs_newmod', 'number', ['string']);
-    pxs_addfunc = module.cwrap('pxs_addfunc', '', ['number', 'string', 'number']);
+    pxs_addfunc = (args) => {
+        const wrapper = module.cwrap('pxs_addfunc', '', ['number', 'string', 'number']);
+        
+        let ptr = args[0];
+        let name = args[1];
+        let func = arsg[2];
+
+        let func_p = module.addFunction(func, 'pp');
+
+        wrapper(ptr, name, func_p);
+    };
     pxs_addmod = module.cwrap('pxs_addmod', '', ['number']);
     pxs_add_submod = module.cwrap('pxs_add_submod', '', ['number', 'number']);
     pxs_newnull = module.cwrap('pxs_newnull', '', []);
