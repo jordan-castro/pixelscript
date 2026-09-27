@@ -1,13 +1,13 @@
 //! Pocketpy rust bindings. The whole point of this is to cut down on compile times and control the stack better.
 //! I had thought about doing this for a while, because I dont need to full pocketpy API to do what I am doing.
 //! And if I need to add anything else, well I can do just that.
-//! 
+//!
 //! This matches the current version in libs. (2.2.0)
 
 // == GLOBALS ==
 
-pub const PXSPYTHON_IS_DIR : core::ffi::c_int = -2;
-pub const PXSPYTHON_NOT_FOUND : core::ffi::c_int = -1;
+pub const PXSPYTHON_IS_DIR: core::ffi::c_int = -2;
+pub const PXSPYTHON_NOT_FOUND: core::ffi::c_int = -1;
 
 // == GLOBALS END ==
 
@@ -18,24 +18,24 @@ pub const PXSPYTHON_NOT_FOUND : core::ffi::c_int = -1;
 pub enum py_PredefinedType {
     tp_nil = 0,
     tp_object = 1,
-    tp_type,  // py_Type
+    tp_type, // py_Type
     tp_int,
     tp_float,
     tp_bool,
     tp_str,
     tp_str_iterator,
-    tp_list,            // c11_vector
-    tp_tuple,           // N slots
-    tp_list_iterator,   // 1 slot
-    tp_tuple_iterator,  // 1 slot
-    tp_slice,           // 3 slots (start, stop, step)
+    tp_list,           // c11_vector
+    tp_tuple,          // N slots
+    tp_list_iterator,  // 1 slot
+    tp_tuple_iterator, // 1 slot
+    tp_slice,          // 3 slots (start, stop, step)
     tp_range,
     tp_range_iterator,
     tp_module,
     tp_function,
     tp_nativefunc,
-    tp_boundmethod,  // 2 slots (self, func)
-    tp_super,        // 1 slot + py_Type
+    tp_boundmethod, // 2 slots (self, func)
+    tp_super,       // 1 slot + py_Type
     tp_BaseException,
     tp_Exception,
     tp_bytes,
@@ -44,11 +44,11 @@ pub enum py_PredefinedType {
     tp_locals,
     tp_code,
     tp_dict,
-    tp_dict_iterator,  // 1 slot
-    tp_property,       // 2 slots (getter + setter)
-    tp_star_wrapper,   // 1 slot + int level
-    tp_staticmethod,   // 1 slot
-    tp_classmethod,    // 1 slot
+    tp_dict_iterator, // 1 slot
+    tp_property,      // 2 slots (getter + setter)
+    tp_star_wrapper,  // 1 slot + int level
+    tp_staticmethod,  // 1 slot
+    tp_classmethod,   // 1 slot
     tp_NoneType,
     tp_NotImplementedType,
     tp_ellipsis,
@@ -101,7 +101,7 @@ union py_TValue_Union {
     _cfunc: py_CFunction,
     _obj: *mut core::ffi::c_void,
     _ptr: *mut core::ffi::c_void,
-    _chars: [core::ffi::c_char; 16]
+    _chars: [core::ffi::c_char; 16],
 }
 
 /// A opaque type that represents a python object. You cannot access its members directly.
@@ -111,7 +111,7 @@ pub struct py_TValue {
     _type: py_Type,
     is_ptr: bool,
     extra: core::ffi::c_int,
-    _data: py_TValue_Union
+    _data: py_TValue_Union,
 }
 
 /// A 64-bit integer type. Corresponds to `int` in python.
@@ -132,7 +132,10 @@ pub type py_ItemRef = *mut py_TValue;
 /// An output reference for returning a value. Only use this for function arguments.
 pub type py_OutRef = *mut py_TValue;
 
-pub type import_file_func = unsafe extern "C" fn (path: *const core::ffi::c_char, data_size: *mut core::ffi::c_int) -> *mut core::ffi::c_char;
+pub type import_file_func = unsafe extern "C" fn(
+    path: *const core::ffi::c_char,
+    data_size: *mut core::ffi::c_int,
+) -> *mut core::ffi::c_char;
 
 /// A struct contains the callbacks of the VM.
 #[repr(C)]
@@ -142,8 +145,13 @@ pub struct py_Callbacks {
     print: Option<unsafe extern "C" fn(*const core::ffi::c_char)>,
     flush: Option<unsafe extern "C" fn()>,
     getchr: Option<unsafe extern "C" fn() -> core::ffi::c_int>,
-    gc_mark: Option<unsafe extern "C" fn(extern "C" fn(val: py_Ref, ctx: *mut core::ffi::c_void), ctx: *mut core::ffi::c_void)>,
-    displayhook: Option<unsafe extern "C" fn(val: py_Ref) -> bool>
+    gc_mark: Option<
+        unsafe extern "C" fn(
+            extern "C" fn(val: py_Ref, ctx: *mut core::ffi::c_void),
+            ctx: *mut core::ffi::c_void,
+        ),
+    >,
+    displayhook: Option<unsafe extern "C" fn(val: py_Ref) -> bool>,
 }
 
 /// Python compiler modes.
@@ -156,7 +164,7 @@ pub enum py_CompileMode {
     EXEC_MODE = 0,
     EVAL_MODE = 1,
     SINGL_MODE = 2,
-    RELOAD_MODE = 3
+    RELOAD_MODE = 3,
 }
 
 // == TYPES END ==
@@ -186,14 +194,24 @@ unsafe extern "C" {
     pub fn py_free(ptr: *mut core::ffi::c_void);
     /// Compile a source string into a code object.
     /// Use python's `exec()` or `eval()` to execute it.
-    pub fn py_compile(source: *const core::ffi::c_char, filename: *const core::ffi::c_char, mode: py_CompileMode, is_dynamic: bool) -> bool;
+    pub fn py_compile(
+        source: *const core::ffi::c_char,
+        filename: *const core::ffi::c_char,
+        mode: py_CompileMode,
+        is_dynamic: bool,
+    ) -> bool;
     /// Run a source string.
     /// @param source source string.
     /// @param filename filename (for error messages).
     /// @param mode compile mode. Use `EXEC_MODE` for statements `EVAL_MODE` for expressions.
     /// @param module target module. Use NULL for the main module.
     /// @return `true` if the execution is successful or `false` if an exception is raised.
-    pub fn py_exec(source: *const core::ffi::c_char, filename: *const core::ffi::c_char, mode: py_CompileMode, module: py_Ref) -> bool;
+    pub fn py_exec(
+        source: *const core::ffi::c_char,
+        filename: *const core::ffi::c_char,
+        mode: py_CompileMode,
+        module: py_Ref,
+    ) -> bool;
     /// Create an `int` object.
     pub fn py_newint(source: py_OutRef, value: py_i64);
     /// Create a `float` object.
@@ -205,12 +223,12 @@ unsafe extern "C" {
     /// Create a `None` object.
     pub fn py_newnone(source: py_OutRef);
     /// Convert a null-terminated string to a name.
-    pub fn py_name(str: *const core::ffi::c_char) ->  py_Name;
+    pub fn py_name(str: *const core::ffi::c_char) -> py_Name;
     /// Bind a function to the object via "argc-based" style.
     /// @param obj the target object.
     /// @param name name of the function.
     /// @param f function to bind.
-    pub fn py_bindfunc(obj: py_Ref ,  name: *const core::ffi::c_char, f: Option<py_CFunction>);
+    pub fn py_bindfunc(obj: py_Ref, name: *const core::ffi::c_char, f: Option<py_CFunction>);
     /// Convert an `int` object in python to `int64_t`.
     pub fn py_toint(pref: py_Ref) -> py_i64;
     /// Convert a `float` object in python to `double`.
@@ -255,17 +273,17 @@ unsafe extern "C" {
     /// Python equivalent to `len(val)`.
     pub fn py_len(val: py_Ref) -> bool;
     /// Python equivalent to `getattr(self, name)`.
-    pub fn py_getattr( s: py_Ref, name: py_Name ) -> bool;
+    pub fn py_getattr(s: py_Ref, name: py_Name) -> bool;
     /// Python equivalent to `setattr(self, name, val)`.
-    pub fn py_setattr(s: py_Ref, name: py_Name, val: py_Ref ) -> bool;
+    pub fn py_setattr(s: py_Ref, name: py_Name, val: py_Ref) -> bool;
     /// Python equivalent to `delattr(self, name)`.
-    pub fn py_delattr(s: py_Ref,  name: py_Name) -> bool;
+    pub fn py_delattr(s: py_Ref, name: py_Name) -> bool;
     /// Python equivalent to `self[key]`.
-    pub fn py_getitem(s: py_Ref, key: py_Ref ) -> bool;
+    pub fn py_getitem(s: py_Ref, key: py_Ref) -> bool;
     /// Python equivalent to `self[key] = val`.
-    pub fn py_setitem(s: py_Ref , key : py_Ref , val: py_Ref ) -> bool;
+    pub fn py_setitem(s: py_Ref, key: py_Ref, val: py_Ref) -> bool;
     /// Python equivalent to `del self[key]`.
-    pub fn py_delitem(s: py_Ref , key: py_Ref ) -> bool;
+    pub fn py_delitem(s: py_Ref, key: py_Ref) -> bool;
     /// Get a module by path.
     pub fn py_getmodule(path: *const core::ffi::c_char) -> py_GlobalRef;
     /// Create a new module.
@@ -279,7 +297,10 @@ unsafe extern "C" {
     /// Raise an exception object. Always return false.
     pub fn py_raise(exc: py_Ref) -> bool;
     /// Override for the pocketpy.callbacks.import function.
-    pub fn pxspython_import(path: *const core::ffi::c_char, size: *mut core::ffi::c_int) -> *mut core::ffi::c_char;
+    pub fn pxspython_import(
+        path: *const core::ffi::c_char,
+        size: *mut core::ffi::c_int,
+    ) -> *mut core::ffi::c_char;
     /// Create an empty `list`.
     pub fn py_newlist(oref: py_OutRef);
     pub fn py_list_append(s: py_Ref, val: py_Ref);
@@ -288,7 +309,7 @@ unsafe extern "C" {
     /// -1: error, 0: not found, 1: found
     pub fn py_dict_getitem(s: py_Ref, k: py_Ref) -> core::ffi::c_int;
     /// true: success, false: error
-    pub fn py_dict_setitem(s: py_Ref, key: py_Ref , val: py_Ref ) -> bool;
+    pub fn py_dict_setitem(s: py_Ref, key: py_Ref, val: py_Ref) -> bool;
     /// -1: error, 0: not found, 1: found (and deleted)
     pub fn py_dict_delitem(s: py_Ref, key: py_Ref) -> core::ffi::c_int;
     /// -1: error, 0: not found, 1: found

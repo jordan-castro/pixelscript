@@ -258,7 +258,7 @@ extern "C" fn passert(args: pxs_VarT) -> pxs_VarT {
 
 /// @private
 /// Add `pxs` module functions and objects.
-/// Without this, it will not be possible to print or assert using the pxs native.
+/// Without this, it will not be possible to print or assert in scripts.
 pub(crate) fn init(module: *mut pxs_Module) {
     // Methods
     pxs_addfunc(module, c"print".as_ptr(), print);

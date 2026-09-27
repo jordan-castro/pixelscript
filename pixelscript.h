@@ -8,10 +8,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#define PXSPYTHON_IS_DIR -2
-
-#define PXSPYTHON_NOT_FOUND -1
-
 /**
  * This represents the variable type that is being read or created.
  */
@@ -66,7 +62,7 @@ typedef enum pxs_VarType {
  */
 typedef enum pxs_Runtime {
   /**
-   * Lua v5.4 with mlua.
+   * Lua v5.5 with lua.
    */
   pxs_Lua = 0,
   /**
@@ -74,36 +70,37 @@ typedef enum pxs_Runtime {
    */
   pxs_Python = 1,
   /**
-   * ES 2020 using rquickjs
+   * ES 2020 using quickjsng
    */
   pxs_JavaScript = 2,
   pxs_Wren = 3,
 } pxs_Runtime;
 
 /**
- * Python compiler modes.
- * + `EXEC_MODE`: for statements.
- * + `EVAL_MODE`: for expressions.
- * + `SINGLE_MODE`: for REPL or jupyter notebook execution.
- * + `RELOAD_MODE`: for reloading a module without allocating new types if possible.
+ * Bitflags for modules.
  */
-enum py_CompileMode
-#ifdef __cplusplus
-  : int32_t
-#endif // __cplusplus
+enum pxs_ModuleFlag
+#if defined(__cplusplus) || __STDC_VERSION__ >= 202311L
+  : uint8_t
+#endif // defined(__cplusplus) || __STDC_VERSION__ >= 202311L
  {
-  EXEC_MODE = 0,
-  EVAL_MODE = 1,
-  SINGL_MODE = 2,
-  RELOAD_MODE = 3,
+  pxs_NONE = 0,
+  pxs_JSON = (1 << 0),
+  pxs_MEM = (1 << 1),
+  pxs_OS = (1 << 2),
+  pxs_PXS = (1 << 3),
+  pxs_FS = (1 << 4),
+  pxs_SHELL = (1 << 5),
+  pxs_ZIP = (1 << 6),
+  pxs_HTTP = (1 << 7),
 };
 #ifndef __cplusplus
-typedef int32_t py_CompileMode;
+#if __STDC_VERSION__ >= 202311L
+typedef enum pxs_ModuleFlag pxs_ModuleFlag;
+#else
+typedef uint8_t pxs_ModuleFlag;
+#endif // __STDC_VERSION__ >= 202311L
 #endif // __cplusplus
-
-typedef struct Option_import_file_func Option_import_file_func;
-
-typedef struct Option_py_CFunction Option_py_CFunction;
 
 /**
  * A Factory variable data holder.
@@ -247,14 +244,14 @@ typedef struct pxs_VarList pxs_VarList;
 
 /**
  * A `Map` in pixelscript is very simply a Key (pxs_Var) to Value (pxs_Var) pair.
- *
+ * 
  * In Python it's a dictionary, in Lua it's a table, and in JS it's a object.
  */
 typedef struct pxs_VarMap pxs_VarMap;
 
 /**
  * A `Object` in pixelscript is wrapped with a potential host_ptr. This allows for non language specific ref counting.
- *
+ * 
  * To access the raw pointer, use `get_raw()`. Reference counting is automatically applied when this struct is dropped.
  */
 typedef struct pxs_VarObject pxs_VarObject;
@@ -361,94 +358,9 @@ typedef pxs_VarT (*pxs_LoadFileFn)(const char *file_path);
 typedef pxs_VarT (*pxs_ReadDirFn)(const char *dir_path);
 
 /**
- * An integer that represents a python type. `0` is invalid.
+ * This is just to expose `pxs_ModuleFlag` enum.
  */
-typedef int16_t py_Type;
-
-/**
- * A specific location in the value stack of the VM.
- */
-typedef struct py_TValue *py_StackRef;
-
-typedef bool (*py_CFunction)(int argc, py_StackRef argv);
-
-/**
- * Union for `py_TValue`
- */
-typedef union py_TValue_Union {
-  int64_t _i64;
-  double _f64;
-  bool _bool;
-  py_CFunction _cfunc;
-  void *_obj;
-  void *_ptr;
-  char _chars[16];
-} py_TValue_Union;
-
-/**
- * A opaque type that represents a python object. You cannot access its members directly.
- */
-typedef struct py_TValue {
-  py_Type _type;
-  bool is_ptr;
-  int extra;
-  union py_TValue_Union _data;
-} py_TValue;
-
-/**
- * A global reference which has the same lifespan as the VM.
- */
-typedef struct py_TValue *py_GlobalRef;
-
-/**
- * A generic reference to a python object.
- */
-typedef struct py_TValue *py_Ref;
-
-/**
- * A struct contains the callbacks of the VM.
- */
-typedef struct py_Callbacks {
-  struct Option_import_file_func importfile;
-  py_GlobalRef (*lazyimport)(const char*);
-  void (*print)(const char*);
-  void (*flush)(void);
-  int (*getchr)(void);
-  void (*gc_mark)(void(*)(py_Ref val, void *ctx), void *ctx);
-  bool (*displayhook)(py_Ref val);
-} py_Callbacks;
-
-/**
- * An output reference for returning a value. Only use this for function arguments.
- */
-typedef struct py_TValue *py_OutRef;
-
-/**
- * A 64-bit integer type. Corresponds to `int` in python.
- */
-typedef int64_t py_i64;
-
-/**
- * A 64-bit floating-point type. Corresponds to `float` in python.
- */
-typedef double py_f64;
-
-/**
- * A helper struct for `py_Name`.
- */
-typedef struct py_OpaqueName {
-  uint8_t _unused[0];
-} py_OpaqueName;
-
-/**
- * A pointer that represents a python identifier. For fast name resolution.
- */
-typedef struct py_OpaqueName *py_Name;
-
-/**
- * An item reference to a container object. It invalidates when the container is modified.
- */
-typedef struct py_TValue *py_ItemRef;
+#define PXS_MODULE_FLAG_NONE pxs_NONE
 
 #ifdef __cplusplus
 extern "C" {
@@ -501,7 +413,7 @@ void pxs_addfunc(struct pxs_Module *module_ptr, const char *name, pxs_Func func)
 
 /**
  * Add the same function under different names.
- *
+ * 
  * module_ptr:BORROW
  * func_list:TRANSFER
  */
@@ -539,7 +451,7 @@ void pxs_add_submod(struct pxs_Module *parent_ptr, struct pxs_Module *child_ptr)
 void pxs_addmod(struct pxs_Module *module_ptr);
 
 /**
- * Optionally free a module if you changed your mind.
+ * Free a module.
  *
  * module_ptr:TRANSFER
  */
@@ -547,11 +459,11 @@ void pxs_freemod(struct pxs_Module *module_ptr);
 
 /**
  * Create a new object with a Type.
- *
+ * 
  * This is the same as `pxs_newobject` but it defines a `type` on the `pxs_PixelObject`.
- *
+ * 
  * This will not cause UB. Retrieve the host pointer using `pxs_gettype`. A `type_id` < 0 means no type.
- *
+ * 
  * ptr:OWNED
  * return:OWNED
  */
@@ -607,7 +519,7 @@ void pxs_object_addprop(struct pxs_PixelObject *ptr,
  * when a function should be treated as a Object or a Function in your code.
  * It is not required to call this function in order to expose a `pxs_HostObject` to a module. Any functoin that returns a `pxs_HostObject`
  * will expose the object.
- *
+ * 
  * module_ptr:BORROW
  */
 void pxs_addobject(struct pxs_Module *module_ptr,
@@ -898,13 +810,13 @@ struct pxs_Var *pxs_varcall(struct pxs_Var *runtime,
  * Move ownership of value from `item`.
  *
  * `item` still needs to be managed by whoever owns it.
- *
+ * 
  * In case of:
  * - pxs_Object
  * - pxs_Function
- *
+ * 
  * the deleter from original is moved into the return.
- *
+ *  
  * item:BORROW
  * return:OWNED
  */
@@ -939,7 +851,7 @@ pxs_VarT pxs_eval(const char *script, enum pxs_Runtime rt);
 
 /**
  * Evaluate named code. This will return a `pxs_VarT`.
- *
+ * 
  * return:OWNED
  */
 pxs_VarT pxs_evalnamed(const char *script, const char *name, enum pxs_Runtime rt);
@@ -961,9 +873,9 @@ pxs_VarT pxs_newfactory(pxs_Func func, struct pxs_Var *args);
 
 /**
  * Get the `_pxs_ptr` of a `pxs_HostObject`. And type check it against `type_id`.
- *
+ * 
  * if `type_id` < 0, no type checking is done.
- *
+ * 
  * runtime: BORROW
  * var: BORROW
  * return: BORROW
@@ -1014,7 +926,7 @@ pxs_VarT pxs_var_fromname(pxs_VarT rt, const char *name);
  * Remove a item from a list at a specific index.
  *
  * Returns true for success, false for failed.
- *
+ * 
  * This will automatically call `pxs_freevar` on the found item.
  *
  * list:BORROW
@@ -1030,7 +942,7 @@ bool pxs_listdel(pxs_VarT list, int32_t index);
  * - pxs_Object
  * - pxs_Function
  * copy is called, but original keeps deleter.
- *
+ * 
  * var:BORROW
  * return:OWNED
  */
@@ -1163,7 +1075,7 @@ void pxs_freearena(struct pxs_PixelArena *arena);
  * Add a `pxs_VarT` to a `pxs_PixelArena`. Upon freeing the Arena, the variable is freed aswell.
  *
  * A variable must only be added once.
- *
+ * 
  * arena:BORROW
  * var:TRANSFER
  * result:BORROW
@@ -1172,14 +1084,14 @@ pxs_VarT pxs_arenaput(struct pxs_PixelArena *arena, pxs_VarT var);
 
 /**
  * Add a `char*` to a `pxs_PixelArena`. Upon freeing the Arena, the string is freed aswell.
- *
+ * 
  * This must be a string allocated by pixelscript. Either in:
  * - `pxs_getstring`
  * - `pxs_smart_getstring`
  * - `pxs_debugstate`
- *
+ * 
  * A string must only be added once.
- *
+ * 
  * arena:BORROW
  * str:TRANSFER
  * result:BORROW
@@ -1200,18 +1112,18 @@ void pxs_garbagecollect(void);
 
 /**
  * Get the host IDX from a `pxs_HostObject`.
- *
+ * 
  * if result is < 0 then that means it is not a object.
- *
+ * 
  * var: BORROW
  */
 int32_t pxs_getidx(pxs_VarT var);
 
 /**
  * Get a `pxs_VarT` from args without needing to worry about index checks.
- *
+ * 
  * Literraly does `pxs_listget(args, idx + 1)`
- *
+ * 
  * args: BORROW
  * result: BORROW&NULLABLE
  */
@@ -1219,9 +1131,9 @@ pxs_VarT pxs_arg(pxs_VarT args, int32_t idx);
 
 /**
  * Get the `pxs_VarT` runtime from args.
- *
+ * 
  * Does `pxs_listget(args, 0)`
- *
+ * 
  * args: BORROW
  * result: BORROW&NULLABLE
  */
@@ -1229,14 +1141,14 @@ pxs_VarT pxs_getrt(pxs_VarT args);
 
 /**
  * Get the length of args without the runtime.
- *
+ * 
  * args: BORROW
  */
 uintptr_t pxs_argc(pxs_VarT args);
 
 /**
  * Create a `pxs_List` of u8. i.e. bytes.
- *
+ * 
  * data: BORROW
  * result: OWNED
  */
@@ -1257,7 +1169,7 @@ uintptr_t pxs_varsize(pxs_VarT var);
  *   - `pxs_Bool`
  *   - `pxs_String`
  *   - `pxs_List`
- *
+ * 
  * var: BORROW
  * data_ptr: BORROW
  */
@@ -1265,7 +1177,7 @@ void pxs_copybytes(pxs_VarT var, pxs_Opaque data_ptr);
 
 /**
  * Copy a `pxs_String` into a char*.
- *
+ * 
  * var: BORROW
  * str_ptr: BORROW
  */
@@ -1274,9 +1186,9 @@ void pxs_copystring(pxs_VarT var, char *str_ptr);
 /**
  * Get a string (char*) from `pxs_String`. And calls `pxs_tostring` automatically if not already a string.
  * Runtime is required.
- *
+ * 
  * Free the result using `pxs_freestr`.
- *
+ * 
  * rt: BORROW
  * str: BORROW
  * result: OWNED
@@ -1287,7 +1199,7 @@ char *pxs_smart_getstring(pxs_VarT rt,
 /**
  * Copy a `pxs_String` memory into a char*. Calls `pxs_tostring` automatically if not already a string.
  * Runtime is required.
- *
+ * 
  * rt: BORROW
  * str: BORROW
  * str_ptr: BORROW
@@ -1305,157 +1217,166 @@ enum pxs_VarType pxs_vartype(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_String`.
- *
+ * 
  * ```c
  * bool is_string = pxs_isstring(pxs_arg(args, 0));
  * ```
- *
+ * 
  * var:BORROW
  */
 bool pxs_isstring(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Int64`.
- *
+ * 
  * ```c
  * bool is_int = pxs_isint(pxs_arg(args, 0));
  * ```
- *
+ * 
  * var:BORROW
  */
 bool pxs_isint(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_UInt64`.
- *
+ * 
  * ```c
  * bool is = pxs_isuint(pxs_arg(args, 0));
  * ```
- *
+ * 
  * var:BORROW
  */
 bool pxs_isuint(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Bool`.
- *
+ * 
  * ```c
  * bool is = pxs_isbool(pxs_arg(args, 0));
  * ```
- *
+ * 
  * var:BORROW
  */
 bool pxs_isbool(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Float64`.
- *
+ * 
  * ```c
  * bool is = pxs_isfloat(pxs_arg(args, 0));
  * ```
- *
+ * 
  * var:BORROW
  */
 bool pxs_isfloat(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Null`.
- *
+ * 
  * ```c
  * bool is = pxs_isnull(pxs_arg(args, 0));
  * ```
- *
+ * 
  * var:BORROW
  */
 bool pxs_isnull(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Object`.
- *
+ * 
  * ```c
  * bool is = pxs_isobject(pxs_arg(args, 0));
  * ```
- *
+ * 
  * var:BORROW
  */
 bool pxs_isobject(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_HostObject`.
- *
+ * 
  * ```c
  * bool is = pxs_is_hostobject(pxs_arg(args, 0));
  * ```
- *
+ * 
  * var:BORROW
  */
 bool pxs_is_hostobject(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_List`.
- *
+ * 
  * ```c
  * bool is = pxs_islist(pxs_arg(args, 0));
  * ```
- *
+ * 
  * var:BORROW
  */
 bool pxs_islist(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Function`.
- *
+ * 
  * ```c
  * bool is = pxs_isfunction(pxs_arg(args, 0));
  * ```
- *
+ * 
  * var:BORROW
  */
 bool pxs_isfunction(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Factory`.
- *
+ * 
  * ```c
  * bool is = pxs_isfactory(pxs_arg(args, 0));
  * ```
- *
+ * 
  * var:BORROW
  */
 bool pxs_isfactory(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Exception`.
- *
+ * 
  * ```c
  * bool is = pxs_isexception(pxs_arg(args, 0));
  * ```
- *
+ * 
  * var:BORROW
  */
 bool pxs_isexception(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Map`.
- *
+ * 
  * ```c
  * bool is = pxs_ismap(pxs_arg(args, 0));
  * ```
- *
+ * 
  * var:BORROW
  */
 bool pxs_ismap(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Byte`.
- *
+ * 
  * ```c
  * bool is = pxs_isbyte(pxs_arg(args, 0));
  * ```
- *
+ * 
  * var:BORROW
  */
 bool pxs_isbyte(pxs_VarT var);
+
+/**
+ * Add a module to a specific(s) language(s).
+ *
+ * module:BORROW
+ * 
+ * You must free the `module` using `pxs_freemod`
+ */
+void pxs_addmod2(struct pxs_Module *module, uint8_t language);
 
 /**
  * Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.
@@ -1487,314 +1408,17 @@ pxs_VarT pxs_json_decode(pxs_VarT rt,
 
 /**
  * Initalize core modules
- *
+ * 
  * THREAD_LOCAL
  */
 void pxs_core_init(uint8_t modules);
 
 /**
  * Initialize all the `pxs_core` modules.
- *
+ * 
  * THREAD_LOCAL REQUIRES_STD
  */
 void pxs_core_initall(void);
-
-/**
- * Initialize pocketpy and the default VM.
- */
-extern void py_initialize(void);
-
-/**
- * Finalize pocketpy and free all VMs. This opearation is irreversible.
- * After this call, you cannot use any function from this header anymore.
- */
-extern void py_finalize(void);
-
-/**
- * Get the current VM index.
- */
-extern int py_currentvm(void);
-
-/**
- * Switch to a VM.
- * @param index index of the VM ranging from 0 to 16 (exclusive). `0` is the default VM.
- */
-extern void py_switchvm(int index);
-
-/**
- * Reset the current VM.
- */
-extern void py_resetvm(void);
-
-/**
- * Reset All VMs.
- */
-extern void py_resetallvm(void);
-
-/**
- * Setup the callbacks for the current VM.
- */
-extern struct py_Callbacks *py_callbacks(void);
-
-/**
- * Invoke the garbage collector.
- */
-extern int py_gc_collect(void);
-
-/**
- * Wrapper for `PK_FREE(ptr)`.
- */
-extern void py_free(void *ptr);
-
-/**
- * Compile a source string into a code object.
- * Use python's `exec()` or `eval()` to execute it.
- */
-extern bool py_compile(const char *source,
-                       const char *filename,
-                       py_CompileMode mode,
-                       bool is_dynamic);
-
-/**
- * Run a source string.
- * @param source source string.
- * @param filename filename (for error messages).
- * @param mode compile mode. Use `EXEC_MODE` for statements `EVAL_MODE` for expressions.
- * @param module target module. Use NULL for the main module.
- * @return `true` if the execution is successful or `false` if an exception is raised.
- */
-extern bool py_exec(const char *source, const char *filename, py_CompileMode mode, py_Ref module);
-
-/**
- * Create an `int` object.
- */
-extern void py_newint(py_OutRef source, py_i64 value);
-
-/**
- * Create a `float` object.
- */
-extern void py_newfloat(py_OutRef source, py_f64 value);
-
-/**
- * Create a `bool` object.
- */
-extern void py_newbool(py_OutRef source, bool value);
-
-/**
- * Create a `str` object from a null-terminated string (utf-8).
- */
-extern void py_newstr(py_OutRef source, const char *value);
-
-/**
- * Create a `None` object.
- */
-extern void py_newnone(py_OutRef source);
-
-/**
- * Convert a null-terminated string to a name.
- */
-extern py_Name py_name(const char *str);
-
-/**
- * Bind a function to the object via "argc-based" style.
- * @param obj the target object.
- * @param name name of the function.
- * @param f function to bind.
- */
-extern void py_bindfunc(py_Ref obj, const char *name, struct Option_py_CFunction f);
-
-/**
- * Convert an `int` object in python to `int64_t`.
- */
-extern py_i64 py_toint(py_Ref pref);
-
-/**
- * Convert a `float` object in python to `double`.
- */
-extern py_f64 py_tofloat(py_Ref pref);
-
-/**
- * Convert a `bool` object in python to `bool`.
- */
-extern bool py_tobool(py_Ref pref);
-
-/**
- * Convert a `str` object in python to null-terminated string.
- */
-extern const char *py_tostr(py_Ref pref);
-
-/**
- * Get the type of the object.
- */
-extern py_Type py_typeof(py_Ref pref);
-
-/**
- * Get the current `module` object where the code is executed.
- * Return `NULL` if not available.
- */
-extern py_GlobalRef py_inspect_currentmodule(void);
-
-/**
- * Get the last return value.
- * Please note that `py_retval()` cannot be used as input argument.
- */
-extern py_GlobalRef py_retval(void);
-
-/**
- * Get an item from the object's `__dict__`.
- * Return `NULL` if not found.
- */
-extern py_ItemRef py_getdict(py_Ref pref, py_Name name);
-
-/**
- * Get variable in the `builtins` module.
- */
-extern py_ItemRef py_getbuiltin(py_Name name);
-
-/**
- * Get variable in the `__main__` module.
- */
-extern py_ItemRef py_getglobal(py_Name name);
-
-/**
- * Push the object to the stack.
- */
-extern void py_push(py_Ref pref);
-
-/**
- * Push a `nil` object to the stack.
- */
-extern void py_pushnil(void);
-
-/**
- * Pop an object from the stack.
- */
-extern void py_pop(void);
-
-/**
- * Get a temporary variable from the stack.
- */
-extern py_StackRef py_pushtmp(void);
-
-/**
- * Call a callable object via pocketpy's calling convention.
- * You need to prepare the stack using the following format:
- * `callable, self/nil, arg1, arg2, ..., k1, v1, k2, v2, ...`.
- * `argc` is the number of positional arguments excluding `self`.
- * `kwargc` is the number of keyword arguments.
- * The result will be set to `py_retval()`.
- * The stack size will be reduced by `2 + argc + kwargc * 2`.
- */
-extern bool py_vectorcall(uint16_t argc, uint16_t kwargc);
-
-/**
- * Call a type to create a new instance.
- */
-extern bool py_tpcall(py_Type t, int argc, py_Ref argv);
-
-/**
- * Python equivalent to `len(val)`.
- */
-extern bool py_len(py_Ref val);
-
-/**
- * Python equivalent to `getattr(self, name)`.
- */
-extern bool py_getattr(py_Ref s, py_Name name);
-
-/**
- * Python equivalent to `setattr(self, name, val)`.
- */
-extern bool py_setattr(py_Ref s, py_Name name, py_Ref val);
-
-/**
- * Python equivalent to `delattr(self, name)`.
- */
-extern bool py_delattr(py_Ref s, py_Name name);
-
-/**
- * Python equivalent to `self[key]`.
- */
-extern bool py_getitem(py_Ref s, py_Ref key);
-
-/**
- * Python equivalent to `self[key] = val`.
- */
-extern bool py_setitem(py_Ref s, py_Ref key, py_Ref val);
-
-/**
- * Python equivalent to `del self[key]`.
- */
-extern bool py_delitem(py_Ref s, py_Ref key);
-
-/**
- * Get a module by path.
- */
-extern py_GlobalRef py_getmodule(const char *path);
-
-/**
- * Create a new module.
- */
-extern py_GlobalRef py_newmodule(const char *path);
-
-/**
- * Clear the unhandled exception.
- * @param p0 the unwinding point. Use `NULL` if not needed.
- */
-extern void py_clearexc(py_StackRef p0);
-
-/**
- * Format the unhandled exception and return a null-terminated string.
- * The returned string should be freed by the caller.
- */
-extern char *py_formatexc(void);
-
-/**
- * Raise an exception object. Always return false.
- */
-extern bool py_raise(py_Ref exc);
-
-/**
- * Override for the pocketpy.callbacks.import function.
- */
-extern char *pxspython_import(const char *path, int *size);
-
-/**
- * Create an empty `list`.
- */
-extern void py_newlist(py_OutRef oref);
-
-extern void py_list_append(py_Ref s, py_Ref val);
-
-/**
- * Create an empty `dict`.
- */
-extern void py_newdict(py_OutRef oref);
-
-/**
- * -1: error, 0: not found, 1: found
- */
-extern int py_dict_getitem(py_Ref s, py_Ref k);
-
-/**
- * true: success, false: error
- */
-extern bool py_dict_setitem(py_Ref s, py_Ref key, py_Ref val);
-
-/**
- * -1: error, 0: not found, 1: found (and deleted)
- */
-extern int py_dict_delitem(py_Ref s, py_Ref key);
-
-/**
- * -1: error, 0: not found, 1: found
- */
-extern int py_dict_getitem_by_int(py_Ref s, py_i64 key);
-
-/**
- * -1: error, 0: not found, 1: found (and deleted)
- */
-extern int py_dict_delitem_by_int(py_Ref s, py_i64 key);
 
 #ifdef __cplusplus
 }  // extern "C"

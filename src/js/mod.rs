@@ -17,16 +17,17 @@ use crate::{
         PXS_METHOD_NAME, PixelScript, PxsRes, PxsResult, pxs_Opaque, read_file,
         var::{ObjectMethods, pxs_Var},
     }, with_feature,
+    bindings::quickjsng as quickjs
 };
 
-// Allow for the binidngs only
-#[allow(unused)]
-#[allow(non_camel_case_types)]
-#[allow(non_upper_case_globals)]
-#[allow(dead_code)]
-pub(self) mod quickjs {
-    include!(concat!(env!("OUT_DIR"), "/quickjsng_bindings.rs"));
-}
+// // Allow for the binidngs only
+// #[allow(unused)]
+// #[allow(non_camel_case_types)]
+// #[allow(non_upper_case_globals)]
+// #[allow(dead_code)]
+// pub(self) mod quickjs {
+//     include!(concat!(env!("OUT_DIR"), "/quickjsng_bindings.rs"));
+// }
 
 mod func;
 mod module;
@@ -93,7 +94,7 @@ fn init(ptr: *mut State) {
                 Some(commonjs_require),
                 require_name,
                 "require".len() as i32,
-                quickjs::JSCFunctionEnum_JS_CFUNC_generic,
+                quickjs::JSCFunctionEnum::JS_CFUNC_generic,
                 0,
             ), ctx);
             free_raw_string!(require_name);
@@ -153,11 +154,12 @@ unsafe extern "C" fn js_module_loader(
 
         // Otherwise try to read the file...
         let contents = read_file(name);
+        let mut cstrsafe = CStringSafe::new();
         if contents.len() == 0 {
+            quickjs::JS_ThrowReferenceError(context, cstrsafe.new_string(&format!("could not load module `{name}`")));
             return std::ptr::null_mut();
         }
 
-        let mut cstrsafe = CStringSafe::new();
         // We need to evalute a module
         let res = quickjs::JS_Eval(
             context,
@@ -174,7 +176,7 @@ unsafe extern "C" fn js_module_loader(
             return std::ptr::null_mut();
         }
 
-        let val_int = smart_res.value.u.ptr as isize;
+        let val_int = smart_res.get_ptr() as isize;
         let m = ((val_int & !15) as *mut std::ffi::c_void).cast::<quickjs::JSModuleDef>();
 
         m

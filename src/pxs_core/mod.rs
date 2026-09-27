@@ -16,22 +16,31 @@ use crate::{pxs_addmod, pxs_newmod, pxs_varis, shared::var::{pxs_VarT, pxs_VarTy
 mod errors;
 
 #[cfg(feature="pxs_json")]
+/// cbindgen:ignore
 pub mod pxs_json;
 #[cfg(feature="pxs_mem")] 
+/// cbindgen:ignore
 mod pxs_mem;
 #[cfg(feature="pxs_os")]
+/// cbindgen:ignore
 mod pxs_os;
 #[cfg(feature="pxs_pxs")]
+/// cbindgen:ignore
 mod pxs_pxs;
 #[cfg(feature="pxs_fs")]
+/// cbindgen:ignore
 mod pxs_fs;
 #[cfg(feature="pxs_shell")]
+/// cbindgen:ignore
 mod pxs_shell;
 #[cfg(feature="pxs_zip")]
+/// cbindgen:ignore
 mod pxs_zip;
 #[cfg(feature="pxs_http")]
+/// cbindgen:ignore
 mod http;
 
+/// cbindgen:no-export
 #[repr(i32)]
 pub(self) enum PxsCoreType {
     File = 1,
@@ -44,8 +53,10 @@ pub(self) enum PxsCoreType {
     Client = 7
 }
 
+#[repr(u8)]
 /// Bitflags for modules.
 pub enum pxs_ModuleFlag {
+    pxs_NONE = 0,
     pxs_JSON = 1 << 0,
     pxs_MEM = 1 << 1,
     pxs_OS = 1 << 2,
@@ -89,9 +100,6 @@ pub(crate) unsafe fn setup_core_modules(modules: u8) {
         free_raw_string!(pxs_mod_name);
     }
 
-    // if modules & pxs_ModuleFlag::pxs_JSON as u8 != 0 {
-        // pxs_json::
-    // }
     if modules & pxs_ModuleFlag::pxs_MEM as u8 != 0 {
         with_feature!("pxs_mem", {
             pxs_mem::init(pxs_module);

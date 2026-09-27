@@ -90,3 +90,11 @@
 - Moved `pxs_http` (pxs.http now) module to be in rust using FFI.
 - Added wasm support in `build.py`
 - Added binary support in `build.py`
+- Added lua bindings.
+- Added quickjs bindings.
+- Updated errors and exceptions in the JS backend.
+    - errors now print out (name: stack).
+    - Throw error when imported module not found.
+- Added `pxs_addmod2` which lets the host language add a module to a specific runtime.
+- Added `pxs_ModuleFlag` to C header.
+- Added `test_addmod2.rs`

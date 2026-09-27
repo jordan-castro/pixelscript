@@ -33,15 +33,8 @@ use crate::{
         var::{ObjectMethods, pxs_Var, pxs_VarMap},
     },
     with_feature,
+    bindings::lua as lua
 };
-
-#[allow(unused)]
-#[allow(non_camel_case_types)]
-#[allow(non_upper_case_globals)]
-#[allow(dead_code)]
-pub(self) mod lua {
-    include!(concat!(env!("OUT_DIR"), "/lua_bindings.rs"));
-}
 
 thread_local! {
     static LUASTATE: ThreadSafePointer<State> = ThreadSafePointer::new_owned(new_state());
@@ -326,19 +319,19 @@ fn add_variables_to_table(state: *mut State, table: i32, map: &pxs_VarMap) -> Px
     Ok(())
 }
 
-/// Remove variables from a Table.
-fn remove_variables_from_table(state: *mut State, table: i32, map: &pxs_VarMap) -> PxsRes<()> {
-    let keys = map.keys();
-    let mut engine = Engine::from_state(state);
-    for k in keys {
-        // Convert to lua
-        engine.push_pxs(k)?;
-        engine.push_nil();
-        engine.set_table(table);
-    }
+// /// Remove variables from a Table.
+// fn remove_variables_from_table(state: *mut State, table: i32, map: &pxs_VarMap) -> PxsRes<()> {
+//     let keys = map.keys();
+//     let mut engine = Engine::from_state(state);
+//     for k in keys {
+//         // Convert to lua
+//         engine.push_pxs(k)?;
+//         engine.push_nil();
+//         engine.set_table(table);
+//     }
 
-    Ok(())
-}
+//     Ok(())
+// }
 
 pub struct LuaScripting;
 

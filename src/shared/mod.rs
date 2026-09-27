@@ -208,11 +208,11 @@ pub trait PixelScript {
 #[allow(non_camel_case_types)]
 #[derive(Clone)]
 pub enum pxs_Runtime {
-    /// Lua v5.4 with mlua.
+    /// Lua v5.5 with lua.
     pxs_Lua = 0,
     /// Python v3.x with pocketpy.
     pxs_Python = 1,
-    /// ES 2020 using rquickjs
+    /// ES 2020 using quickjsng
     pxs_JavaScript = 2,
     pxs_Wren = 3
 }

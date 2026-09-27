@@ -13,7 +13,13 @@ macro_rules! write_is_func {
             #[allow(unused)]
             #[doc = concat!("Check if Value tag is: ", stringify!($t))]
             pub(super) fn $func(value: &quickjs::JSValue) -> bool {
-                (value.tag as i32) == quickjs::$t
+                #[cfg(not(target_os = "emscripten"))] {
+                    (value.tag as i32) == quickjs::$t
+                }
+                #[cfg(target_os = "emscripten")] {
+                //  (self.value >> 32) as i32
+                    (value >> 32) as i32 == quickjs::$t
+                }
             }
         )*
     };
@@ -44,6 +50,20 @@ write_is_func! {
     is_module, JS_TAG_MODULE
 }
 
+/// Create a JSValue.
+/// This handles emscripten differences
+fn make_value(tag: i64, val: i32) -> quickjs::JSValue {
+    #[cfg(target_os = "emscripten")] {
+        ((tag as u64) << 32) | (val as u64)
+    }
+    #[cfg(not(target_os="emscripten"))] {
+        quickjs::JSValue {
+            u: quickjs::JSValueUnion { int32: val },
+            tag,
+        }
+    }
+}
+
 /// Smart JSValue
 pub(super) struct SmartJSValue {
     /// The internal value.
@@ -64,6 +84,24 @@ impl SmartJSValue {
         }
     }
 
+    pub fn get_tag(&self) -> i32 {
+        #[cfg(target_os="emscripten")] {
+            (self.value >> 32) as i32
+        }
+        #[cfg(not(target_os="emscripten"))] {
+            self.value.tag as i32
+        }
+    }
+
+    pub fn get_ptr(&self) -> *mut core::ffi::c_void {
+        #[cfg(target_os="emscripten")] {
+            self.value as usize as *mut core::ffi::c_void
+        }
+        #[cfg(not(target_os="emscripten"))] {
+            unsafe { self.value.u.ptr }
+        }
+    }
+
     /// Create new unonwned value
     pub fn new_borrow(value: quickjs::JSValue, context: *mut quickjs::JSContext) -> Self {
         Self::new(value, context, false)
@@ -76,49 +114,44 @@ impl SmartJSValue {
 
     /// Create new undefined (OWNED)
     pub fn new_undefined(context: *mut quickjs::JSContext) -> Self {
-        let v = quickjs::JSValue{
-            u: quickjs::JSValueUnion {
-                int32: 0
-            },
-            tag: quickjs::JS_TAG_UNDEFINED as i64,
-        };
-
+        let v = make_value(quickjs::JS_TAG_UNDEFINED as i64, 0);
         Self::new_owned(v, context)
     }
 
     /// Create a new i32 (OWNED)
     pub fn new_i32(context: *mut quickjs::JSContext, int: i32) -> Self {
-        let v = quickjs::JSValue {
-            u: quickjs::JSValueUnion {
-                int32: int
-            },
-            tag: quickjs::JS_TAG_INT as i64
-        };
-
+        let v = make_value(quickjs::JS_TAG_INT as i64, int);
         Self::new_owned(v, context)
     }
 
     /// Create a new f64 (OWNED)
     pub fn new_f64(context: *mut quickjs::JSContext, float: f64) -> Self {
-        let v = quickjs::JSValue {
-            u: quickjs::JSValueUnion {
-                float64: float
-            },
-            tag: quickjs::JS_TAG_FLOAT64 as i64
-        };
-
-        Self::new_owned(v, context)
+        #[cfg(target_os="emscripten")] {
+            let u = quickjs::JSValueFloat64Union {
+                d: float
+            };
+            unsafe {
+                if u.un & 0x7fffffffffffffff > 0x7ff0000000000000 {
+                    return Self::new_owned(quickjs::JS_NAN, context);
+                } else {
+                    return Self::new_owned(u.un - ((quickjs::JS_FLOAT64_TAG_ADDEND as u64) << 32), context)
+                }
+            }
+        }
+        #[cfg(not(target_os="emscripten"))] {
+            let v = quickjs::JSValue {
+                u: quickjs::JSValueUnion {
+                    float64: float
+                },
+                tag: quickjs::JS_TAG_FLOAT64 as i64,
+            };
+            Self::new_owned(v, context)
+        }
     }
 
     /// Create a new boolean (owned)
     pub fn new_bool(context: *mut quickjs::JSContext, val: bool) -> Self {
-        let v = quickjs::JSValue {
-            u: quickjs::JSValueUnion {
-                int32: val as i32
-            },
-            tag: quickjs::JS_TAG_BOOL as i64
-        };
-
+        let v = make_value(quickjs::JS_TAG_BOOL as i64, val as i32);
         Self::new_owned(v, context)
     }
 
@@ -143,13 +176,7 @@ impl SmartJSValue {
 
     /// Create a new null (owned)
     pub fn new_null(context: *mut quickjs::JSContext) -> Self {
-        let v = quickjs::JSValue {
-            u: quickjs::JSValueUnion {
-                int32: 0
-            },
-            tag: quickjs::JS_TAG_NULL as i64
-        };
-
+        let v = make_value(quickjs::JS_TAG_NULL as i64, 0);
         Self::new_owned(v, context)
     }
 
@@ -190,7 +217,6 @@ impl SmartJSValue {
         }
     }
 
-    #[allow(unused)]
     /// Get current exception
     pub fn current_exception(context: *mut quickjs::JSContext) -> Self {
         unsafe {
@@ -256,7 +282,7 @@ impl SmartJSValue {
     #[allow(unused)]
     /// Get type as string name
     pub fn type_string(&self) -> String {
-        match self.value.tag as i32 {
+        match self.get_tag() as i32 {
             quickjs::JS_TAG_BIG_INT => "BigInt",
             quickjs::JS_TAG_BOOL => "Bool",
             quickjs::JS_TAG_CATCH_OFFSET => "CatchOffset",
@@ -306,6 +332,20 @@ impl SmartJSValue {
         self.value = self.await_value().dupped_value();
     }
 
+    /// Force `as_string` (for exceptions and errors)
+    pub fn force_as_string(&self) -> PxsRes<String> {
+        unsafe {
+            let cstring = quickjs::JS_ToCStringLen2(self.context, std::ptr::null_mut(), self.value, false);
+            if cstring.is_null() {
+                return pxs_error!("String result is NULL.");
+            } else {
+                let val = borrow_string!(cstring).to_string();
+                quickjs::JS_FreeCString(self.context, cstring);
+                Ok(val)
+            }
+        }
+    }
+
     /// Get As String (only works on strings)
     pub fn as_string(&self) -> PxsRes<String> {
         if !self.is_string() {
@@ -343,7 +383,7 @@ impl SmartJSValue {
         if !self.is_number() {
             return pxs_error!("JSValue is not a f64");
         }
-        
+
         unsafe {
             let mut float = -1.0f64;
             quickjs::JS_ToFloat64(self.context, &mut float, self.value);
@@ -387,7 +427,7 @@ impl SmartJSValue {
         if !self.is_module() {
             std::ptr::null_mut()
         } else {
-            let val_int = unsafe { self.value.u.ptr } as isize;
+            let val_int = self.get_ptr() as isize;
             ((val_int & !15) as *mut std::ffi::c_void).cast::<quickjs::JSModuleDef>()
         }
     }
@@ -485,25 +525,21 @@ impl SmartJSValue {
             return None;
         }
 
-        if self.is_exception() {
-            let message = Self::current_exception(self.context).to_string_direct();
-            let stack = self.get_prop("stack").to_string_direct();
-            return Some(format!("Exception: {message}, stack: {stack}"));
+        if self.is_error() {
+            let msg = self.to_string();
+            let val = self.get_prop("stack");
+            return Some(format!("{msg}{}", val.to_string()));
         }
 
-        let message = self.get_prop("message");
-        let name = self.get_prop("name");
-        let stack = self.get_prop("stack");
-
-        // Result
-        let res = format!(
-            "{}, {}, {}",
-            name.as_string().unwrap_or("Error".to_string()),
-            message.as_string().unwrap_or("Unkown Error Message".to_string()),
-            stack.as_string().unwrap_or("Uknown stack".to_string())
-        );
-        Some(res)
+        if self.is_exception() {
+            let exception = Self::current_exception(self.context);
+            return Some(exception.force_as_string().unwrap());
+        }
+        
+        None
     }
+
+    /// ToCString
 
     #[allow(unused)]
     /// ToStringDirect (no checks)

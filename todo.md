@@ -31,10 +31,8 @@
     - ~~test_exec~~
     - ~~test_eval~~
     - ~~test_ft (a test that builds pixel ai dashs fast terrain system. If this runs, then it most likely works fine.)~~
-- Better error messages (as feature 'errors')
-    - Explicitly coming from PXS
-    - Explicit which runtime
-    - Fix JS nasty errors
+- ~~Better error messages~~
+    - ~~Fix JS nasty errors~~
 - Implement `no_std`
     - add `pxs_setalloc`
     - add `pxs_setfree`
@@ -58,6 +56,7 @@ already have their own benchmarks in the own repos. Please look at their documen
     - ~~add `pxs_http`~~ (Converted to Rust.)
     - ~~Important caveat with core modules: THEY MUST NOT USE ANY CRATES! So zip and http are written in C++.~~ (This is wrong now, I actually need to convert
     those modules into rust but without adding crates. So they will be using extern c callbacks. For zip I will either write a library or remove it from core.).
+    - add `pxs_internal` which will be for using the pxs api WITHIN pxs.
 
 - Add android build support in `build.py`
 - ~~Add `zigbuild` support in `build.py`~~ **DONE**
@@ -72,12 +71,11 @@ already have their own benchmarks in the own repos. Please look at their documen
 - ~~Fix the python memory leak of locals not being removed from globals.~~ (Not doing this anymore.)
 - Add stack errors. This is just a regular pxs_Exception that is programmed to also save a stack msg.
 - Update python backend to not write raw strings for object creation.
-- Add custom bindings:
+- ~~Add custom bindings:~~
     - ~~pocketpy~~
-    - lua
-    - quickjsng
+    - ~~lua~~
+    - ~~quickjsng~~
     This is to support WASM, better cross platform control, and remove (bindgen, cbindgen) from build dependencies.
-
 
 ## v0.7 Wasm and Docs ~~and Dynamic Language support~~ (Dynamic support will not be supported. If you want to add a custom language)
 - ~~Add `dynamic` language support meaning a host language can add its own bindings backend that interops perfectly with Pxs.~~ (Developers should add fork and add their own backend following the docs. If they want to add it to pixelscript they will need to do a PR.)
@@ -93,7 +91,7 @@ already have their own benchmarks in the own repos. Please look at their documen
 - Add Wren support
 
 ## v0.9 API, Backends
-- Add `pxs_addmod2(module:pxs_Module, runtimes:pxs_List[pxs_Int])` which would take a module and a runtime so that you add a specific module to specific runtimes.
+- ~~Add `pxs_addmod2(module:pxs_Module, runtimes:pxs_List[pxs_Int])` which would take a module and a runtime so that you add a specific module to specific runtimes.~~
 - Add C python api support.
 - Add Node JS api support.
 - Add C python backend.

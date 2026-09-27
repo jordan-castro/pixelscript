@@ -31,7 +31,7 @@ use crate::lua::LuaScripting;
 #[cfg(feature = "python")]
 use crate::python::PythonScripting;
 
-use crate::shared::{
+use crate::{pxs_core::pxs_ModuleFlag, shared::{
     PXS_PTR_NAME, PixelScript,
     arena::pxs_PixelArena,
     func::{clear_function_lookup, lookup_add_function},
@@ -39,7 +39,7 @@ use crate::shared::{
     object::{ObjectFlags, clear_object_lookup, lookup_add_object, pxs_PixelObject},
     pxs_LoadFileFn, pxs_Opaque, pxs_ReadDirFn, pxs_Runtime, set_read_dir, set_read_file,
     var::{ObjectMethods, pxs_DeleterFn, pxs_VarList, pxs_VarT, pxs_VarType},
-};
+}};
 
 pub mod shared;
 
@@ -55,13 +55,17 @@ pub mod shared;
 ))]
 pub mod pxs_core;
 #[cfg(feature = "js")]
+/// cbindgen:ignore
 pub mod js;
 #[cfg(feature = "lua")]
+/// cbindgen:ignore
 pub mod lua;
 #[cfg(feature = "python")]
+/// cbindgen:ignore
 pub mod python;
 
 // Handwritten bindings.
+/// cbindgen:ignore
 pub mod bindings;
 
 /// Assert that the module is initiated.
@@ -101,6 +105,9 @@ macro_rules! with_backend {
 static mut IS_INIT: bool = false;
 /// Is killed?
 static mut IS_KILLED: bool = false;
+
+/// This is just to expose `pxs_ModuleFlag` enum.
+pub const PXS_MODULE_FLAG_NONE : pxs_ModuleFlag = pxs_ModuleFlag::pxs_NONE;
 
 /// Current pixelscript version.
 #[unsafe(no_mangle)]
@@ -391,7 +398,7 @@ pub extern "C" fn pxs_addmod(module_ptr: *mut pxs_Module) {
     // Module gets dropped here, and that is good!
 }
 
-/// Optionally free a module if you changed your mind.
+/// Free a module.
 ///
 /// module_ptr:TRANSFER
 #[unsafe(no_mangle)]
@@ -2495,6 +2502,51 @@ pub extern "C" fn pxs_isbyte(var: pxs_VarT) -> bool {
     assert_initiated!();
 
     pxs_varis(var, pxs_VarType::pxs_Byte)
+}
+
+/// Add a module to a specific(s) language(s).
+///
+/// module:BORROW
+/// 
+/// You must free the `module` using `pxs_freemod`
+#[unsafe(no_mangle)]
+pub extern "C" fn pxs_addmod2(module: *mut pxs_Module, language: u8) {
+    pxs_debug!("pxs_addmod2");
+    assert_initiated!();
+
+    if module.is_null() {
+        return;
+    }
+
+    // own module
+    let bmodule = unsafe { pxs_Module::from_borrow(module) };
+
+    // LUA
+    if language == pxs_Runtime::pxs_Lua as u8 {
+        with_feature!("lua", {
+            LuaScripting::add_module(bmodule);
+        }, {
+            panic!("`lua` is not enabled.")
+        });
+    }
+
+    // PYTHON
+    if language == pxs_Runtime::pxs_Python as u8 {
+        with_feature!("python", {
+            PythonScripting::add_module(bmodule);
+        }, {
+            panic!("`python` is not enabled.")
+        });
+    }
+
+    // JS
+    if language == pxs_Runtime::pxs_JavaScript as u8 {
+        with_feature!("js", {
+            JSScripting::add_module(bmodule);
+        }, {
+            panic!("`js` is not enabled.")
+        });
+    }
 }
 
 // ====================================== Core functions Start =======================================

@@ -3,22 +3,6 @@ extern crate cbindgen;
 use std::path::PathBuf;
 use std::{env, fs};
 
-/// Adds emsdk includes. This is only required for emscripten backend.
-macro_rules! add_emsdk_include {
-    ($bindings:expr, $target:expr) => {{
-        if $target == "emscripten" {
-            let emsdk = env::var("EMSDK").expect("EMSDK is not setup.");
-            let emsdk_sysroot = format!("{emsdk}/upstream/emscripten/cache/sysroot");
-            let emsdk_include_path = format!("{emsdk_sysroot}/include");
-
-            $bindings = $bindings.clang_arg(format!("--sysroot={emsdk_sysroot}"));
-            $bindings = $bindings.clang_arg(format!("-I{emsdk_include_path}"));
-            $bindings = $bindings.clang_arg("-D__EMSCRIPTEN__");
-            $bindings = $bindings.clang_arg("-target").clang_arg("wasm32-unknown-emscripten");
-        }
-    }};
-}
-
 /// Adds builder flags for emscripten backend
 macro_rules! add_emscripten_flags {
     ($builder:expr, $target:expr) => {{
@@ -45,7 +29,7 @@ fn build_emscripten_flags() {
     println!("cargo:rustc-link-arg=-sEXPORTED_RUNTIME_METHODS=['ccall','cwrap','UTF8ToString']");
     println!("cargo:rustc-link-arg=-sSUPPORT_LONGJMP=wasm");
     println!("cargo:rustc-link-arg=-fwasm-exceptions");
-    println!("cargo:rustc-link-arg=-sENVIRONMENT=web");
+    // println!("cargo:rustc-link-arg=-sENVIRONMENT=web");
     println!("cargo:rustc-link-arg=-sALLOW_MEMORY_GROWTH=1");
     println!("cargo:rustc-link-arg=-sASSERTIONS=1");
     println!("cargo:rustc-link-arg=-sPTHREAD_POOL_SIZE=4");
@@ -208,65 +192,6 @@ fn build_quickjsng(_target_os: &str, target_env: &str) {
 //     build.compile("pxs_zip");
 // }
 
-/// Create QuickJS-NG Rust bindings
-#[cfg(feature = "js")]
-fn build_quickjsng_bindings(target_os: &str) {
-    let mut bindings = bindgen::Builder::default()
-        .header("libs/quickjs-ng/quickjs.h")
-        .allowlist_function("js_.*")
-        .allowlist_function("JS_.*")
-        .allowlist_type("js_.*")
-        .allowlist_type("JS_.*")
-        .allowlist_var("JS_.*")
-        .layout_tests(false)
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()));
-        // .generate()
-        // .expect("Could not generate QuickJS-NG bindings");
-
-    add_emsdk_include!(bindings, target_os);
-    let bindings = bindings.generate().expect("Could not generate QuickJS-NG bindings");
-
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-    bindings
-        .write_to_file(out_path.join("quickjsng_bindings.rs"))
-        .expect("Couldn't write QuickJS-NG bindings!");
-}
-
-#[cfg(feature = "lua")]
-fn build_lua_bindings(target_os: &str) {
-    let mut bindings = bindgen::Builder::default()
-        .header("libs/lua-5.5.0/lua.h")
-        .clang_args(vec![
-            "-include",
-            "libs/lua-5.5.0/lualib.h",
-            "-include",
-            "libs/lua-5.5.0/lauxlib.h",
-            "-include",
-            "libs/pxs_lua/pxs_lua.h",
-            "-Ilibs/lua-5.5.0",
-        ])
-        .default_enum_style(bindgen::EnumVariation::Rust {
-            non_exhaustive: false,
-        })
-        .size_t_is_usize(true)
-        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
-        .allowlist_function("lua_.*")
-        .allowlist_function("luaL_.*")
-        .allowlist_type("lua_.*")
-        .allowlist_type("luaL_.*")
-        .allowlist_var("LUA_.*")
-        .layout_tests(false)
-        .allowlist_function("pxslua_.*");
-
-    add_emsdk_include!(bindings, target_os);
-    let bindings = bindings.generate().expect("Could not generate Lua-5.5.0 bindings");
-
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
-    bindings
-        .write_to_file(out_path.join("lua_bindings.rs"))
-        .expect("Couldn't write Lua-5.5.0 bindings!");
-}
-
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=src/lib.rs");
@@ -282,7 +207,6 @@ fn main() {
     #[cfg(feature = "lua")]
     {
         build_lua(&target_os, &target_env);
-        build_lua_bindings(&target_os);
         println!("cargo:rerun-if-changed=libs/lua-5.5.0");
         println!("cargo:rerun-if-changed=libs/pxs_lua/pxs_lua.c");
         println!("cargo:rerun-if-changed=libs/pxs_lua/pxs_lua.h");
@@ -303,7 +227,6 @@ fn main() {
     #[cfg(feature = "js")]
     {
         build_quickjsng(&target_os, &target_env);
-        build_quickjsng_bindings(&target_os);
         println!("cargo:rerun-if-changed=libs/quickjs-ng/quickjs-amalgam.c");
         println!("cargo:rerun-if-changed=libs/quickjs-ng/quickjs.h");
     }

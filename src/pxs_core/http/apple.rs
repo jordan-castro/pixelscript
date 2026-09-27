@@ -35,7 +35,7 @@ impl Drop for ObjCClass {
     }
 }
 
-// ============ END BDINGINS ===========
+// ============ END BINDINGS ===========
 
 // #import <Foundation/Foundation.h>
 // #include <string>
