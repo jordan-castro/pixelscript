@@ -99,3 +99,4 @@
 - Added `pxs_ModuleFlag` to C header.
 - Added `test_addmod2.rs`
 - Added working WASM.
+- Added `pxswrap.js` to web/ for a helpful wrapper system for using pxs in WASM.

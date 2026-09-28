@@ -1,31 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PixelScript</title>
     <script src="pxswrap.js"></script>
-</head>
-<body>
-<script>
-    function say_hello(args) {
-        console.log('Hello dude!');
-        return pxs_newnull();
-    }
+    <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://unpkg.com/codejar-linenumbers/js/codejar-linenumbers.css"/>
 
-    var Module = {
-        onRuntimeInitialized: function() {
-            console.log("PXS is ready.");
-            pxs_wrap(Module);
-
-            // Add a function
-            let t = pxs_newmod("test");
-            let new_func = Module.addFunction(say_hello, pxs_Func);
-            pxs_addfunc(t, "say_hello", new_func);
-            pxs_addmod(t);
+    <style>
+        #editor {
+           font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif; 
         }
-    };
-</script>
-<script src="pixelscript.js"></script>    
+
+        .language-btn {
+            /* background-color: blue; */
+        }
+    </style>
+
+    <script>
+        var LANGUAGE = 'lua';
+        function hide_terminal(lang) {
+            const term = document.getElementById(lang);
+            term.hidden = true;
+        }
+
+        function show_terminal(lang) {
+            const terminal = document.getElementById(lang);
+            terminal.hidden = false;
+        }
+
+        function setLanguage(lang) {
+            LANGUAGE = lang;
+
+            if (lang == 'lua') {
+                hide_terminal('js-editor');
+                hide_terminal('py-editor');
+                show_terminal('lua-editor');
+            } else if (lang == 'python') {
+                hide_terminal('js-editor');
+                show_terminal('py-editor');
+                hide_terminal('lua-editor');
+            } else if (lang == 'js') {
+                show_terminal('js-editor');
+                hide_terminal('py-editor');
+                hide_terminal('lua-editor');
+            }
+        }
+    </script>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Title -->
+        <h1>PixelScript</h1>
+        <h6>A multi scripting runtime library.</h6>
+        <!-- Language selection -->
+        <div class="container text-center">
+            <div class="row">
+                <div class="col language-btn">
+                <button type="button" class="btn" onclick="setLanguage('lua')">LUA</button>
+                </div>
+                <div class="col language-btn">
+                <button type="button" class="btn" onclick="setLanguage('python')">Python</button>
+                </div>
+                <div class="col language-btn">
+                <button type="button" class="btn" onclick="setLanguage('js')">JavaScript</button>
+                </div>
+            </div>
+        </div>
+        <!-- Editor -->
+        <div id="lua-editor"></div>
+        <div id="py-editor" hidden></div>
+        <div id="js-editor" hidden></div>
+
+    </div>
+    <script>
+        var Module = {
+            onRuntimeInitialized: function () {
+                console.log("PXS is ready.");
+                pxs_wrap(Module);
+            }
+        };
+    </script>
+
+    <script type="module">
+        import { CodeJar } from 'https://cdn.jsdelivr.net/npm/codejar@4.3.0/dist/codejar.js';
+        import { withLineNumbers } from 'https://unpkg.com/codejar-linenumbers/es/index.js';
+
+        let editors = [
+            ['lua-editor', 'lua'],
+            ['py-editor', 'python'],
+            ['js-editor', 'javascript']
+        ];
+
+        let jars = [];
+
+        for (const e of editors) {
+            let editor = document.querySelector(`#${e[0]}`);
+            let highlight = editor => {
+                editor.innerHTML = Prism.highlight(editor.textContent, Prism.languages[e[1]], e[1])
+            };
+
+            const jar = CodeJar(editor, withLineNumbers(highlight), {
+                tab: '    ',
+            });
+            
+            let code_name = `${e[1]}_code`;
+
+            jar.updateCode(localStorage.getItem(code_name));
+            jar.onUpdate(code => {
+                localStorage.setItem(code_name, code)
+            });
+
+            jars.push(jar);
+        }
+    </script>
+    <script src="pixelscript.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-lua.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/codejar@4.3.0/dist/cursor.js"></script>
 </body>
+
 </html>
