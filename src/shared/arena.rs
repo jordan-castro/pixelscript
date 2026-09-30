@@ -57,3 +57,6 @@ impl Drop for pxs_PixelArena {
         self.strings.clear();
     }
 }
+
+/// Arena type
+pub type pxs_PixelArenaT = *mut pxs_PixelArena;

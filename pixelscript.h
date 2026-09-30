@@ -249,10 +249,12 @@ typedef union pxs_VarValue {
   uint8_t byte_val;
 } pxs_VarValue;
 
+typedef void *pxs_Opaque;
+
 /**
  * Deleter Function type. It takes a *void, and returns void.
  */
-typedef void (*pxs_DeleterFn)(void*);
+typedef void (*pxs_DeleterFn)(pxs_Opaque ptr);
 
 /**
  * A PixelScript Var(iable).
@@ -307,6 +309,8 @@ typedef struct pxs_Var {
  */
 typedef struct pxs_Var *pxs_VarT;
 
+typedef struct pxs_Module *pxs_ModuleT;
+
 /**
  * Function reference used in C.
  *
@@ -317,9 +321,12 @@ typedef struct pxs_Var *pxs_VarT;
  *
  * But if you use any Vars within the function, you will have to free them before the function returns.
  */
-typedef struct pxs_Var *(*pxs_Func)(struct pxs_Var *args);
+typedef pxs_VarT (*pxs_Func)(pxs_VarT args);
 
-typedef void *pxs_Opaque;
+/**
+ * Object type.
+ */
+typedef struct pxs_PixelObject *pxs_PixelObjectT;
 
 /**
  * Function Type for Loading a file.
@@ -330,6 +337,11 @@ typedef pxs_VarT (*pxs_LoadFileFn)(const char *file_path);
  * Function Type for reading a Dir. Should return a `pxs_List`
  */
 typedef pxs_VarT (*pxs_ReadDirFn)(const char *dir_path);
+
+/**
+ * Arena type
+ */
+typedef struct pxs_PixelArena *pxs_PixelArenaT;
 
 #ifdef __cplusplus
 extern "C" {
@@ -369,7 +381,7 @@ void pxs_freestr(char *string);
  *
  * return:OWNED
  */
-struct pxs_Module *pxs_newmod(const char *name);
+pxs_ModuleT pxs_newmod(const char *name);
 
 /**
  * Add a callback to a module.
@@ -378,15 +390,15 @@ struct pxs_Module *pxs_newmod(const char *name);
  *
  * module_ptr:BORROW
  */
-void pxs_addfunc(struct pxs_Module *module_ptr, const char *name, pxs_Func func);
+void pxs_addfunc(pxs_ModuleT module_ptr, const char *name, pxs_Func func);
 
 /**
  * Add the same function under different names.
- * 
+ *
  * module_ptr:BORROW
  * func_list:TRANSFER
  */
-void pxs_addfuncs(struct pxs_Module *module_ptr, pxs_VarT func_list, pxs_Func func);
+void pxs_addfuncs(pxs_ModuleT module_ptr, pxs_VarT func_list, pxs_Func func);
 
 /**
  * Add a Varible to a module.
@@ -398,7 +410,7 @@ void pxs_addfuncs(struct pxs_Module *module_ptr, pxs_VarT func_list, pxs_Func fu
  * module_ptr:BORROW
  * variable:TRANSFER
  */
-void pxs_addvar(struct pxs_Module *module_ptr, const char *name, struct pxs_Var *variable);
+void pxs_addvar(pxs_ModuleT module_ptr, const char *name, pxs_VarT variable);
 
 /**
  * Add a Module to a Module
@@ -408,7 +420,7 @@ void pxs_addvar(struct pxs_Module *module_ptr, const char *name, struct pxs_Var 
  * parent_ptr:BORROW
  * child_ptr:TRANSFER
  */
-void pxs_add_submod(struct pxs_Module *parent_ptr, struct pxs_Module *child_ptr);
+void pxs_add_submod(pxs_ModuleT parent_ptr, pxs_ModuleT child_ptr);
 
 /**
  * Add the module finally to the runtime.
@@ -417,29 +429,29 @@ void pxs_add_submod(struct pxs_Module *parent_ptr, struct pxs_Module *child_ptr)
  *
  * module_ptr:TRANSFER
  */
-void pxs_addmod(struct pxs_Module *module_ptr);
+void pxs_addmod(pxs_ModuleT module_ptr);
 
 /**
  * Free a module.
  *
  * module_ptr:TRANSFER
  */
-void pxs_freemod(struct pxs_Module *module_ptr);
+void pxs_freemod(pxs_ModuleT module_ptr);
 
 /**
  * Create a new object with a Type.
- * 
+ *
  * This is the same as `pxs_newobject` but it defines a `type` on the `pxs_PixelObject`.
- * 
+ *
  * This will not cause UB. Retrieve the host pointer using `pxs_gettype`. A `type_id` < 0 means no type.
- * 
+ *
  * ptr:OWNED
  * return:OWNED
  */
-struct pxs_PixelObject *pxs_newtype(pxs_Opaque ptr,
-                                    pxs_DeleterFn free_method,
-                                    const char *type_name,
-                                    int32_t type_id);
+pxs_PixelObjectT pxs_newtype(pxs_Opaque ptr,
+                             pxs_DeleterFn free_method,
+                             const char *type_name,
+                             int32_t type_id);
 
 /**
  * Create a new object.
@@ -453,25 +465,23 @@ struct pxs_PixelObject *pxs_newtype(pxs_Opaque ptr,
  * ptr:OWNED
  * return:OWNED
  */
-struct pxs_PixelObject *pxs_newobject(pxs_Opaque ptr,
-                                      pxs_DeleterFn free_method,
-                                      const char *type_name);
+pxs_PixelObjectT pxs_newobject(pxs_Opaque ptr,
+                               pxs_DeleterFn free_method,
+                               const char *type_name);
 
 /**
  * Add a callback to a object.
  *
  * object_ptr:BORROW
  */
-void pxs_object_addfunc(struct pxs_PixelObject *object_ptr, const char *name, pxs_Func callback);
+void pxs_object_addfunc(pxs_PixelObjectT object_ptr, const char *name, pxs_Func callback);
 
 /**
  * Add a callback to a object and make it use the language pointer rather than _pxs_ptr idx.
  *
  * object_ptr:BORROW
  */
-void pxs_object_add_reffunc(struct pxs_PixelObject *object_ptr,
-                            const char *name,
-                            pxs_Func callback);
+void pxs_object_add_reffunc(pxs_PixelObjectT object_ptr, const char *name, pxs_Func callback);
 
 /**
  * Add a property to a object. Expects a name and a callback. The same as `pxs_object_addfunc` but that it saves
@@ -479,7 +489,7 @@ void pxs_object_add_reffunc(struct pxs_PixelObject *object_ptr,
  *
  * ptr:BORROW
  */
-void pxs_object_addprop(struct pxs_PixelObject *ptr,
+void pxs_object_addprop(pxs_PixelObjectT ptr,
                         const char *name,
                         pxs_Func callback);
 
@@ -488,10 +498,10 @@ void pxs_object_addprop(struct pxs_PixelObject *ptr,
  * when a function should be treated as a Object or a Function in your code.
  * It is not required to call this function in order to expose a `pxs_HostObject` to a module. Any functoin that returns a `pxs_HostObject`
  * will expose the object.
- * 
+ *
  * module_ptr:BORROW
  */
-void pxs_addobject(struct pxs_Module *module_ptr,
+void pxs_addobject(pxs_ModuleT module_ptr,
                    const char *name,
                    pxs_Func object_constructor);
 
@@ -517,7 +527,7 @@ pxs_VarT pxs_newnull(void);
  * pixel_object:TRANSFER
  * return:OWNED
  */
-pxs_VarT pxs_newhost(struct pxs_PixelObject *pixel_object);
+pxs_VarT pxs_newhost(pxs_PixelObjectT pixel_object);
 
 /**
  * Create a new variable int. (i64)
@@ -557,9 +567,9 @@ pxs_VarT pxs_newfloat(double val);
  * return:OWNED
  */
 pxs_VarT pxs_object_callrt(enum pxs_Runtime runtime,
-                           struct pxs_Var *var,
+                           pxs_VarT var,
                            const char *method,
-                           struct pxs_Var *args);
+                           pxs_VarT args);
 
 /**
  * Object call.
@@ -580,31 +590,31 @@ pxs_VarT pxs_object_callrt(enum pxs_Runtime runtime,
  * args:TRANSFER
  * return:OWNED
  */
-pxs_VarT pxs_objectcall(struct pxs_Var *runtime,
-                        struct pxs_Var *var,
+pxs_VarT pxs_objectcall(pxs_VarT runtime,
+                        pxs_VarT var,
                         const char *method,
-                        struct pxs_Var *args);
+                        pxs_VarT args);
 
 /**
  * Get a int (i64) from a var.
  *
  * var:BORROW
  */
-int64_t pxs_getint(struct pxs_Var *var);
+int64_t pxs_getint(pxs_VarT var);
 
 /**
  * Get a uint (u64)
  *
  * var:BORROW
  */
-uint64_t pxs_getuint(struct pxs_Var *var);
+uint64_t pxs_getuint(pxs_VarT var);
 
 /**
  * Get a float (f64)
  *
  * var:BORROW
  */
-double pxs_getfloat(struct pxs_Var *var);
+double pxs_getfloat(pxs_VarT var);
 
 /**
  * Get a Bool
@@ -612,7 +622,7 @@ double pxs_getfloat(struct pxs_Var *var);
  * CAN_CRASH
  * var:BORROW
  */
-bool pxs_getbool(struct pxs_Var *var);
+bool pxs_getbool(pxs_VarT var);
 
 /**
  * Get a String
@@ -624,14 +634,14 @@ bool pxs_getbool(struct pxs_Var *var);
  * var:BORROW
  * return:OWNED
  */
-char *pxs_getstring(struct pxs_Var *var);
+char *pxs_getstring(pxs_VarT var);
 
 /**
  * Check if a variable is of a type.
  *
  * var:BORROW
  */
-bool pxs_varis(struct pxs_Var *var, enum pxs_VarType var_type);
+bool pxs_varis(pxs_VarT var, enum pxs_VarType var_type);
 
 /**
  * Set a function for reading a file.
@@ -654,7 +664,7 @@ void pxs_set_dirreader(pxs_ReadDirFn func);
  *
  * var:TRANSFER
  */
-void pxs_freevar(struct pxs_Var *var);
+void pxs_freevar(pxs_VarT var);
 
 /**
  * Tells PixelScript that we are in a new thread.
@@ -684,7 +694,7 @@ void pxs_clear(void);
  * args:TRANSFER
  * return:OWNED
  */
-struct pxs_Var *pxs_call(struct pxs_Var *runtime, const char *method, struct pxs_Var *args);
+pxs_VarT pxs_call(pxs_VarT runtime, const char *method, pxs_VarT args);
 
 /**
  * Call a ToString method on this Var. If already a string, it won't call it.
@@ -695,7 +705,7 @@ struct pxs_Var *pxs_call(struct pxs_Var *runtime, const char *method, struct pxs
  * var:BORROW
  * return:OWNED
  */
-struct pxs_Var *pxs_tostring(struct pxs_Var *runtime_var, struct pxs_Var *var);
+pxs_VarT pxs_tostring(pxs_VarT runtime_var, pxs_VarT var);
 
 /**
  * Create a new pxs_VarList.
@@ -704,7 +714,7 @@ struct pxs_Var *pxs_tostring(struct pxs_Var *runtime_var, struct pxs_Var *var);
  *
  * return:OWNED
  */
-struct pxs_Var *pxs_newlist(void);
+pxs_VarT pxs_newlist(void);
 
 /**
  * Add a item to a pxs_VarList.
@@ -718,8 +728,8 @@ struct pxs_Var *pxs_newlist(void);
  * list:BORROW
  * item:TRANSFER
  */
-int32_t pxs_listadd(struct pxs_Var *list,
-                    struct pxs_Var *item);
+int32_t pxs_listadd(pxs_VarT list,
+                    pxs_VarT item);
 
 /**
  * Get a item from a pxs_VarList.
@@ -731,8 +741,8 @@ int32_t pxs_listadd(struct pxs_Var *list,
  * list:BORROW
  * return:BORROW&NULLABLE
  */
-struct pxs_Var *pxs_listget(struct pxs_Var *list,
-                            int32_t index);
+pxs_VarT pxs_listget(pxs_VarT list,
+                     int32_t index);
 
 /**
  * Set a item at a specific index in a pxs_VarList.
@@ -746,9 +756,9 @@ struct pxs_Var *pxs_listget(struct pxs_Var *list,
  * list:BORROW
  * item:TRANSFER
  */
-bool pxs_listset(struct pxs_Var *list,
+bool pxs_listset(pxs_VarT list,
                  int32_t index,
-                 struct pxs_Var *item);
+                 pxs_VarT item);
 
 /**
  * Get length of a pxs_VarList.
@@ -757,7 +767,7 @@ bool pxs_listset(struct pxs_Var *list,
  *
  * list:BORROW
  */
-int32_t pxs_listlen(struct pxs_Var *list);
+int32_t pxs_listlen(pxs_VarT list);
 
 /**
  * Call a `pxs_Var`s function.
@@ -771,25 +781,23 @@ int32_t pxs_listlen(struct pxs_Var *list);
  * args:TRANSFER
  * return:OWNED
  */
-struct pxs_Var *pxs_varcall(struct pxs_Var *runtime,
-                            struct pxs_Var *var_func,
-                            struct pxs_Var *args);
+pxs_VarT pxs_varcall(pxs_VarT runtime, pxs_VarT var_func, pxs_VarT args);
 
 /**
  * Move ownership of value from `item`.
  *
  * `item` still needs to be managed by whoever owns it.
- * 
+ *
  * In case of:
  * - pxs_Object
  * - pxs_Function
- * 
+ *
  * the deleter from original is moved into the return.
  *  
  * item:BORROW
  * return:OWNED
  */
-struct pxs_Var *pxs_newcopy(struct pxs_Var *item);
+pxs_VarT pxs_newcopy(pxs_VarT item);
 
 /**
  * Call a objects getter.
@@ -820,7 +828,7 @@ pxs_VarT pxs_eval(const char *script, enum pxs_Runtime rt);
 
 /**
  * Evaluate named code. This will return a `pxs_VarT`.
- * 
+ *
  * return:OWNED
  */
 pxs_VarT pxs_evalnamed(const char *script, const char *name, enum pxs_Runtime rt);
@@ -838,13 +846,13 @@ pxs_VarT pxs_evalnamed(const char *script, const char *name, enum pxs_Runtime rt
  * args:TRANSFER
  * return:OWNED
  */
-pxs_VarT pxs_newfactory(pxs_Func func, struct pxs_Var *args);
+pxs_VarT pxs_newfactory(pxs_Func func, pxs_VarT args);
 
 /**
  * Get the `_pxs_ptr` of a `pxs_HostObject`. And type check it against `type_id`.
- * 
+ *
  * if `type_id` < 0, no type checking is done.
- * 
+ *
  * runtime: BORROW
  * var: BORROW
  * return: BORROW
@@ -895,7 +903,7 @@ pxs_VarT pxs_var_fromname(pxs_VarT rt, const char *name);
  * Remove a item from a list at a specific index.
  *
  * Returns true for success, false for failed.
- * 
+ *
  * This will automatically call `pxs_freevar` on the found item.
  *
  * list:BORROW
@@ -911,7 +919,7 @@ bool pxs_listdel(pxs_VarT list, int32_t index);
  * - pxs_Object
  * - pxs_Function
  * copy is called, but original keeps deleter.
- * 
+ *
  * var:BORROW
  * return:OWNED
  */
@@ -1031,41 +1039,41 @@ void pxs_listinsert(pxs_VarT list, uintptr_t index, pxs_VarT item);
  *
  * result:OWNED
  */
-struct pxs_PixelArena *pxs_newarena(void);
+pxs_PixelArenaT pxs_newarena(void);
 
 /**
  * Free arena. Upon freeing all variables allocated since `pxs_newarena` will be freed.
  *
  * arena:TRANSFER
  */
-void pxs_freearena(struct pxs_PixelArena *arena);
+void pxs_freearena(pxs_PixelArenaT arena);
 
 /**
  * Add a `pxs_VarT` to a `pxs_PixelArena`. Upon freeing the Arena, the variable is freed aswell.
  *
  * A variable must only be added once.
- * 
+ *
  * arena:BORROW
  * var:TRANSFER
  * result:BORROW
  */
-pxs_VarT pxs_arenaput(struct pxs_PixelArena *arena, pxs_VarT var);
+pxs_VarT pxs_arenaput(pxs_PixelArenaT arena, pxs_VarT var);
 
 /**
  * Add a `char*` to a `pxs_PixelArena`. Upon freeing the Arena, the string is freed aswell.
- * 
+ *
  * This must be a string allocated by pixelscript. Either in:
  * - `pxs_getstring`
  * - `pxs_smart_getstring`
  * - `pxs_debugstate`
- * 
+ *
  * A string must only be added once.
- * 
+ *
  * arena:BORROW
  * str:TRANSFER
  * result:BORROW
  */
-char *pxs_arena_putstr(struct pxs_PixelArena *arena, char *str);
+char *pxs_arena_putstr(pxs_PixelArenaT arena, char *str);
 
 /**
  * Debug state info.
@@ -1081,18 +1089,18 @@ void pxs_garbagecollect(void);
 
 /**
  * Get the host IDX from a `pxs_HostObject`.
- * 
+ *
  * if result is < 0 then that means it is not a object.
- * 
+ *
  * var: BORROW
  */
 int32_t pxs_getidx(pxs_VarT var);
 
 /**
  * Get a `pxs_VarT` from args without needing to worry about index checks.
- * 
+ *
  * Literraly does `pxs_listget(args, idx + 1)`
- * 
+ *
  * args: BORROW
  * result: BORROW&NULLABLE
  */
@@ -1100,9 +1108,9 @@ pxs_VarT pxs_arg(pxs_VarT args, int32_t idx);
 
 /**
  * Get the `pxs_VarT` runtime from args.
- * 
+ *
  * Does `pxs_listget(args, 0)`
- * 
+ *
  * args: BORROW
  * result: BORROW&NULLABLE
  */
@@ -1110,14 +1118,14 @@ pxs_VarT pxs_getrt(pxs_VarT args);
 
 /**
  * Get the length of args without the runtime.
- * 
+ *
  * args: BORROW
  */
 uintptr_t pxs_argc(pxs_VarT args);
 
 /**
  * Create a `pxs_List` of u8. i.e. bytes.
- * 
+ *
  * data: BORROW
  * result: OWNED
  */
@@ -1138,7 +1146,7 @@ uintptr_t pxs_varsize(pxs_VarT var);
  *   - `pxs_Bool`
  *   - `pxs_String`
  *   - `pxs_List`
- * 
+ *
  * var: BORROW
  * data_ptr: BORROW
  */
@@ -1146,7 +1154,7 @@ void pxs_copybytes(pxs_VarT var, pxs_Opaque data_ptr);
 
 /**
  * Copy a `pxs_String` into a char*.
- * 
+ *
  * var: BORROW
  * str_ptr: BORROW
  */
@@ -1155,9 +1163,9 @@ void pxs_copystring(pxs_VarT var, char *str_ptr);
 /**
  * Get a string (char*) from `pxs_String`. And calls `pxs_tostring` automatically if not already a string.
  * Runtime is required.
- * 
+ *
  * Free the result using `pxs_freestr`.
- * 
+ *
  * rt: BORROW
  * str: BORROW
  * result: OWNED
@@ -1168,7 +1176,7 @@ char *pxs_smart_getstring(pxs_VarT rt,
 /**
  * Copy a `pxs_String` memory into a char*. Calls `pxs_tostring` automatically if not already a string.
  * Runtime is required.
- * 
+ *
  * rt: BORROW
  * str: BORROW
  * str_ptr: BORROW
@@ -1186,154 +1194,154 @@ enum pxs_VarType pxs_vartype(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_String`.
- * 
+ *
  * ```c
  * bool is_string = pxs_isstring(pxs_arg(args, 0));
  * ```
- * 
+ *
  * var:BORROW
  */
 bool pxs_isstring(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Int64`.
- * 
+ *
  * ```c
  * bool is_int = pxs_isint(pxs_arg(args, 0));
  * ```
- * 
+ *
  * var:BORROW
  */
 bool pxs_isint(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_UInt64`.
- * 
+ *
  * ```c
  * bool is = pxs_isuint(pxs_arg(args, 0));
  * ```
- * 
+ *
  * var:BORROW
  */
 bool pxs_isuint(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Bool`.
- * 
+ *
  * ```c
  * bool is = pxs_isbool(pxs_arg(args, 0));
  * ```
- * 
+ *
  * var:BORROW
  */
 bool pxs_isbool(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Float64`.
- * 
+ *
  * ```c
  * bool is = pxs_isfloat(pxs_arg(args, 0));
  * ```
- * 
+ *
  * var:BORROW
  */
 bool pxs_isfloat(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Null`.
- * 
+ *
  * ```c
  * bool is = pxs_isnull(pxs_arg(args, 0));
  * ```
- * 
+ *
  * var:BORROW
  */
 bool pxs_isnull(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Object`.
- * 
+ *
  * ```c
  * bool is = pxs_isobject(pxs_arg(args, 0));
  * ```
- * 
+ *
  * var:BORROW
  */
 bool pxs_isobject(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_HostObject`.
- * 
+ *
  * ```c
  * bool is = pxs_is_hostobject(pxs_arg(args, 0));
  * ```
- * 
+ *
  * var:BORROW
  */
 bool pxs_is_hostobject(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_List`.
- * 
+ *
  * ```c
  * bool is = pxs_islist(pxs_arg(args, 0));
  * ```
- * 
+ *
  * var:BORROW
  */
 bool pxs_islist(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Function`.
- * 
+ *
  * ```c
  * bool is = pxs_isfunction(pxs_arg(args, 0));
  * ```
- * 
+ *
  * var:BORROW
  */
 bool pxs_isfunction(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Factory`.
- * 
+ *
  * ```c
  * bool is = pxs_isfactory(pxs_arg(args, 0));
  * ```
- * 
+ *
  * var:BORROW
  */
 bool pxs_isfactory(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Exception`.
- * 
+ *
  * ```c
  * bool is = pxs_isexception(pxs_arg(args, 0));
  * ```
- * 
+ *
  * var:BORROW
  */
 bool pxs_isexception(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Map`.
- * 
+ *
  * ```c
  * bool is = pxs_ismap(pxs_arg(args, 0));
  * ```
- * 
+ *
  * var:BORROW
  */
 bool pxs_ismap(pxs_VarT var);
 
 /**
  * Check if variable is `pxs_Byte`.
- * 
+ *
  * ```c
  * bool is = pxs_isbyte(pxs_arg(args, 0));
  * ```
- * 
+ *
  * var:BORROW
  */
 bool pxs_isbyte(pxs_VarT var);
@@ -1342,10 +1350,10 @@ bool pxs_isbyte(pxs_VarT var);
  * Add a module to a specific(s) language(s).
  *
  * module:BORROW
- * 
+ *
  * You must free the `module` using `pxs_freemod`
  */
-void pxs_addmod2(struct pxs_Module *module, uint8_t language);
+void pxs_addmod2(pxs_ModuleT module, uint8_t language);
 
 /**
  * Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.
@@ -1377,14 +1385,14 @@ pxs_VarT pxs_json_decode(pxs_VarT rt,
 
 /**
  * Initalize core modules
- * 
+ *
  * THREAD_LOCAL
  */
 void pxs_core_init(uint8_t modules);
 
 /**
  * Initialize all the `pxs_core` modules.
- * 
+ *
  * THREAD_LOCAL REQUIRES_STD
  */
 void pxs_core_initall(void);

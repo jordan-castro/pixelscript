@@ -331,3 +331,6 @@ pub(crate) fn get_object(idx: i32) -> Option<Arc<pxs_PixelObject>> {
         None
     }
 }
+
+/// Object type.
+pub type pxs_PixelObjectT = *mut pxs_PixelObject;

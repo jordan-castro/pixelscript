@@ -124,13 +124,39 @@ pub extern "C" fn pxs_newtype(
  */
 let pxs_newtype;
 
+/**
+Free a PixelScript var.
+
+You should only free results from `pxs_object_call`
+
+var:TRANSFER
+
+pub extern "C" fn pxs_freevar(var: *mut pxs_Var) {
+ */
+let pxs_freevar;
+
+/**
+Check if variable is `pxs_Exception`.
+ 
+```c
+bool is = pxs_isexception(pxs_arg(args, 0));
+```
+ 
+var:BORROW
+
+pub extern "C" fn pxs_isexception(var: pxs_VarT) -> bool {
+ */
+let pxs_isexception;
+
+
 const pxs_Runtime = {
     pxs_Lua: 0,
     pxs_Python: 1,
-    pxs_JS: 2
+    pxs_JavaScript: 2
 };
 
 function pxs_wrap(module, start=true) {
+    pxs_isexception = module.cwrap('pxs_isexception', 'bool', ['number']);
     pxs_newtype = module.cwrap('pxs_newtype', 'number', ['number', 'number', 'string', 'number']);
     pxs_freemod = module.cwrap('pxs_freemod', '', ['number']);
     pxs_addvar = module.cwrap('pxs_addvar', '', ['number', 'string', 'number']);
@@ -164,6 +190,7 @@ function pxs_wrap(module, start=true) {
         let func_p = module.addFunction(func, 'pp');
         wrapper(ptr, list, func_p);
     }
+    pxs_freevar = module.cwrap('pxs_freevar', '', ['number']);
 
     if (start) {
         pxs_initialize();

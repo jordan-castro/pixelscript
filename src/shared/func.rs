@@ -1,5 +1,7 @@
 use etffi::ptr_magic::{PtrMagic, ThreadSafePointer};
 
+use crate::shared::var::pxs_VarT;
+
 // Copyright 2026 Jordan Castro <jordan@grupojvm.com>
 //
 // Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License. You may obtain a copy of the License at
@@ -21,7 +23,7 @@ use std::collections::HashMap
 ///
 /// But if you use any Vars within the function, you will have to free them before the function returns.
 #[allow(non_camel_case_types)]
-pub type pxs_Func = unsafe extern "C" fn(args: *mut pxs_Var) -> *mut pxs_Var;
+pub type pxs_Func = unsafe extern "C" fn(args: pxs_VarT) -> pxs_VarT;
 
 /// Basic rust structure to track Funcs and opaques together.
 pub struct Function {

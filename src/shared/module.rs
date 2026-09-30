@@ -141,3 +141,5 @@ unsafe impl Sync for ModuleCallback {}
 
 unsafe impl Send for ModuleVariable {}
 unsafe impl Sync for ModuleVariable {}
+
+pub type pxs_ModuleT = *mut pxs_Module;

@@ -13,7 +13,7 @@ use std::{
 use etffi::{create_raw_string, borrow_string, ptr_magic::PtrMagic};
 
 use crate::{
-    pxs_error, shared::{PxsError, PxsRes, PxsResult, func::pxs_Func, object::{apply_ref_count_alloc, apply_ref_count_delete, get_object}, pxs_Runtime}
+    pxs_error, shared::{PxsError, PxsRes, PxsResult, func::pxs_Func, object::{apply_ref_count_alloc, apply_ref_count_delete, get_object}, pxs_Opaque, pxs_Runtime}
 };
 
 /// Macro for writing out the Var:: get methods.
@@ -396,7 +396,7 @@ pub union pxs_VarValue {
 
 #[allow(non_camel_case_types)]
 /// Deleter Function type. It takes a *void, and returns void.
-pub type pxs_DeleterFn = unsafe extern "C" fn(*mut c_void);
+pub type pxs_DeleterFn = unsafe extern "C" fn(ptr:pxs_Opaque);
 
 /// Default Var deleter fn.
 /// Use it when you don't want to delete memory.

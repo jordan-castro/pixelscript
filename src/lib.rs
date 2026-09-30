@@ -16,7 +16,9 @@
 // THREAD_LOCAL : means the function should only be called once per thread.
 // REQUIRES_STD : means that if using `no_std` the function will crash.
 
-use etffi::{borrow_string, create_raw_string, cstring::CStringSafe, free_raw_string, ptr_magic::PtrMagic};
+use etffi::{
+    borrow_string, create_raw_string, cstring::CStringSafe, free_raw_string, ptr_magic::PtrMagic,
+};
 use shared::{func::pxs_Func, var::pxs_Var};
 use std::{
     ffi::{CString, c_char, c_void},
@@ -31,15 +33,17 @@ use crate::lua::LuaScripting;
 #[cfg(feature = "python")]
 use crate::python::PythonScripting;
 
-use crate::{shared::{
+use crate::shared::{
     PXS_PTR_NAME, PixelScript,
-    arena::pxs_PixelArena,
+    arena::{pxs_PixelArena, pxs_PixelArenaT},
     func::{clear_function_lookup, lookup_add_function},
-    module::pxs_Module,
-    object::{ObjectFlags, clear_object_lookup, lookup_add_object, pxs_PixelObject},
+    module::{pxs_Module, pxs_ModuleT},
+    object::{
+        ObjectFlags, clear_object_lookup, lookup_add_object, pxs_PixelObject, pxs_PixelObjectT,
+    },
     pxs_LoadFileFn, pxs_Opaque, pxs_ReadDirFn, pxs_Runtime, set_read_dir, set_read_file,
     var::{ObjectMethods, pxs_DeleterFn, pxs_VarList, pxs_VarT, pxs_VarType},
-}};
+};
 
 pub mod shared;
 
@@ -53,13 +57,13 @@ pub mod shared;
 //     feature = "pxs_http",
 //     feature = "pxs_zip"
 // ))]
-pub mod pxs_core;
 #[cfg(feature = "js")]
 /// cbindgen:ignore
 pub mod js;
 #[cfg(feature = "lua")]
 /// cbindgen:ignore
 pub mod lua;
+pub mod pxs_core;
 #[cfg(feature = "python")]
 /// cbindgen:ignore
 pub mod python;
@@ -107,7 +111,7 @@ static mut IS_INIT: bool = false;
 static mut IS_KILLED: bool = false;
 
 /// This is just to expose `pxs_ModuleFlag` enum.
-pub const PXS_MODULE_FLAG_NONE : pxs_core::pxs_ModuleFlag = pxs_core::pxs_ModuleFlag::pxs_NONE;
+pub const PXS_MODULE_FLAG_NONE: pxs_core::pxs_ModuleFlag = pxs_core::pxs_ModuleFlag::pxs_NONE;
 
 /// Current pixelscript version.
 #[unsafe(no_mangle)]
@@ -227,7 +231,7 @@ pub extern "C" fn pxs_freestr(string: *mut c_char) {
 ///
 /// return:OWNED
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_newmod(name: *const c_char) -> *mut pxs_Module {
+pub extern "C" fn pxs_newmod(name: *const c_char) -> pxs_ModuleT {
     pxs_debug!("pxs_newmod");
     assert_initiated!();
     if name.is_null() {
@@ -244,7 +248,7 @@ pub extern "C" fn pxs_newmod(name: *const c_char) -> *mut pxs_Module {
 ///
 /// module_ptr:BORROW
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_addfunc(module_ptr: *mut pxs_Module, name: *const c_char, func: pxs_Func) {
+pub extern "C" fn pxs_addfunc(module_ptr: pxs_ModuleT, name: *const c_char, func: pxs_Func) {
     pxs_debug!("pxs_addfunc");
     assert_initiated!();
     if module_ptr.is_null() {
@@ -282,11 +286,11 @@ pub extern "C" fn pxs_addfunc(module_ptr: *mut pxs_Module, name: *const c_char, 
 }
 
 /// Add the same function under different names.
-/// 
+///
 /// module_ptr:BORROW
 /// func_list:TRANSFER
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_addfuncs(module_ptr: *mut pxs_Module, func_list: pxs_VarT, func: pxs_Func) {
+pub extern "C" fn pxs_addfuncs(module_ptr: pxs_ModuleT, func_list: pxs_VarT, func: pxs_Func) {
     pxs_debug!("pxs_addfuncs");
     assert_initiated!();
 
@@ -306,7 +310,11 @@ pub extern "C" fn pxs_addfuncs(module_ptr: *mut pxs_Module, func_list: pxs_VarT,
             panic!("Expected only list of strings in pxs_addfuncs.");
         }
 
-        pxs_addfunc(module_ptr, cstring.new_string(&var.get_string().unwrap()), func);
+        pxs_addfunc(
+            module_ptr,
+            cstring.new_string(&var.get_string().unwrap()),
+            func,
+        );
     }
 }
 
@@ -319,11 +327,7 @@ pub extern "C" fn pxs_addfuncs(module_ptr: *mut pxs_Module, func_list: pxs_VarT,
 /// module_ptr:BORROW
 /// variable:TRANSFER
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_addvar(
-    module_ptr: *mut pxs_Module,
-    name: *const c_char,
-    variable: *mut pxs_Var,
-) {
+pub extern "C" fn pxs_addvar(module_ptr: pxs_ModuleT, name: *const c_char, variable: pxs_VarT) {
     pxs_debug!("pxs_addvar");
     assert_initiated!();
     if module_ptr.is_null() || name.is_null() || variable.is_null() {
@@ -351,7 +355,7 @@ pub extern "C" fn pxs_addvar(
 /// parent_ptr:BORROW
 /// child_ptr:TRANSFER
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_add_submod(parent_ptr: *mut pxs_Module, child_ptr: *mut pxs_Module) {
+pub extern "C" fn pxs_add_submod(parent_ptr: pxs_ModuleT, child_ptr: pxs_ModuleT) {
     pxs_debug!("pxs_add_submod");
 
     assert_initiated!();
@@ -374,7 +378,7 @@ pub extern "C" fn pxs_add_submod(parent_ptr: *mut pxs_Module, child_ptr: *mut px
 ///
 /// module_ptr:TRANSFER
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_addmod(module_ptr: *mut pxs_Module) {
+pub extern "C" fn pxs_addmod(module_ptr: pxs_ModuleT) {
     pxs_debug!("pxs_addmod");
 
     assert_initiated!();
@@ -402,7 +406,7 @@ pub extern "C" fn pxs_addmod(module_ptr: *mut pxs_Module) {
 ///
 /// module_ptr:TRANSFER
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_freemod(module_ptr: *mut pxs_Module) {
+pub extern "C" fn pxs_freemod(module_ptr: pxs_ModuleT) {
     pxs_debug!("pxs_freemod");
     assert_initiated!();
 
@@ -414,11 +418,11 @@ pub extern "C" fn pxs_freemod(module_ptr: *mut pxs_Module) {
 }
 
 /// Create a new object with a Type.
-/// 
+///
 /// This is the same as `pxs_newobject` but it defines a `type` on the `pxs_PixelObject`.
-/// 
+///
 /// This will not cause UB. Retrieve the host pointer using `pxs_gettype`. A `type_id` < 0 means no type.
-/// 
+///
 /// ptr:OWNED
 /// return:OWNED
 #[unsafe(no_mangle)]
@@ -426,8 +430,8 @@ pub extern "C" fn pxs_newtype(
     ptr: pxs_Opaque,
     free_method: pxs_DeleterFn,
     type_name: *const c_char,
-    type_id: i32
-) -> *mut pxs_PixelObject {
+    type_id: i32,
+) -> pxs_PixelObjectT {
     pxs_debug!("pxs_newtype");
     assert_initiated!();
     if ptr.is_null() || type_name.is_null() {
@@ -453,7 +457,7 @@ pub extern "C" fn pxs_newobject(
     ptr: pxs_Opaque,
     free_method: pxs_DeleterFn,
     type_name: *const c_char,
-) -> *mut pxs_PixelObject {
+) -> pxs_PixelObjectT {
     pxs_debug!("pxs_newobject");
     pxs_newtype(ptr, free_method, type_name, -1)
 }
@@ -472,7 +476,7 @@ fn add_callback_to_object(object: &mut pxs_PixelObject, name: &str, callback: px
 /// object_ptr:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_object_addfunc(
-    object_ptr: *mut pxs_PixelObject,
+    object_ptr: pxs_PixelObjectT,
     name: *const c_char,
     callback: pxs_Func,
 ) {
@@ -500,7 +504,7 @@ pub extern "C" fn pxs_object_addfunc(
 /// object_ptr:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_object_add_reffunc(
-    object_ptr: *mut pxs_PixelObject,
+    object_ptr: pxs_PixelObjectT,
     name: *const c_char,
     callback: pxs_Func,
 ) {
@@ -529,7 +533,7 @@ pub extern "C" fn pxs_object_add_reffunc(
 /// ptr:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_object_addprop(
-    ptr: *mut pxs_PixelObject,
+    ptr: pxs_PixelObjectT,
     name: *const c_char,
     callback: pxs_Func,
 ) {
@@ -552,11 +556,11 @@ pub extern "C" fn pxs_object_addprop(
 /// when a function should be treated as a Object or a Function in your code.
 /// It is not required to call this function in order to expose a `pxs_HostObject` to a module. Any functoin that returns a `pxs_HostObject`
 /// will expose the object.
-/// 
+///
 /// module_ptr:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_addobject(
-    module_ptr: *mut pxs_Module,
+    module_ptr: pxs_ModuleT,
     name: *const c_char,
     object_constructor: pxs_Func,
 ) {
@@ -592,7 +596,7 @@ pub extern "C" fn pxs_newnull() -> pxs_VarT {
 /// pixel_object:TRANSFER
 /// return:OWNED
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_newhost(pixel_object: *mut pxs_PixelObject) -> pxs_VarT {
+pub extern "C" fn pxs_newhost(pixel_object: pxs_PixelObjectT) -> pxs_VarT {
     pxs_debug!("pxs_newhost");
     assert_initiated!();
 
@@ -655,9 +659,9 @@ pub extern "C" fn pxs_newfloat(val: f64) -> pxs_VarT {
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_object_callrt(
     runtime: pxs_Runtime,
-    var: *mut pxs_Var,
+    var: pxs_VarT,
     method: *const c_char,
-    args: *mut pxs_Var,
+    args: pxs_VarT,
 ) -> pxs_VarT {
     pxs_debug!("pxs_object_callrt");
     pxs_objectcall(
@@ -687,10 +691,10 @@ pub extern "C" fn pxs_object_callrt(
 /// return:OWNED
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_objectcall(
-    runtime: *mut pxs_Var,
-    var: *mut pxs_Var,
+    runtime: pxs_VarT,
+    var: pxs_VarT,
     method: *const c_char,
-    args: *mut pxs_Var,
+    args: pxs_VarT,
 ) -> pxs_VarT {
     pxs_debug!("pxs_objectcall");
     assert_initiated!();
@@ -746,7 +750,7 @@ pub extern "C" fn pxs_objectcall(
 ///
 /// var:BORROW
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_getint(var: *mut pxs_Var) -> i64 {
+pub extern "C" fn pxs_getint(var: pxs_VarT) -> i64 {
     pxs_debug!("pxs_getint");
     if var.is_null() {
         return -1;
@@ -769,7 +773,7 @@ pub extern "C" fn pxs_getint(var: *mut pxs_Var) -> i64 {
 ///
 /// var:BORROW
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_getuint(var: *mut pxs_Var) -> u64 {
+pub extern "C" fn pxs_getuint(var: pxs_VarT) -> u64 {
     pxs_debug!("pxs_getuint");
     if var.is_null() {
         return 0;
@@ -792,7 +796,7 @@ pub extern "C" fn pxs_getuint(var: *mut pxs_Var) -> u64 {
 ///
 /// var:BORROW
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_getfloat(var: *mut pxs_Var) -> f64 {
+pub extern "C" fn pxs_getfloat(var: pxs_VarT) -> f64 {
     pxs_debug!("pxs_getfloat");
     if var.is_null() {
         return -1.0;
@@ -816,7 +820,7 @@ pub extern "C" fn pxs_getfloat(var: *mut pxs_Var) -> f64 {
 /// CAN_CRASH
 /// var:BORROW
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_getbool(var: *mut pxs_Var) -> bool {
+pub extern "C" fn pxs_getbool(var: pxs_VarT) -> bool {
     pxs_debug!("pxs_getbool");
     if var.is_null() {
         return false;
@@ -834,7 +838,7 @@ pub extern "C" fn pxs_getbool(var: *mut pxs_Var) -> bool {
 /// var:BORROW
 /// return:OWNED
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_getstring(var: *mut pxs_Var) -> *mut c_char {
+pub extern "C" fn pxs_getstring(var: pxs_VarT) -> *mut c_char {
     pxs_debug!("pxs_getstring");
     if var.is_null() {
         return ptr::null_mut();
@@ -854,7 +858,7 @@ pub extern "C" fn pxs_getstring(var: *mut pxs_Var) -> *mut c_char {
 ///
 /// var:BORROW
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_varis(var: *mut pxs_Var, var_type: pxs_VarType) -> bool {
+pub extern "C" fn pxs_varis(var: pxs_VarT, var_type: pxs_VarType) -> bool {
     pxs_debug!("pxs_varis");
     if var.is_null() {
         return false;
@@ -891,7 +895,7 @@ pub extern "C" fn pxs_set_dirreader(func: pxs_ReadDirFn) {
 ///
 /// var:TRANSFER
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_freevar(var: *mut pxs_Var) {
+pub extern "C" fn pxs_freevar(var: pxs_VarT) {
     pxs_debug!("pxs_freevar");
     assert_initiated!();
 
@@ -967,11 +971,7 @@ pub extern "C" fn pxs_clear() {
 /// args:TRANSFER
 /// return:OWNED
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_call(
-    runtime: *mut pxs_Var,
-    method: *const c_char,
-    args: *mut pxs_Var,
-) -> *mut pxs_Var {
+pub extern "C" fn pxs_call(runtime: pxs_VarT, method: *const c_char, args: pxs_VarT) -> pxs_VarT {
     pxs_debug!("pxs_call");
     assert_initiated!();
 
@@ -1016,7 +1016,7 @@ pub extern "C" fn pxs_call(
 /// var:BORROW
 /// return:OWNED
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_tostring(runtime_var: *mut pxs_Var, var: *mut pxs_Var) -> *mut pxs_Var {
+pub extern "C" fn pxs_tostring(runtime_var: pxs_VarT, var: pxs_VarT) -> pxs_VarT {
     pxs_debug!("pxs_tostring");
     assert_initiated!();
 
@@ -1109,7 +1109,7 @@ pub extern "C" fn pxs_tostring(runtime_var: *mut pxs_Var, var: *mut pxs_Var) -> 
 ///
 /// return:OWNED
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_newlist() -> *mut pxs_Var {
+pub extern "C" fn pxs_newlist() -> pxs_VarT {
     pxs_debug!("pxs_newlist");
     assert_initiated!();
 
@@ -1127,7 +1127,7 @@ pub extern "C" fn pxs_newlist() -> *mut pxs_Var {
 /// list:BORROW
 /// item:TRANSFER
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_listadd(list: *mut pxs_Var, item: *mut pxs_Var) -> i32 {
+pub extern "C" fn pxs_listadd(list: pxs_VarT, item: pxs_VarT) -> i32 {
     pxs_debug!("pxs_listadd");
     assert_initiated!();
 
@@ -1163,7 +1163,7 @@ pub extern "C" fn pxs_listadd(list: *mut pxs_Var, item: *mut pxs_Var) -> i32 {
 /// list:BORROW
 /// return:BORROW&NULLABLE
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_listget(list: *mut pxs_Var, index: i32) -> *mut pxs_Var {
+pub extern "C" fn pxs_listget(list: pxs_VarT, index: i32) -> pxs_VarT {
     pxs_debug!("pxs_listget");
     assert_initiated!();
 
@@ -1180,7 +1180,7 @@ pub extern "C" fn pxs_listget(list: *mut pxs_Var, index: i32) -> *mut pxs_Var {
     // Derefernce list and get the item.
     let varlist = borrow_list.get_list().unwrap();
     if let Some(res) = varlist.get_item(index) {
-        res as *const pxs_Var as *mut pxs_Var
+        res as *const pxs_Var as pxs_VarT
     } else {
         return ptr::null_mut();
     }
@@ -1197,7 +1197,7 @@ pub extern "C" fn pxs_listget(list: *mut pxs_Var, index: i32) -> *mut pxs_Var {
 /// list:BORROW
 /// item:TRANSFER
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_listset(list: *mut pxs_Var, index: i32, item: *mut pxs_Var) -> bool {
+pub extern "C" fn pxs_listset(list: pxs_VarT, index: i32, item: pxs_VarT) -> bool {
     pxs_debug!("pxs_listset");
     assert_initiated!();
 
@@ -1226,7 +1226,7 @@ pub extern "C" fn pxs_listset(list: *mut pxs_Var, index: i32, item: *mut pxs_Var
 ///
 /// list:BORROW
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_listlen(list: *mut pxs_Var) -> i32 {
+pub extern "C" fn pxs_listlen(list: pxs_VarT) -> i32 {
     pxs_debug!("pxs_listlen");
     assert_initiated!();
 
@@ -1255,11 +1255,7 @@ pub extern "C" fn pxs_listlen(list: *mut pxs_Var) -> i32 {
 /// args:TRANSFER
 /// return:OWNED
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_varcall(
-    runtime: *mut pxs_Var,
-    var_func: *mut pxs_Var,
-    args: *mut pxs_Var,
-) -> *mut pxs_Var {
+pub extern "C" fn pxs_varcall(runtime: pxs_VarT, var_func: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
     pxs_debug!("pxs_varcall");
     assert_initiated!();
 
@@ -1302,17 +1298,17 @@ pub extern "C" fn pxs_varcall(
 /// Move ownership of value from `item`.
 ///
 /// `item` still needs to be managed by whoever owns it.
-/// 
+///
 /// In case of:
 /// - pxs_Object
 /// - pxs_Function
-/// 
+///
 /// the deleter from original is moved into the return.
 ///  
 /// item:BORROW
 /// return:OWNED
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_newcopy(item: *mut pxs_Var) -> *mut pxs_Var {
+pub extern "C" fn pxs_newcopy(item: pxs_VarT) -> pxs_VarT {
     pxs_debug!("pxs_newcopy");
     assert_initiated!();
 
@@ -1421,10 +1417,14 @@ pub extern "C" fn pxs_eval(script: *const c_char, rt: pxs_Runtime) -> pxs_VarT {
 }
 
 /// Evaluate named code. This will return a `pxs_VarT`.
-/// 
+///
 /// return:OWNED
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_evalnamed(script: *const c_char, name: *const c_char, rt: pxs_Runtime) -> pxs_VarT {
+pub extern "C" fn pxs_evalnamed(
+    script: *const c_char,
+    name: *const c_char,
+    rt: pxs_Runtime,
+) -> pxs_VarT {
     pxs_debug!("pxs_evalnamed");
     if script.is_null() || name.is_null() {
         return pxs_Var::null_params_ep().into_raw();
@@ -1440,7 +1440,8 @@ pub extern "C" fn pxs_evalnamed(script: *const c_char, name: *const c_char, rt: 
         } else {
             res.unwrap()
         }
-    }).into_raw()
+    })
+    .into_raw()
 }
 
 /// Add a factory variable. This variable will be instantiated once at module startup.
@@ -1455,7 +1456,7 @@ pub extern "C" fn pxs_evalnamed(script: *const c_char, name: *const c_char, rt: 
 /// args:TRANSFER
 /// return:OWNED
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_newfactory(func: pxs_Func, args: *mut pxs_Var) -> pxs_VarT {
+pub extern "C" fn pxs_newfactory(func: pxs_Func, args: pxs_VarT) -> pxs_VarT {
     pxs_debug!("pxs_newfactory");
     assert_initiated!();
 
@@ -1472,9 +1473,9 @@ pub extern "C" fn pxs_newfactory(func: pxs_Func, args: *mut pxs_Var) -> pxs_VarT
 }
 
 /// Get the `_pxs_ptr` of a `pxs_HostObject`. And type check it against `type_id`.
-/// 
+///
 /// if `type_id` < 0, no type checking is done.
-/// 
+///
 /// runtime: BORROW
 /// var: BORROW
 /// return: BORROW
@@ -1620,7 +1621,7 @@ pub extern "C" fn pxs_var_fromname(rt: pxs_VarT, name: *const c_char) -> pxs_Var
 /// Remove a item from a list at a specific index.
 ///
 /// Returns true for success, false for failed.
-/// 
+///
 /// This will automatically call `pxs_freevar` on the found item.
 ///
 /// list:BORROW
@@ -1649,7 +1650,7 @@ pub extern "C" fn pxs_listdel(list: pxs_VarT, index: i32) -> bool {
 /// - pxs_Object
 /// - pxs_Function
 /// copy is called, but original keeps deleter.
-/// 
+///
 /// var:BORROW
 /// return:OWNED
 #[unsafe(no_mangle)]
@@ -1678,7 +1679,7 @@ pub extern "C" fn pxs_compile(
     runtime: pxs_Runtime,
     code: *const c_char,
     global_scope: pxs_VarT,
-    name: *const c_char
+    name: *const c_char,
 ) -> pxs_VarT {
     pxs_debug!("pxs_compile");
     assert_initiated!();
@@ -1929,7 +1930,7 @@ pub extern "C" fn pxs_mapget(map: pxs_VarT, key: pxs_VarT) -> pxs_VarT {
 
     // Return a const pxs_Var.
     if let Some(res) = res {
-        res as *const pxs_Var as *mut pxs_Var
+        res as *const pxs_Var as pxs_VarT
     } else {
         pxs_Var::item_not_found_ep().into_raw()
     }
@@ -1968,7 +1969,7 @@ pub extern "C" fn pxs_listinsert(list: pxs_VarT, index: usize, item: pxs_VarT) {
 ///
 /// result:OWNED
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_newarena() -> *mut pxs_PixelArena {
+pub extern "C" fn pxs_newarena() -> pxs_PixelArenaT {
     pxs_debug!("pxs_newarena");
     assert_initiated!();
 
@@ -1980,7 +1981,7 @@ pub extern "C" fn pxs_newarena() -> *mut pxs_PixelArena {
 ///
 /// arena:TRANSFER
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_freearena(arena: *mut pxs_PixelArena) {
+pub extern "C" fn pxs_freearena(arena: pxs_PixelArenaT) {
     pxs_debug!("pxs_freearena");
     assert_initiated!();
 
@@ -1994,12 +1995,12 @@ pub extern "C" fn pxs_freearena(arena: *mut pxs_PixelArena) {
 /// Add a `pxs_VarT` to a `pxs_PixelArena`. Upon freeing the Arena, the variable is freed aswell.
 ///
 /// A variable must only be added once.
-/// 
+///
 /// arena:BORROW
 /// var:TRANSFER
 /// result:BORROW
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_arenaput(arena: *mut pxs_PixelArena, var: pxs_VarT) -> pxs_VarT {
+pub extern "C" fn pxs_arenaput(arena: pxs_PixelArenaT, var: pxs_VarT) -> pxs_VarT {
     pxs_debug!("pxs_arenaput");
     assert_initiated!();
 
@@ -2014,19 +2015,19 @@ pub extern "C" fn pxs_arenaput(arena: *mut pxs_PixelArena, var: pxs_VarT) -> pxs
 }
 
 /// Add a `char*` to a `pxs_PixelArena`. Upon freeing the Arena, the string is freed aswell.
-/// 
+///
 /// This must be a string allocated by pixelscript. Either in:
 /// - `pxs_getstring`
 /// - `pxs_smart_getstring`
 /// - `pxs_debugstate`
-/// 
+///
 /// A string must only be added once.
-/// 
+///
 /// arena:BORROW
 /// str:TRANSFER
 /// result:BORROW
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_arena_putstr(arena: *mut pxs_PixelArena, str: *mut c_char) -> *mut c_char {
+pub extern "C" fn pxs_arena_putstr(arena: pxs_PixelArenaT, str: *mut c_char) -> *mut c_char {
     pxs_debug!("pxs_arena_putstr");
     assert_initiated!();
 
@@ -2035,7 +2036,7 @@ pub extern "C" fn pxs_arena_putstr(arena: *mut pxs_PixelArena, str: *mut c_char)
     }
 
     let barena = unsafe { pxs_PixelArena::from_borrow(arena) };
-    barena.alloc_str(str); 
+    barena.alloc_str(str);
 
     str
 }
@@ -2070,9 +2071,9 @@ pub extern "C" fn pxs_garbagecollect() {
 }
 
 /// Get the host IDX from a `pxs_HostObject`.
-/// 
+///
 /// if result is < 0 then that means it is not a object.
-/// 
+///
 /// var: BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_getidx(var: pxs_VarT) -> i32 {
@@ -2092,9 +2093,9 @@ pub extern "C" fn pxs_getidx(var: pxs_VarT) -> i32 {
 }
 
 /// Get a `pxs_VarT` from args without needing to worry about index checks.
-/// 
+///
 /// Literraly does `pxs_listget(args, idx + 1)`
-/// 
+///
 /// args: BORROW
 /// result: BORROW&NULLABLE
 #[unsafe(no_mangle)]
@@ -2105,9 +2106,9 @@ pub extern "C" fn pxs_arg(args: pxs_VarT, idx: i32) -> pxs_VarT {
 }
 
 /// Get the `pxs_VarT` runtime from args.
-/// 
+///
 /// Does `pxs_listget(args, 0)`
-/// 
+///
 /// args: BORROW
 /// result: BORROW&NULLABLE
 #[unsafe(no_mangle)]
@@ -2118,7 +2119,7 @@ pub extern "C" fn pxs_getrt(args: pxs_VarT) -> pxs_VarT {
 }
 
 /// Get the length of args without the runtime.
-/// 
+///
 /// args: BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_argc(args: pxs_VarT) -> usize {
@@ -2133,7 +2134,7 @@ pub extern "C" fn pxs_argc(args: pxs_VarT) -> usize {
 }
 
 /// Create a `pxs_List` of u8. i.e. bytes.
-/// 
+///
 /// data: BORROW
 /// result: OWNED
 #[unsafe(no_mangle)]
@@ -2180,7 +2181,7 @@ pub extern "C" fn pxs_varsize(var: pxs_VarT) -> usize {
 ///   - `pxs_Bool`
 ///   - `pxs_String`
 ///   - `pxs_List`
-/// 
+///
 /// var: BORROW
 /// data_ptr: BORROW
 #[unsafe(no_mangle)]
@@ -2199,7 +2200,7 @@ pub extern "C" fn pxs_copybytes(var: pxs_VarT, data_ptr: pxs_Opaque) {
 }
 
 /// Copy a `pxs_String` into a char*.
-/// 
+///
 /// var: BORROW
 /// str_ptr: BORROW
 #[unsafe(no_mangle)]
@@ -2216,9 +2217,9 @@ pub extern "C" fn pxs_copystring(var: pxs_VarT, str_ptr: *mut c_char) {
 
 /// Get a string (char*) from `pxs_String`. And calls `pxs_tostring` automatically if not already a string.
 /// Runtime is required.
-/// 
+///
 /// Free the result using `pxs_freestr`.
-/// 
+///
 /// rt: BORROW
 /// str: BORROW
 /// result: OWNED
@@ -2226,7 +2227,7 @@ pub extern "C" fn pxs_copystring(var: pxs_VarT, str_ptr: *mut c_char) {
 pub extern "C" fn pxs_smart_getstring(rt: pxs_VarT, str: pxs_VarT) -> *mut c_char {
     pxs_debug!("pxs_smart_getstring");
     assert_initiated!();
-    
+
     if rt.is_null() || str.is_null() {
         return core::ptr::null_mut();
     }
@@ -2250,7 +2251,7 @@ pub extern "C" fn pxs_smart_getstring(rt: pxs_VarT, str: pxs_VarT) -> *mut c_cha
 
 /// Copy a `pxs_String` memory into a char*. Calls `pxs_tostring` automatically if not already a string.
 /// Runtime is required.
-/// 
+///
 /// rt: BORROW
 /// str: BORROW
 /// str_ptr: BORROW
@@ -2290,16 +2291,16 @@ pub extern "C" fn pxs_vartype(var: pxs_VarT) -> pxs_VarType {
     if var.is_null() {
         pxs_VarType::pxs_Null
     } else {
-       unsafe { (*var).tag }
+        unsafe { (*var).tag }
     }
 }
 
 /// Check if variable is `pxs_String`.
-/// 
+///
 /// ```c
 /// bool is_string = pxs_isstring(pxs_arg(args, 0));
 /// ```
-/// 
+///
 /// var:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_isstring(var: pxs_VarT) -> bool {
@@ -2310,11 +2311,11 @@ pub extern "C" fn pxs_isstring(var: pxs_VarT) -> bool {
 }
 
 /// Check if variable is `pxs_Int64`.
-/// 
+///
 /// ```c
 /// bool is_int = pxs_isint(pxs_arg(args, 0));
 /// ```
-/// 
+///
 /// var:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_isint(var: pxs_VarT) -> bool {
@@ -2325,11 +2326,11 @@ pub extern "C" fn pxs_isint(var: pxs_VarT) -> bool {
 }
 
 /// Check if variable is `pxs_UInt64`.
-/// 
+///
 /// ```c
 /// bool is = pxs_isuint(pxs_arg(args, 0));
 /// ```
-/// 
+///
 /// var:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_isuint(var: pxs_VarT) -> bool {
@@ -2340,11 +2341,11 @@ pub extern "C" fn pxs_isuint(var: pxs_VarT) -> bool {
 }
 
 /// Check if variable is `pxs_Bool`.
-/// 
+///
 /// ```c
 /// bool is = pxs_isbool(pxs_arg(args, 0));
 /// ```
-/// 
+///
 /// var:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_isbool(var: pxs_VarT) -> bool {
@@ -2355,11 +2356,11 @@ pub extern "C" fn pxs_isbool(var: pxs_VarT) -> bool {
 }
 
 /// Check if variable is `pxs_Float64`.
-/// 
+///
 /// ```c
 /// bool is = pxs_isfloat(pxs_arg(args, 0));
 /// ```
-/// 
+///
 /// var:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_isfloat(var: pxs_VarT) -> bool {
@@ -2370,11 +2371,11 @@ pub extern "C" fn pxs_isfloat(var: pxs_VarT) -> bool {
 }
 
 /// Check if variable is `pxs_Null`.
-/// 
+///
 /// ```c
 /// bool is = pxs_isnull(pxs_arg(args, 0));
 /// ```
-/// 
+///
 /// var:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_isnull(var: pxs_VarT) -> bool {
@@ -2385,11 +2386,11 @@ pub extern "C" fn pxs_isnull(var: pxs_VarT) -> bool {
 }
 
 /// Check if variable is `pxs_Object`.
-/// 
+///
 /// ```c
 /// bool is = pxs_isobject(pxs_arg(args, 0));
 /// ```
-/// 
+///
 /// var:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_isobject(var: pxs_VarT) -> bool {
@@ -2400,11 +2401,11 @@ pub extern "C" fn pxs_isobject(var: pxs_VarT) -> bool {
 }
 
 /// Check if variable is `pxs_HostObject`.
-/// 
+///
 /// ```c
 /// bool is = pxs_is_hostobject(pxs_arg(args, 0));
 /// ```
-/// 
+///
 /// var:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_is_hostobject(var: pxs_VarT) -> bool {
@@ -2415,11 +2416,11 @@ pub extern "C" fn pxs_is_hostobject(var: pxs_VarT) -> bool {
 }
 
 /// Check if variable is `pxs_List`.
-/// 
+///
 /// ```c
 /// bool is = pxs_islist(pxs_arg(args, 0));
 /// ```
-/// 
+///
 /// var:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_islist(var: pxs_VarT) -> bool {
@@ -2430,11 +2431,11 @@ pub extern "C" fn pxs_islist(var: pxs_VarT) -> bool {
 }
 
 /// Check if variable is `pxs_Function`.
-/// 
+///
 /// ```c
 /// bool is = pxs_isfunction(pxs_arg(args, 0));
 /// ```
-/// 
+///
 /// var:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_isfunction(var: pxs_VarT) -> bool {
@@ -2445,11 +2446,11 @@ pub extern "C" fn pxs_isfunction(var: pxs_VarT) -> bool {
 }
 
 /// Check if variable is `pxs_Factory`.
-/// 
+///
 /// ```c
 /// bool is = pxs_isfactory(pxs_arg(args, 0));
 /// ```
-/// 
+///
 /// var:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_isfactory(var: pxs_VarT) -> bool {
@@ -2460,11 +2461,11 @@ pub extern "C" fn pxs_isfactory(var: pxs_VarT) -> bool {
 }
 
 /// Check if variable is `pxs_Exception`.
-/// 
+///
 /// ```c
 /// bool is = pxs_isexception(pxs_arg(args, 0));
 /// ```
-/// 
+///
 /// var:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_isexception(var: pxs_VarT) -> bool {
@@ -2475,11 +2476,11 @@ pub extern "C" fn pxs_isexception(var: pxs_VarT) -> bool {
 }
 
 /// Check if variable is `pxs_Map`.
-/// 
+///
 /// ```c
 /// bool is = pxs_ismap(pxs_arg(args, 0));
 /// ```
-/// 
+///
 /// var:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_ismap(var: pxs_VarT) -> bool {
@@ -2490,11 +2491,11 @@ pub extern "C" fn pxs_ismap(var: pxs_VarT) -> bool {
 }
 
 /// Check if variable is `pxs_Byte`.
-/// 
+///
 /// ```c
 /// bool is = pxs_isbyte(pxs_arg(args, 0));
 /// ```
-/// 
+///
 /// var:BORROW
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_isbyte(var: pxs_VarT) -> bool {
@@ -2507,10 +2508,10 @@ pub extern "C" fn pxs_isbyte(var: pxs_VarT) -> bool {
 /// Add a module to a specific(s) language(s).
 ///
 /// module:BORROW
-/// 
+///
 /// You must free the `module` using `pxs_freemod`
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_addmod2(module: *mut pxs_Module, language: u8) {
+pub extern "C" fn pxs_addmod2(module: pxs_ModuleT, language: u8) {
     pxs_debug!("pxs_addmod2");
     assert_initiated!();
 
@@ -2523,29 +2524,35 @@ pub extern "C" fn pxs_addmod2(module: *mut pxs_Module, language: u8) {
 
     // LUA
     if language == pxs_Runtime::pxs_Lua as u8 {
-        with_feature!("lua", {
-            LuaScripting::add_module(bmodule);
-        }, {
-            panic!("`lua` is not enabled.")
-        });
+        with_feature!(
+            "lua",
+            {
+                LuaScripting::add_module(bmodule);
+            },
+            { panic!("`lua` is not enabled.") }
+        );
     }
 
     // PYTHON
     if language == pxs_Runtime::pxs_Python as u8 {
-        with_feature!("python", {
-            PythonScripting::add_module(bmodule);
-        }, {
-            panic!("`python` is not enabled.")
-        });
+        with_feature!(
+            "python",
+            {
+                PythonScripting::add_module(bmodule);
+            },
+            { panic!("`python` is not enabled.") }
+        );
     }
 
     // JS
     if language == pxs_Runtime::pxs_JavaScript as u8 {
-        with_feature!("js", {
-            JSScripting::add_module(bmodule);
-        }, {
-            panic!("`js` is not enabled.")
-        });
+        with_feature!(
+            "js",
+            {
+                JSScripting::add_module(bmodule);
+            },
+            { panic!("`js` is not enabled.") }
+        );
     }
 }
 
@@ -2606,10 +2613,10 @@ pub extern "C" fn pxs_json_decode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
 }
 
 /// Initalize core modules
-/// 
+///
 /// THREAD_LOCAL
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_core_init(modules:u8) {
+pub extern "C" fn pxs_core_init(modules: u8) {
     pxs_debug!("pxs_core_init");
     assert_initiated!();
     #[cfg(any(
@@ -2623,18 +2630,20 @@ pub extern "C" fn pxs_core_init(modules:u8) {
         feature = "pxs_zip"
     ))]
     {
-        unsafe { pxs_core::setup_core_modules(modules); }
+        unsafe {
+            pxs_core::setup_core_modules(modules);
+        }
     }
 }
 
 /// Initialize all the `pxs_core` modules.
-/// 
+///
 /// THREAD_LOCAL REQUIRES_STD
 #[unsafe(no_mangle)]
 pub extern "C" fn pxs_core_initall() {
     pxs_debug!("pxs_core_initall");
     assert_initiated!();
-    let mut modules : u8 = 0;
+    let mut modules: u8 = 0;
 
     with_feature!("pxs_os", {
         modules |= pxs_core::pxs_ModuleFlag::pxs_OS as u8;
