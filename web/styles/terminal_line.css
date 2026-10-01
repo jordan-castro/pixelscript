@@ -7,10 +7,15 @@
 
 .code-editor {
     color: white;
+    background-color: #00000000 !important;
 }
 
 .code-container {
     background-color: #091540 !important;
     border-radius: 10px;
     padding-bottom: 10px;
+}
+
+code {
+    background-color: white !important;
 }

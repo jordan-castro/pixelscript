@@ -10,12 +10,10 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet">
     <script src="components/bootstrap.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/codejar-linenumbers/js/codejar-linenumbers.css" />
+    <link rel="stylesheet" href="https://unpkg.com/dracula-prism/dist/css/dracula-prism.css">
+    <link rel="stylesheet" href="/styles/terminal_line.css">
 
     <style>
-        #editor {
-            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
-        }
-
         .language-btns {
             /* background-color: #58a5f5; */
             border-top-left-radius: 10px;
@@ -54,12 +52,6 @@
             padding-left: 5px !important;
         }
 
-        .code-container {
-            background-color: #091540;
-            border-radius: 10px;
-            padding-bottom: 10px;
-        }
-
         #header-top {
             display: flex;
             background-color: #ABD2FA;
@@ -81,10 +73,6 @@
 
         body {
             background-color: black;
-            color: white;
-        }
-
-        .code-editor {
             color: white;
         }
 
@@ -111,12 +99,6 @@
             padding-left: 10px;
         }
 
-        .terminal-line {
-            background-color: #091540;
-            padding: 5px;
-            border-radius: 20px;
-            padding-left: 10px;
-        }
     </style>
 
     <script>
@@ -151,9 +133,16 @@ browser.dom.title = "PixelScript, the new fronteir for software!";
 browser.alert("We got a alert open from JS!");
 `;
 
+        function clear_output() {
+            const output = document.getElementById("output");
+            if (!output) {
+                console.error("Can not clear null output.");
+            }
+            output.replaceChildren();
+        }
+
         function write_output(...args) {
             let output = document.querySelector("#output");
-            output.replaceChildren();
             for (let arg of args) {
                 let div = document.createElement("div");
                 div.className = "code-result-text";
@@ -222,6 +211,7 @@ browser.alert("We got a alert open from JS!");
         }
 
         function run_program() {
+            clear_output();
             // Check defined
             if (!READY) {
                 // TODO: add error message.
@@ -310,9 +300,9 @@ browser.alert("We got a alert open from JS!");
                 </div>
             </div>
             <!-- Editor -->
-            <div id="lua-editor" class="code-editor"></div>
-            <div id="py-editor" class="code-editor" hidden></div>
-            <div id="js-editor" class="code-editor" hidden></div>
+            <div id="lua-editor" class="language-lua"></div>
+            <div id="py-editor" class="code-editor language-python" hidden></div>
+            <div id="js-editor" class="code-editor language-javascript" hidden></div>
         </div>
         <div id="output" class="code-container" style="margin-top: 10px;">
         </div>
