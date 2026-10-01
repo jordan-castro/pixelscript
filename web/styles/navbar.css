@@ -1,0 +1,16 @@
+.pxs-navbar-style {
+    background-color: #830000 !important;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+}
+
+.pxs-navbar-style .navbar-brand,
+.pxs-navbar-style .nav-link,
+.pxs-navbar-style .navbar-toggler-icon {
+    color: white !important;
+}
+
+.pxs-navbar-style .nav-link:hover,
+.pxs-navbar-style .navbar-brand:hover {
+    color: rgba(255, 255, 255, 0.8) !important;
+}

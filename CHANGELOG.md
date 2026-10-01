@@ -100,3 +100,6 @@
 - Added `test_addmod2.rs`
 - Added working WASM.
 - Added `pxswrap.js` to web/ for a helpful wrapper system for using pxs in WASM.
+- Added web/
+- Added web/docs
+- Added `srcipts/make_js_bindings.py` to generate JS bindings

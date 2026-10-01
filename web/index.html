@@ -6,22 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PixelScript</title>
     <script src="pxswrap.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Source+Code+Pro&display=swap" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
-        integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI"
-        crossorigin="anonymous"></script>
     <link rel="stylesheet" href="https://unpkg.com/codejar-linenumbers/js/codejar-linenumbers.css" />
 
-    <style>
-        #editor {
-            font-family: 'Gill Sans', 'Gill Sans MT', Calibri, 'Trebuchet MS', sans-serif;
-        }
+    <script src="components/bootstrap.js"></script>
 
+    <style>
         .language-btns {
-            background-color: #58a5f5;
+            /* background-color: #58a5f5; */
             border-top-left-radius: 10px;
             border-top-right-radius: 10px;
             cursor: pointer;
@@ -33,20 +24,24 @@
             border-top-left-radius: 10px;
             border-top-right-radius: 10px;
             background-color: #2087f2;
+            color: white;
+        }
+
+        .language-btn-active {
+            border-left: 1px solid white;
+            border-right: 1px solid white;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            background-color: #2087f2;
+            color: white !important;
         }
 
         .language-btn {
-            color: white;
+            color: black;
         }
 
         .codejar-linenumber {
             padding-left: 5px !important;
-        }
-
-        .code-container {
-            background-color: #091540;
-            border-radius: 10px;
-            padding-bottom: 10px;
         }
 
         #header-top {
@@ -60,6 +55,7 @@
             display: flex;
             gap: 2px;
             padding: 5px;
+            padding-right: 10px;
         }
 
         .little-circle {
@@ -68,10 +64,7 @@
         }
 
         body {
-            background-color: #7492b9;
-        }
-
-        .code-editor {
+            background-color: black;
             color: white;
         }
 
@@ -89,9 +82,7 @@
             background-color: #2A7C13;
             color: white;
             padding-left: 10px;
-            border-top-left-radius: 10px;
-            border-top-right-radius: 10px;
-            border-bottom-left-radius: 10px;
+            border-radius: 10px;
             cursor: pointer;
         }
 
@@ -101,181 +92,122 @@
         }
     </style>
 
-    <script>
-        var LANGUAGE = 'lua';
-        var READY = false;
-
-        function create_code_name(name) {
-            let code_name = `${name}_code`;
-            return code_name;
-        }
-
-        function read_code(name) {
-            return localStorage.getItem(create_code_name(name));
-        }
-
-        function hide_terminal(lang) {
-            const term = document.getElementById(lang);
-            term.hidden = true;
-        }
-
-        function show_terminal(lang) {
-            const terminal = document.getElementById(lang);
-            terminal.hidden = false;
-        }
-
-        function setLanguage(lang) {
-            LANGUAGE = lang;
-
-            if (lang == 'lua') {
-                hide_terminal('js-editor');
-                hide_terminal('py-editor');
-                show_terminal('lua-editor');
-            } else if (lang == 'python') {
-                hide_terminal('js-editor');
-                show_terminal('py-editor');
-                hide_terminal('lua-editor');
-            } else if (lang == 'js') {
-                show_terminal('js-editor');
-                hide_terminal('py-editor');
-                hide_terminal('lua-editor');
-            }
-        }
-
-        function run_program() {
-            // Check defined
-            if (!READY) {
-                // TODO: add error message.
-                return;
-            }
-
-            // Otherwise grab the text!
-            let code = read_code(LANGUAGE);
-
-            let runtime = null;
-            if (LANGUAGE == 'lua') {
-                runtime = pxs_Runtime.pxs_Lua;
-            } else if (LANGUAGE == 'python') {
-                runtime = pxs_Runtime.pxs_Python;
-            } else if (LANGUAGE == 'js') {
-                runtime = pxs_Runtime.pxs_JavaScript;
-            }
-
-            // TODO: add error messaage.
-            if (runtime == null) {
-                return;
-            }
-            let val = pxs_exec(runtime, code, "<web>");
-
-            pxs_freevar(val);
-        }
-    </script>
+    <link rel="stylesheet" href="styles/terminal_line.css">
 </head>
 
 <body>
-    <div class="container">
-        <!-- Title -->
-        <h1>PixelScript</h1>
-        <h6>A multi scripting runtime library.</h6>
-        <!-- Language selection -->
-        <!-- <div class="container text-center">
-        </div> -->
-        <div class="code-container">
-            <div class="row p-0 m-0" id="header-top">
-                <div class="col">
-                    <div class="row row-cols-auto">
-                        <div class="col px-0">
-                            <div class="circles-row">
-                                <div class="little-circle" style="background-color: red; width: 10px; height: 10px;">
-                                </div>
-                                <div class="little-circle" style="background-color: yellow; width: 10px; height: 10px;">
-                                </div>
-                                <div class="little-circle" style="background-color: green; width: 10px; height: 10px;">
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col">
-                            <div class="language-btns row row-cols-auto">
-                                <div class="col language-btn">
-                                    <div onclick="setLanguage('lua')">main.lua</div>
-                                </div>
-                                <div class="col language-btn">
-                                    <div onclick="setLanguage('python')">main.py</div>
-                                </div>
-                                <div class="col language-btn">
-                                    <div onclick="setLanguage('js')">main.js</div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col px-0 m-0">
-                    <div class="position-relative">
-                        <div id="run-btn" class="position-absolute top-0 end-0" onclick="run_program()">Run</div>
-                    </div>
-                </div>
-            </div>
-            <!-- Editor -->
-            <div id="lua-editor" class="code-editor"></div>
-            <div id="py-editor" class="code-editor" hidden></div>
-            <div id="js-editor" class="code-editor" hidden></div>
+    <div class="container" style=" border-radius: 20px;">
+        <div id="pxs-navbar"></div>
+        <div>
+            <h1>PixelScript</h1>
+            <p><strong><a href="/playground.html">Try it live on WASM</a></strong></p>
         </div>
-        <div class="code-container" style="margin-top: 10px;">
-            <!-- <div class="code-result-text">Test</div> -->
-            <!-- <div class="code-result-text">Test</div>
-            <div class="code-result-text">Test</div>
-            <div class="code-result-text">Test</div> -->
-            <!-- <div class="code-result-text">Test</div> -->
-        </div>
+        <p>A multi language scripting runtime.</p>
+        <p>PixelScript lets you expose the same API to multiple different languages in your program. Because it compiles
+            to a C library, you can use it anywhere.</p>
+        <hr>
+        <h4>Why PixelScript?</h4>
+        <p>Because most games pick only one language for scripting. PixelScript gives modders and scripters a choice:
+        </p>
+        <ul>
+            <li>Performance? Go with Lua.</li>
+            <li>Data/science/prototyping? Choose Python.</li>
+            <li>Web developers? You got JavaScript.</li>
+        </ul>
+        <p>Each language runtime uses the same PixelScript bindings.</p>
+        <hr>
+        <h4>Version</h4>
+        <p>pixelscript crate is currently at version 0.6.6.</p>
+        <hr>
+        <h4>How to use</h4>
+        <p>pixelscript can be used within a rust application or via ffi.</p>
+        <h5>Rust based</h5>
+        <p>For rust based (i.e. using this library inside a rust application) you can add it with cargo:</p>
+        <pre class="terminal-line">cargo add pixelscript</pre>
+        <h5>FFI based</h5>
+        <p>For using pixelscript via ffi, clone this repository and run:</p>
+        <pre class="terminal-line">python scripts/build.py</pre>
+        <p>This will build the project and place the necessary static libraries in a <span class="terminal-line">/pxsb</span> folder.</p>
+        <hr>
+        <h4>Supported languages</h4>
+        <table class="table table-dark">
+            <thead>
+                <tr>
+                    <th scope="col">Feature Flag</th>
+                    <th scope="col">Language</th>
+                    <th scope="col">Engine</th>
+                    <th scope="col">Notes</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <th scope="row">lua</th>
+                    <th>Lua</th>
+                    <th><a href="https://lua.org/">lua</a></th>
+                    <th>v5.5.</th>
+                </tr>
+                <tr>
+                    <th scope="row">python</th>
+                    <th>Python</th>
+                    <th><a href="https://github.com/pocketpy/pocketpy">pocketpy</a></th>
+                    <th>May require MSVC on Windows</th>
+                </tr>
+                <tr>
+                    <th scope="row">js</th>
+                    <th>JavaScript</th>
+                    <th><a href="https://github.com/quickjs-ng/quickjs">quickjs-ng</a></th>
+                    <th>QuickJS-NG small library.</th>
+                </tr>
+            </tbody>
+        </table>
+        <hr>
+        <h4>CoreLib</h4>
+        <p>Pixelscript comes with some optinal builtin modules. They can be included via <span class="terminal-line">include-core</span> feature or by adding them individually.</p>
+        <table class="table table-dark">
+            <thead>
+                <tr>
+                    <th scope="col">Name/Feature</th>
+                    <th scope="col">Purpose</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <th scope="row">pxs_json</th>
+                    <th>Adds encode/decode functions for all languages.</th>
+                </tr>
+                <tr>
+                    <th scope="row">pxs_mem</th>
+                    <th>pixelscript memory control.</th>
+                </tr>
+                <tr>
+                    <th scope="row">pxs_os</th>
+                    <th>OS functions and helpers.</th>
+                </tr>
+                <tr>
+                    <th scope="row">pxs_fs</th>
+                    <th>Adds file/directory reading/writing/appending/deleting.</th>
+                </tr>
+                <tr>
+                    <th scope="row">pxs_zip</th>
+                    <th>Work with zip files.</th>
+                </tr>
+                <tr>
+                    <th scope="row">pxs_shell</th>
+                    <th>Direct shell acces.</th>
+                </tr>
+                <tr>
+                    <th scope="row">pxs_http</th>
+                    <th>HTTP/s client and server support.</th>
+                </tr>
+            </tbody>
+        </table>
+        <p>To read more about the CoreLib, <a href="/docs/corelib">Read the docs</a>.</p>
+        <hr>
+        <h4>Example</h4>
+        <p>To see an example, try out the <a href="playground.html">playground</a>.</p>
     </div>
-    <script>
-        var Module = {
-            onRuntimeInitialized: function () {
-                console.log("PXS is ready.");
-                pxs_wrap(Module);
-                READY = true;
-            }
-        };
-    </script>
 
-    <script type="module">
-        import { CodeJar } from 'https://cdn.jsdelivr.net/npm/codejar@4.3.0/dist/codejar.js';
-        import { withLineNumbers } from 'https://unpkg.com/codejar-linenumbers/es/index.js';
-
-        let editors = [
-            ['lua-editor', 'lua'],
-            ['py-editor', 'python'],
-            ['js-editor', 'javascript']
-        ];
-
-        let jars = [];
-
-        for (const e of editors) {
-            let editor = document.querySelector(`#${e[0]}`);
-            let highlight = editor => {
-                editor.innerHTML = Prism.highlight(editor.textContent, Prism.languages[e[1]], e[1])
-            };
-
-            const jar = CodeJar(editor, withLineNumbers(highlight), {
-                tab: '    ',
-            });
-
-            let code_name = create_code_name(e[1]);
-
-            jar.updateCode(read_code(e[1]));
-            jar.onUpdate(code => {
-                localStorage.setItem(code_name, code)
-            });
-
-            jars.push(jar);
-        }
-    </script>
-    <script src="pixelscript.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-lua.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
-    <script type="module" src="https://cdn.jsdelivr.net/npm/codejar@4.3.0/dist/cursor.js"></script>
+    <script src="components/navbar.js"></script>
 </body>
 
 </html>

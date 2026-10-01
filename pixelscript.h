@@ -77,6 +77,32 @@ typedef enum pxs_Runtime {
 } pxs_Runtime;
 
 /**
+ * Bitflags for modules.
+ */
+enum pxs_ModuleFlag
+#if defined(__cplusplus) || __STDC_VERSION__ >= 202311L
+  : uint8_t
+#endif // defined(__cplusplus) || __STDC_VERSION__ >= 202311L
+ {
+  pxs_NONE = 0,
+  pxs_JSON = (1 << 0),
+  pxs_MEM = (1 << 1),
+  pxs_OS = (1 << 2),
+  pxs_PXS = (1 << 3),
+  pxs_FS = (1 << 4),
+  pxs_SHELL = (1 << 5),
+  pxs_ZIP = (1 << 6),
+  pxs_HTTP = (1 << 7),
+};
+#ifndef __cplusplus
+#if __STDC_VERSION__ >= 202311L
+typedef enum pxs_ModuleFlag pxs_ModuleFlag;
+#else
+typedef uint8_t pxs_ModuleFlag;
+#endif // __STDC_VERSION__ >= 202311L
+#endif // __cplusplus
+
+/**
  * A Factory variable data holder.
  *
  * Holds a callback for creation. And the arguments to be supplied.
@@ -342,6 +368,11 @@ typedef pxs_VarT (*pxs_ReadDirFn)(const char *dir_path);
  * Arena type
  */
 typedef struct pxs_PixelArena *pxs_PixelArenaT;
+
+/**
+ * This is just to expose `pxs_ModuleFlag` enum.
+ */
+#define PXS_MODULE_FLAG_NONE pxs_NONE
 
 #ifdef __cplusplus
 extern "C" {

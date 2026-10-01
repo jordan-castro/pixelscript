@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PixelScript docs</title>
+
+    <script src="/components/bootstrap.js"></script>
+    <link rel="stylesheet" href="/styles/terminal_line.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            background-color: black;
+            color: white;
+        }
+    </style>
+
+    <link rel="stylesheet" href="https://unpkg.com/dracula-prism/dist/css/dracula-prism.css">
+
+</head>
+<body>
+    <div class="container">
+        <div id="pxs-navbar"></div>
+        <h2>PXS Docs</h2>
+        <hr>
+        <h3>Getting Started</h3>
+        <p>Beginning with pixelscript is meant to be easy, readable, and fun!</p>
+        <p>After having experienced multiple different scripting runtimes, pxs (short for pixelscript) is a pretty pretty pretty easy way to embed a language inside your application. <small>Or build one using it!</small></p>
+        <hr>
+        <h5>Installing</h5>
+        <p>To install the library clone the <a href="https://github.com/jordan-castro/pixelscript" target="_blank" rel="noopener">github repository</a></p>
+        <p>Then run:</p>
+        <pre class="terminal-line">python3 scripts/build.py</pre>
+        <p>This will build the libraries needed for working.</p>
+        <p>If you are using rust, then you can simply add the crate to your project.</p>
+        <pre class="terminal-line">cargo add pixelscript</pre>
+        <p>The docs assume the C programming language.</p>
+        <hr>
+        <h5>Hello World</h5>
+        <p>To do a hello world program, you will need:</p>
+        <ol>
+            <li>CoreLib enabled (at least <span class="terminal-line">pxs</span>).</li>
+            <li>Initializtion.</li>
+        </ol>
+        <p>This is enabled by default when running the above python build.</p>
+        <pre class="language-c">
+            <code>
+            // include the pixelscript header.
+            #include "pixelscript.h"
+
+            int main() {
+                // setup pxs
+                pxs_initialize(); // all of the pixelscript api uses a `pxs` prefix.
+                
+                // setup corelib
+                pxs_core_initall();
+
+                // a simple script
+                char* script = "from pxs import print\n"
+                                "print('hello world')";
+            
+                // execute
+                pxs_VarT result = pxs_exec(pxs_Python, script, "<getting_started>");
+
+                // check for errors
+                if (pxs_isexception(result)) {
+                    char* err = pxs_getstring(result);
+                    printf("%s\n", err);
+                    pxs_freestr(err); // always free strings from pxs.
+                }
+
+                // free the result
+                pxs_freevar(result);
+
+                return 0;
+            }
+        </code>
+        </pre>
+        <p>Yes it is that simple!</p>
+    </div>
+
+    <script src="/components/navbar.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
+
+</body>
+</html>
