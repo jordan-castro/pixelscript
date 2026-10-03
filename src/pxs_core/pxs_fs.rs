@@ -21,13 +21,19 @@ use crate::{
     },
 };
 
+/// @pxs
+/// @enum
+/// @values(Text = 1, Bytes = 2)
 /// How to read a file. Pass in `read_file`.
 enum ReadFile {
     Text = 1,
     Bytes = 2,
 }
 
-/// How to open a file.
+/// @pxs
+/// @enum
+/// @values(Read = 1 << 0, Write = 1 << 1, Append = 1 << 2).
+/// How to open a file. Pass in `File`.
 enum OpenType {
     Read = 1 << 0,
     Write = 1 << 1,
@@ -46,6 +52,9 @@ struct File {
 
 // A helper for working with pointers.
 impl PtrMagic for File {}
+
+/// @pxs(#`fs-File`)
+/// Access to a File.
 impl File {
     /// @private
     /// Free a `File`
@@ -55,8 +64,17 @@ impl File {
         }
     }
 
-    /// Open or create a new file.
-    /// OpenFile is defaulted to Read if not passed.
+    /// @pxs(File)
+    /// @except
+    /// @new #`fs-File`
+    /// @args(path:pxs_String(path to the file.),open_file:pxs_Int64(open file type. Defaults to READ.))
+    /// Open or create a new #`fs-File`.
+    /// open_file is defaulted to Read if not passed.
+    /// @return(#`fs-File`)
+    /// @example(begin)
+    /// from pxs import fs
+    /// 
+    /// @example(end)
     extern "C" fn open(args: pxs_VarT) -> pxs_VarT {
         if pxs_argc(args) == 0 {
             return pxs_newexception(c"Expected 1 arg".as_ptr());
@@ -117,7 +135,12 @@ impl File {
         }
     }
 
-    /// Write
+    /// @pxs
+    /// @except
+    /// @classmethod #`fs-File`
+    /// @self
+    /// @args(contents:pxs_String|pxs_List[pxs_Byte](the contents to write. It can either be a string or a list of bytes.))
+    /// Write some file.
     extern "C" fn write(args: pxs_VarT) -> pxs_VarT {
         // Check for this
         let thisp = pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), PxsCoreType::File as i32);
@@ -146,7 +169,13 @@ impl File {
         pxs_newnull()
     }
 
+    /// @pxs
+    /// @classmethod #`fs-File`
+    /// @except
+    /// @self
+    /// @args(read_type:pxs_Int64(how do we read the file. Should we return a pxs_String or pxs_List[pxs_Byte]))
     /// Read
+    /// @return(pxs_String|pxs_List[pxs_Byte])
     /// TODO(jc) return num bytes read, make it possible to read up to a certain number at a time.
     extern "C" fn read(args: pxs_VarT) -> pxs_VarT {
         // Check for this
@@ -186,7 +215,12 @@ impl File {
         }
     }
 
+    /// @pxs
+    /// @except
+    /// @classmethod #`fs-File`
+    /// @prop(get) path
     /// Path prop
+    /// @return(pxs_String)
     extern "C" fn path_prop(args: pxs_VarT) -> pxs_VarT {
         // Check for this
         let thisp = pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), PxsCoreType::File as i32);
@@ -199,7 +233,12 @@ impl File {
         pxs_newstring(cstring.new_string(&this.path))
     }
 
+    /// @pxs
+    /// @classmethod #`fs-File`
+    /// @except
+    /// @prop(get) open_type
     /// Open type prop
+    /// @return(pxs_Int64)
     extern "C" fn open_file_prop(args: pxs_VarT) -> pxs_VarT {
         // Check for this
         let thisp = pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), PxsCoreType::File as i32);
@@ -286,6 +325,10 @@ fn _call(
     result
 }
 
+/// @pxs
+/// @except
+/// @args(file_path, read_type)
+/// @return(pxs_String|pxs_List[pxs_Byte])
 /// Read a file, returns either a pxs_String, or pxs_List of pxs_Byte.
 extern "C" fn read_file(args: pxs_VarT) -> pxs_VarT {
     _call(
@@ -297,6 +340,10 @@ extern "C" fn read_file(args: pxs_VarT) -> pxs_VarT {
     )
 }
 
+/// @pxs
+/// @except
+/// @args(path:pxs_String(path to file.))
+/// @return(pxs_Bool)
 /// Check if a path exists
 extern "C" fn exists(args: pxs_VarT) -> pxs_VarT {
     // Check argc
@@ -318,16 +365,27 @@ extern "C" fn exists(args: pxs_VarT) -> pxs_VarT {
     }
 }
 
+/// @pxs
+/// @except
+/// @args(path:pxs_String(path to directory))
+/// @return(pxs_Bool)
 /// Check if is a directory.
 extern "C" fn is_dir(args: pxs_VarT) -> pxs_VarT {
     _is(args, false, true)
 }
 
+/// @pxs
+/// @except
+/// @args(path:pxs_String(path to directory))
+/// @return(pxs_Bool)
 /// Check if is a file
 extern "C" fn is_file(args: pxs_VarT) -> pxs_VarT {
     _is(args, true, false)
 }
 
+/// @pxs
+/// @except
+/// @args(path:pxs_String(file path),contents:pxs_String|pxs_List[pxs_Byte](file contents))
 /// Write to a file.
 extern "C" fn write_file(args: pxs_VarT) -> pxs_VarT {
     // Check argc
@@ -344,6 +402,9 @@ extern "C" fn write_file(args: pxs_VarT) -> pxs_VarT {
     )
 }
 
+/// @pxs
+/// @except
+/// @args(path:pxs_String(file path),contents:pxs_String|pxs_List[pxs_Byte](file contents))
 /// Append to a file.
 extern "C" fn append_file(args: pxs_VarT) -> pxs_VarT {
     // Check argc
@@ -360,31 +421,50 @@ extern "C" fn append_file(args: pxs_VarT) -> pxs_VarT {
     )
 }
 
+/// @pxs
+/// @except
+/// @args(path:pxs_String(file path))
 /// Remove a file
 extern "C" fn remove_file(args: pxs_VarT) -> pxs_VarT {
     _internal_runner(args, std::fs::remove_file)
 }
 
+/// @pxs
+/// @except
+/// @args(path:pxs_String(path to directory))
 /// Create a directory.
 extern "C" fn create_dir(args: pxs_VarT) -> pxs_VarT {
     _internal_runner(args, std::fs::create_dir)
 }
 
+/// @pxs
+/// @except
+/// @args(path:pxs_String(path to directory))
 /// Create a directory recursively
 extern "C" fn create_dirs(args: pxs_VarT) -> pxs_VarT {
     _internal_runner(args, std::fs::create_dir_all)
 }
 
+/// @pxs
+/// @except
+/// @args(path:pxs_String(path to directory))
 /// Remove a empty directory
 extern "C" fn remove_empty_dir(args: pxs_VarT) -> pxs_VarT {
     _internal_runner(args, std::fs::remove_dir)
 }
 
+/// @pxs
+/// @except
+/// @args(path:pxs_String(path to directory))
 /// Remove a directory, regardless of emptyness.
 extern "C" fn remove_dir(args: pxs_VarT) -> pxs_VarT {
     _internal_runner(args, std::fs::remove_dir_all)
 }
 
+/// @pxs
+/// @except
+/// @args(path:pxs_String(path to directory))
+/// @return(pxs_List[pxs_String])
 /// Read contents of directory.
 extern "C" fn read_dir(args: pxs_VarT) -> pxs_VarT {
     if pxs_argc(args) == 0 {

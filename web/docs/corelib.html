@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PixelScript docs</title>
+
+    <script src="/components/bootstrap.js"></script>
+    <link rel="stylesheet" href="/styles/terminal_line.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            background-color: black;
+            color: white;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+    </style>
+
+    <link rel="stylesheet" href="https://unpkg.com/dracula-prism/dist/css/dracula-prism.css">
+
+</head>
+
+<body>
+    <div class="container">
+        <div id="pxs-navbar"></div>
+        <h2>PXS Docs</h2>
+        <hr>
+        <h3>CoreLib</h3>
+        <p>Pixelscript comes with an optional core library modules. They sit behind the <span
+                class="terminal-line">pxs</span> module.</p>
+        <p>To use the core library you must run <span class="terminal-line">pxs_core_initall()</span>. Or you can
+            initialize specific modules.</p>
+        <hr>
+        <section id="specific-modules">
+            <a class="clean-anchor" href="#specific-modules">
+                <h5>Specific Modules</h5>
+            </a>
+        </section>
+
+        <p>There are specific modules in pixelscript that can be added or not.</p>
+        <table class="table table-dark">
+            <thead>
+                <tr>
+                    <th scope="col">Module</th>
+                    <th scope="col">Enum</th>
+                    <th scope="col">Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <th scope="row">pxs.mem</th>
+                    <th>pxs_ModuleFlag::pxs_MEM</th>
+                    <th>2</th>
+                </tr>
+                <tr>
+                    <th scope="row">pxs.os</th>
+                    <th>pxs_ModuleFlag::pxs_OS</th>
+                    <th>4</th>
+                </tr>
+                <tr>
+                    <th scope="row">pxs</th>
+                    <th>pxs_ModuleFlag::pxs_PXS</th>
+                    <th>8</th>
+                </tr>
+                <tr>
+                    <th scope="row">pxs.fs</th>
+                    <th>pxs_ModuleFlag::pxs_FS</th>
+                    <th>16</th>
+                </tr>
+                <tr>
+                    <th scope="row">pxs.shell</th>
+                    <th>pxs_ModuleFlag::pxs_SHELL</th>
+                    <th>32</th>
+                </tr>
+                <tr>
+                    <th scope="row">pxs.zip</th>
+                    <th>pxs_ModuleFlag::pxs_ZIP</th>
+                    <th>64</th>
+                </tr>
+                <tr>
+                    <th scope="row">pxs.http</th>
+                    <th>pxs_ModuleFlag::pxs_HTTP</th>
+                    <th>128</th>
+                </tr>
+            </tbody>
+        </table>
+        <hr>
+        <section id="mem">
+            <a class="clean-anchor" href="#mem">
+                <h5>pxs.mem</h5>
+            </a>
+        </section>
+        <p><span class="terminal-line">pxs.mem</span> exposes memory access to core pxs types. This includes functions
+            like:</p>
+        <section id="mem-memdel">
+            <a class="clean-anchor" href="#mem-memdel">
+                <h6>memdel</h6>
+            </a>
+        </section>
+        <p>Deletes the pxs_Var intenral PixelObject value. This should only be used in sripts that require strict memory
+            control.</p>
+        <p>This process is called automatically when using <span class="terminal-line">pxs_clear</span></p>
+        <p>Paramaters are: <span class="terminal-line">object: pxs_Object</span></p>
+        <P>Returns: <span class="terminal-line">pxs_Null</span></P>
+        <pre class="language-python code-container">
+            <code class="code-editor">
+from pxs import mem
+from pxs import Logger
+
+l = Logger()
+
+mem.memdel(l)</code>
+        </pre>
+        <section id="mem-mem_delall">
+            <a class="clean-anchor" href="#mem-mem_delall">
+                <h6>mem_delall</h6>
+            </a>
+        </section>
+        <p>Deletes the pxs_Var intenral PixelObject value. This should only be used in sripts that require strict memory
+            control.</p>
+        <p>This process is called automatically when using <span class="terminal-line">pxs_clear</span></p>
+        <p>Paramaters are: <span class="terminal-line">object: pxs_Object</span></p>
+        <P>Returns: <span class="terminal-line">pxs_Null</span></P>
+        <pre class="language-python code-container">
+            <code class="code-editor">
+from pxs import mem
+from pxs import Logger
+
+l = Logger()
+
+mem.memdel(l)</code>
+        </pre>
+
+    </div>
+<!-- /// @except
+/// Delete a List of `pxs_Var` `PixelObject`
+/// args:
+///   - objects: `list[pxs_Object]` a list of objects that have `_pxs_ptr` assigned.
+ -->
+    <script src="/components/navbar.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+</body>
+
+</html>

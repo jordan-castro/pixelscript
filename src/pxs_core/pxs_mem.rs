@@ -13,10 +13,17 @@ use crate::{
 };
 use etffi::ptr_magic::PtrMagic;
 
+/// @pxs(memdel)
 /// @except
-/// Delete a `pxs_Var` `PixelObject`.
-/// args:
-///   - object: `pxs_Object` the object to delete. Must contain `_pxs_ptr`.
+/// @args(object:pxs_Object(the object to delete. Must contain <_pxs_ptr>)).
+/// Delete a <pxs_Var>s <PixelObject>.
+/// 
+/// @example(begin)
+/// from pxs import mem
+/// from pxs import Logger
+/// l = Logger()
+/// mem.memdel(l)
+/// @example(end)
 extern "C" fn pxs_mem_delete(args: pxs_VarT) -> pxs_VarT {
     // Check length is 2 only (RT, object)
     let len = pxs_listlen(args);
@@ -44,10 +51,20 @@ extern "C" fn pxs_mem_delete(args: pxs_VarT) -> pxs_VarT {
     pxs_newnull()
 }
 
+/// @pxs(mem_delall)
 /// @except
+/// @args(objects:pxs_List[pxs_Object](a list of object that have <pxs_ptr> assigned.))
 /// Delete a List of `pxs_Var` `PixelObject`
-/// args:
-///   - objects: `list[pxs_Object]` a list of objects that have `_pxs_ptr` assigned.
+/// @example(begin)
+/// from pxs import mem
+/// from pxs import Logger
+/// 
+/// l1 = Logger()
+/// l2 = Logger()
+/// l3 = Logger()
+/// 
+/// mem.mem_delall([l1, l2, l3])
+/// @example(end)
 extern "C" fn pxs_mem_delete_all(args: pxs_VarT) -> pxs_VarT {
     let len = pxs_listlen(args);
     if len != 2 {

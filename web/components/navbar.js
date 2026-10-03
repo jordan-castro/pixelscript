@@ -19,6 +19,7 @@ const NAVBAR = `
           </a>
           <ul class="dropdown-menu">
             <li><a class="dropdown-item" href="/docs">Getting Started</a></li>
+            <li><a class="dropdown-item" href="/docs/corelib.html">CoreLib</a></li>
           </ul>
         </li>
       </ul>

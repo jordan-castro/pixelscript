@@ -16,6 +16,9 @@ struct Logger {
 }
 
 impl PtrMagic for Logger {}
+
+/// @pxs(#`pxs-logger`)
+/// Write to stdout.
 impl Logger {
     /// @private
     extern "C" fn free(ptr: pxs_Opaque) {
@@ -24,12 +27,10 @@ impl Logger {
         }
     }
 
+    /// @pxs(Logger)
+    /// @args(sep:pxs_String=" "(optional seperator), end_line:pxs_Bool=true(optional to print a \n after.)) 
     /// Create a new logger
-    /// args:
-    ///   - sep: `string=" "` optinal seperator.
-    ///   - end_line: `bool=true` optional to print a \n.
-    ///
-    /// returns `Logger` instance.
+    /// @return(#`pxs-logger`)
     extern "C" fn new(args: pxs_VarT) -> pxs_VarT {
         // Get seperator if any
         let sep = if pxs_isstring(pxs_arg(args, 0)) {
@@ -66,11 +67,12 @@ impl Logger {
         pxs_newhost(obj)
     }
 
+    /// @pxs
+    /// @classmethod #`pxs-logger`
     /// @except
     /// @self
+    /// @args(...)
     /// Handle print.
-    /// args:
-    ///   - args: `...` N number of params.
     extern "C" fn print(args: pxs_VarT) -> pxs_VarT {
         // Get this
         let thisp = pxs_gettype(
@@ -107,15 +109,13 @@ impl Logger {
         pxs_newnull()
     }
 
+    /// @pxs
+    /// @classmethod #`pxs-logger`
     /// @except
-    /// @self
+    /// @args(new_seperator:pxs_String(the new seperator.))
     /// @prop
     /// seperator prop
-    ///
-    /// args:
-    ///   - new_seperator: `string`
-    ///
-    /// returns `string`
+    /// @return(pxs_String)
     extern "C" fn seperator_prop(args: pxs_VarT) -> pxs_VarT {
         let thisp = pxs_gettype(
             pxs_getrt(args),
@@ -145,6 +145,7 @@ impl Logger {
         }
     }
 
+    /// @pxs
     /// @except
     /// @self
     /// @prop
