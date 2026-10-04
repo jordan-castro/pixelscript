@@ -63,6 +63,10 @@ extern "C" fn chdir(args: pxs_VarT) -> pxs_VarT {
 /// @except
 /// @args(key:pxs_String(the key to read))
 /// Read a enviroment variable.
+/// @example(begin)
+/// from pxs import os, print
+/// print(os.read_env('name'))
+/// @example(end)
 /// @return(pxs_String)
 extern "C" fn read_env(args: pxs_VarT) -> pxs_VarT {
     if pxs_argc(args) != 1 {
@@ -89,6 +93,11 @@ extern "C" fn read_env(args: pxs_VarT) -> pxs_VarT {
 /// @pxs
 /// @args(key:pxs_String(the key to set), value: pxs_String(the value))
 /// @except
+/// @example(begin)
+/// from pxs import os, print
+/// os.set_env('name', 'Evelyn chan')
+/// print(os.read_env('name'))
+/// @example(end)
 /// Set a enviroment variable.
 extern "C" fn set_env(args: pxs_VarT) -> pxs_VarT {
     if pxs_argc(args) != 2 {

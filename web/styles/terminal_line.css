@@ -26,3 +26,43 @@ code {
     color: white;
     padding-left: 10px;
 }
+
+.pxs-enum {
+    background-color: rgb(204, 204, 91);
+    padding: 10px;
+    border-radius: 20px;
+    width: 10px;
+    height: 10px;
+}
+
+.pxs-self {
+    background-color: rgb(90, 155, 119);
+    padding: 10px;
+    border-radius: 20px;
+    width: 10px;
+    height: 10px;
+}
+
+.pxs-excepts {
+    background-color: rgb(216, 77, 21);
+    padding: 10px;
+    border-radius: 20px;
+    width: 10px;
+    height: 10px;
+}
+
+.pxs-property-get {
+    background-color: rgb(122, 21, 216);
+    padding: 10px;
+    border-radius: 20px;
+    width: 10px;
+    height: 10px;
+}
+
+.pxs-property-set {
+    background-color: rgba(180, 137, 219, 0.966);
+    padding: 10px;
+    border-radius: 20px;
+    width: 10px;
+    height: 10px;
+}

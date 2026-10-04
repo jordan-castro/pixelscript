@@ -167,6 +167,11 @@ STARTING_CODE = """
     <script src="/pixelscript.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+
+    <script>
+        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+        const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+    </script>
 </body>
 
 </html>
@@ -201,7 +206,7 @@ class CoreLibWriter:
             name_type = rvalue.split("=")
             value = {
                 'name': name_type[0],
-                'type': name_type[1]
+                'type': name_type[1].split(")")[0]
             }
             values.append(value)
         return values
@@ -252,8 +257,8 @@ class CoreLibWriter:
         types = ['get', 'set']
         name = ''
         if line[0] == '(':
-            types = line.split(")")[0].split(",")
-            name = line.split(")")[-1]
+            types = line[1:].split(")")[0].split(",")
+            name = line[1:].split(")")[-1]
         else:
             name = line
 
@@ -346,6 +351,7 @@ for f in corelib:
     """
 
     for value in writer.values:
+        color_orbs = ""
         if value.get('parent', None):
             if not value['parent'] in classes:
                 classes.append(value['parent'])
@@ -361,36 +367,53 @@ for f in corelib:
         if value.get('property', None):
             prop = value['property']
             final_contents += f"""
+            <div class="row row-cols-auto"> 
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#{value['parent'].strip()}{prop['name'].strip()}"><h7>{prop['name']}</h7></a>
             </section>
-            <div class="pxs-property{' get' if 'get' in prop['types'] else ''}{' set' if 'set' in prop['types'] else ''}"></div>
+            </div>
+            <div class="col"></div>
+            {{$COLOR_ORB$}}
+            </div>
             """
+            for type in prop['types']:
+                color_orbs += f'<div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="{type}." class="pxs-property-{type}"></div>'
         else:
             final_contents += f"""
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#{value['parent'] if 'parent' in value else ''}{value['name']}"><h7>{value['name']}</h7></a>
             </section>
+            </div>
+            <div class="col">
+            {{$COLOR_ORB$}}
+            </div>
+            </div>
             """
         if value.get('is_enum', False):
-            final_contents += '<div class="pxs-enum"></div>'
+            color_orbs += '<div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Enum." class="pxs-enum"></div>'
         if value.get('needs_self', False):
-            final_contents += '<div class="pxs-self"></div>'
+            color_orbs += '<div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div>'
         if value.get('excepts', False):
-            final_contents += '<div class="pxs-excepts"></div>'
+            color_orbs += '<div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>'
         if value.get('args', None):
             args = value['args']
             string = []
             for arg in args:
-                #         <p>Paramaters are: <span class="terminal-line">object: pxs_Object</span></p>
-                string.append(f"{arg['name']}: {arg['type']['value']} {arg['type']['comment']}.")
-            final_contents += f"<p>Paramaters are: {' '.join(string)} </p>"
+                string.append(f"<li>{arg['name']}: <span class=\"terminal-line\">{arg['type']['value']}</span> {arg['type']['comment']}</li>")
+            final_contents += f"<p>Paramaters are: </p><ol>{f'{' '.join(string)}'} </ol>"
         if value.get('returns', None):
             returns = value['returns']
-            final_contents += f"<p>Returns: {returns['type']} {returns['comment']}</p>"
+            final_contents += f"<p>Returns: <span class=\"terminal-line\">{returns['type']}</span> {returns['comment']}</p>"
         if value.get('comments', None):
             for comment in value['comments']:
                 final_contents += f'<p>{comment}</p>'
+        if value.get("values", None):
+            values = value['values']
+            for val in values:
+                final_contents += f"<p>{val['name']} = {val['type']}<p>"
         if value.get('example', None):
             example = value['example']
             final_contents += f"""
@@ -410,6 +433,7 @@ for f in corelib:
             </div>  
 """
             codes += f"{value['name']}: `{'\n'.join(example)}`,"
+        final_contents = final_contents.replace("{$COLOR_ORB$}", color_orbs)
 
 code = STARTING_CODE.replace("{$CORE_LIB_PLACEMENT$}", final_contents)
 code = code.replace("{$CODES$}", codes)

@@ -102,7 +102,10 @@ print(os.get_cwd())`,chdir: `from pxs import print, os, fs
 print(os.get_cwd())
 fs.create_dir('example')
 os.chdir("example")
-print(os.get_cwd())`,};
+print(os.get_cwd())`,read_env: `from pxs import os, print
+print(os.read_env('name'))`,set_env: `from pxs import os, print
+os.set_env('name', 'Evelyn chan')
+print(os.read_env('name'))`,};
         function runblock(cid) {
             clear_output();
             CURRENT_ID = cid;
@@ -191,87 +194,174 @@ print(os.get_cwd())`,};
             </a>
         </section>
     
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#HTTPVersion"><h7>HTTPVersion</h7></a>
             </section>
-            <div class="pxs-enum"></div><p> HTTP Version</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Enum." class="pxs-enum"></div>
+            </div>
+            </div>
+            <p> HTTP Version</p><p>HTTP_VERSION_1_1  =  0<p><p> HTTP_VERSION_2  =  1<p><p> HTTP_VERSION_3  =  2<p>
                 <section>
                     <a class="clean-anchor" href="#pxshttpClientResponse">
                         <h6>ClientResponse</h6>
                     </a>
                 </section>
                 
+            <div class="row row-cols-auto"> 
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#http-ClientResponsestatus"><h7> status</h7></a>
             </section>
-            <div class="pxs-property"></div>
-            <div class="pxs-self"></div><p>Returns: pxs_Int64 </p><p> The response status.</p>
+            </div>
+            <div class="col"></div>
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="get." class="pxs-property-get"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div>
+            </div>
+            <p>Returns: <span class="terminal-line">pxs_Int64</span> </p><p> The response status.</p>
+            <div class="row row-cols-auto"> 
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#http-ClientResponsebytes"><h7> bytes</h7></a>
             </section>
-            <div class="pxs-property"></div>
-            <div class="pxs-self"></div><p>Returns: pxs_List[pxs_Byte] </p><p> The response bytes.</p>
+            </div>
+            <div class="col"></div>
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="get." class="pxs-property-get"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div>
+            </div>
+            <p>Returns: <span class="terminal-line">pxs_List[pxs_Byte]</span> </p><p> The response bytes.</p>
+            <div class="row row-cols-auto"> 
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#http-ClientResponsetext"><h7> text</h7></a>
             </section>
-            <div class="pxs-property"></div>
-            <div class="pxs-self"></div><p>Returns: pxs_String </p><p> The response text.</p>
+            </div>
+            <div class="col"></div>
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="get." class="pxs-property-get"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div>
+            </div>
+            <p>Returns: <span class="terminal-line">pxs_String</span> </p><p> The response text.</p>
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#Client"><h7>Client</h7></a>
             </section>
-            <p>Returns: http-Client </p><p> Create a new #`http-Client`</p><p></p>
+            </div>
+            <div class="col">
+            
+            </div>
+            </div>
+            <p>Returns: <span class="terminal-line">http-Client</span> </p><p> Create a new #`http-Client`</p><p></p>
                 <section>
                     <a class="clean-anchor" href="#pxshttpClient">
                         <h6>Client</h6>
                     </a>
                 </section>
                 
+            <div class="row row-cols-auto"> 
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#http-Clientheaders"><h7> headers</h7></a>
             </section>
-            <div class="pxs-property set"></div>
-            <div class="pxs-self"></div><p>Paramaters are: headers:  pxs_List[pxs_List[pxs_String]] the headers to set.)). </p><p>Returns: pxs_List[pxs_List[pxs_String]] </p><p> The headers.</p>
+            </div>
+            <div class="col"></div>
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="get." class="pxs-property-get"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="set." class="pxs-property-set"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div>
+            </div>
+            <p>Paramaters are: </p><ol><li>headers: <span class="terminal-line"> pxs_List[pxs_List[pxs_String]]</span> the headers to set.))</li> </ol><p>Returns: <span class="terminal-line">pxs_List[pxs_List[pxs_String]]</span> </p><p> The headers.</p>
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#http-Clientget_header"><h7>get_header</h7></a>
             </section>
-            <div class="pxs-self"></div><p>Paramaters are: key: pxs_String the header key.)). </p><p>Returns: pxs_String  value if found.</p><p> Get a single header.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>key: <span class="terminal-line">pxs_String</span> the header key.))</li> </ol><p>Returns: <span class="terminal-line">pxs_String</span>  value if found.</p><p> Get a single header.</p>
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#http-Clientset_header"><h7>set_header</h7></a>
             </section>
-            <div class="pxs-self"></div><p>Paramaters are: key: pxs_String header key).  value:  pxs_String header value)). </p><p> Set a single header.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>key: <span class="terminal-line">pxs_String</span> header key)</li> <li> value: <span class="terminal-line"> pxs_String</span> header value))</li> </ol><p> Set a single header.</p>
+            <div class="row row-cols-auto"> 
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#http-Clientbody"><h7> body</h7></a>
             </section>
-            <div class="pxs-property set"></div>
-            <div class="pxs-self"></div><p>Paramaters are: body: pxs_String|pxs_List[pxs_Byte] body as string or bytes.)). </p><p>Returns: pxs_String </p>
+            </div>
+            <div class="col"></div>
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="get." class="pxs-property-get"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="set." class="pxs-property-set"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div>
+            </div>
+            <p>Paramaters are: </p><ol><li>body: <span class="terminal-line">pxs_String|pxs_List[pxs_Byte]</span> body as string or bytes.))</li> </ol><p>Returns: <span class="terminal-line">pxs_String</span> </p>
+            <div class="row row-cols-auto"> 
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#http-Clientversion"><h7> version</h7></a>
             </section>
-            <div class="pxs-property set"></div>
-            <div class="pxs-self"></div><p>Paramaters are: version: pxs_Int64 the http version to use.)). </p><p>Returns: pxs_Int64 </p><p> Version</p>
+            </div>
+            <div class="col"></div>
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="get." class="pxs-property-get"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="set." class="pxs-property-set"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div>
+            </div>
+            <p>Paramaters are: </p><ol><li>version: <span class="terminal-line">pxs_Int64</span> the http version to use.))</li> </ol><p>Returns: <span class="terminal-line">pxs_Int64</span> </p><p> Version</p>
+            <div class="row row-cols-auto"> 
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#http-Clientdomain"><h7> domain</h7></a>
             </section>
-            <div class="pxs-property set"></div>
-            <div class="pxs-self"></div><p>Paramaters are: dn:  pxs_String the domain name)). </p><p>Returns: pxs_String </p><p> Domain name</p>
+            </div>
+            <div class="col"></div>
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="get." class="pxs-property-get"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="set." class="pxs-property-set"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div>
+            </div>
+            <p>Paramaters are: </p><ol><li>dn: <span class="terminal-line"> pxs_String</span> the domain name))</li> </ol><p>Returns: <span class="terminal-line">pxs_String</span> </p><p> Domain name</p>
+            <div class="row row-cols-auto"> 
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#http-Clienttimeout"><h7> timeout</h7></a>
             </section>
-            <div class="pxs-property set"></div>
-            <div class="pxs-self"></div><p>Paramaters are: ms:  pxs_Int64 millisecond)). </p><p>Returns: pxs_Int64 </p><p> Tiemout in MS</p>
+            </div>
+            <div class="col"></div>
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="get." class="pxs-property-get"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="set." class="pxs-property-set"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div>
+            </div>
+            <p>Paramaters are: </p><ol><li>ms: <span class="terminal-line"> pxs_Int64</span> millisecond))</li> </ol><p>Returns: <span class="terminal-line">pxs_Int64</span> </p><p> Tiemout in MS</p>
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#http-Clientmake_request"><h7>make_request</h7></a>
             </section>
-            <div class="pxs-self"></div><div class="pxs-excepts"></div><p>Paramaters are: url: pxs_String the url to request).  rt:  pxs_Int64 the request type to send.)). </p><p>Returns: pxs_String </p><p> Make a request</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>url: <span class="terminal-line">pxs_String</span> the url to request)</li> <li> rt: <span class="terminal-line"> pxs_Int64</span> the request type to send.))</li> </ol><p>Returns: <span class="terminal-line">pxs_String</span> </p><p> Make a request</p>
+            <div class="row row-cols-auto"> 
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#http-Clienthttps"><h7> https</h7></a>
             </section>
-            <div class="pxs-property"></div>
-            <div class="pxs-self"></div><p>Paramaters are: use:  pxs_Bool true for using. false for not.)). </p><p>Returns: pxs_Bool </p><p> Use HTTPS.</p>
+            </div>
+            <div class="col"></div>
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="get." class="pxs-property-get"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title=" set." class="pxs-property- set"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div>
+            </div>
+            <p>Paramaters are: </p><ol><li>use: <span class="terminal-line"> pxs_Bool</span> true for using. false for not.))</li> </ol><p>Returns: <span class="terminal-line">pxs_Bool</span> </p><p> Use HTTPS.</p>
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#post"><h7>post</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: url: pxs_String the url to request to). body: pxs_String the body to send). headers: @opt pxs_List[pxs_List[pxs_String]] the headers to apply).  version: @opt pxs_Int64 the HTTP version to use)). </p><p>Returns: http-ClientResponse </p><p> Make a HTTP Post request.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>url: <span class="terminal-line">pxs_String</span> the url to request to)</li> <li>body: <span class="terminal-line">pxs_String</span> the body to send)</li> <li>headers: <span class="terminal-line">@opt pxs_List[pxs_List[pxs_String]]</span> the headers to apply)</li> <li> version: <span class="terminal-line">@opt pxs_Int64</span> the HTTP version to use))</li> </ol><p>Returns: <span class="terminal-line">http-ClientResponse</span> </p><p> Make a HTTP Post request.</p>
         <hr>
         <section id="pxs.mem">
             <a class="clean-anchor" href="#pxs.mem">
@@ -279,10 +369,17 @@ print(os.get_cwd())`,};
             </a>
         </section>
     
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#memdel"><h7>memdel</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: object: pxs_Object the object to delete. Must contain <_pxs_ptr>)).. </p><p> Delete a <pxs_Var>s <PixelObject>.</p><p></p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>object: <span class="terminal-line">pxs_Object</span> the object to delete. Must contain <_pxs_ptr>)).</li> </ol><p> Delete a <pxs_Var>s <PixelObject>.</p><p></p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -301,10 +398,17 @@ mem.memdel(l)
             </div>
             </div>  
 
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#mem_delall"><h7>mem_delall</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: objects: pxs_List[pxs_Object] a list of object that have <pxs_ptr> assigned.)). </p><p> Delete a List of `pxs_Var` `PixelObject`</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>objects: <span class="terminal-line">pxs_List[pxs_Object]</span> a list of object that have <pxs_ptr> assigned.))</li> </ol><p> Delete a List of `pxs_Var` `PixelObject`</p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -334,22 +438,50 @@ mem.mem_delall([l1, l2, l3])
             </a>
         </section>
     
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#ReadFile"><h7>ReadFile</h7></a>
             </section>
-            <div class="pxs-enum"></div><p> How to read a file. Pass in `read_file`.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Enum." class="pxs-enum"></div>
+            </div>
+            </div>
+            <p> How to read a file. Pass in `read_file`.</p><p>Text  =  1<p><p> Bytes  =  2<p>
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#OpenType"><h7>OpenType</h7></a>
             </section>
-            <div class="pxs-enum"></div><p> How to open a file. Pass in `File`.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Enum." class="pxs-enum"></div>
+            </div>
+            </div>
+            <p> How to open a file. Pass in `File`.</p><p>Read  =  1 << 0<p><p> Write  =  1 << 1<p><p> Append  =  1 << 2<p>
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#File"><h7>File</h7></a>
             </section>
+            </div>
+            <div class="col">
+            
+            </div>
+            </div>
             <p> Access to a File.</p><p> Our pxs exposed File object</p>
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#File"><h7>File</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String path to the file.). open_file: pxs_Int64 open file type. Defaults to READ.)). </p><p>Returns: fs-File </p><p> Open or create a new #`fs-File`.</p><p> open_file is defaulted to Read if not passed.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>path: <span class="terminal-line">pxs_String</span> path to the file.)</li> <li>open_file: <span class="terminal-line">pxs_Int64</span> open file type. Defaults to READ.))</li> </ol><p>Returns: <span class="terminal-line">fs-File</span> </p><p> Open or create a new #`fs-File`.</p><p> open_file is defaulted to Read if not passed.</p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -374,10 +506,17 @@ f.close() # remember to close your files.
                     </a>
                 </section>
                 
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#fs-Filewrite"><h7>write</h7></a>
             </section>
-            <div class="pxs-self"></div><div class="pxs-excepts"></div><p>Paramaters are: contents: pxs_String|pxs_List[pxs_Byte] the contents to write. It can either be a string or a list of bytes.)). </p><p> Write some file.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>contents: <span class="terminal-line">pxs_String|pxs_List[pxs_Byte]</span> the contents to write. It can either be a string or a list of bytes.))</li> </ol><p> Write some file.</p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -397,10 +536,17 @@ print(fs.read_file('test.txt'))
             </div>
             </div>  
 
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#fs-Fileread"><h7>read</h7></a>
             </section>
-            <div class="pxs-self"></div><div class="pxs-excepts"></div><p>Paramaters are: read_type: pxs_Int64 how do we read the file. Should we return a pxs_String or pxs_List[pxs_Byte])). </p><p>Returns: pxs_String|pxs_List[pxs_Byte] </p><p> Read</p><p> TODO(jc) return num bytes read, make it possible to read up to a certain number at a time.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>read_type: <span class="terminal-line">pxs_Int64</span> how do we read the file. Should we return a pxs_String or pxs_List[pxs_Byte]))</li> </ol><p>Returns: <span class="terminal-line">pxs_String|pxs_List[pxs_Byte]</span> </p><p> Read</p><p> TODO(jc) return num bytes read, make it possible to read up to a certain number at a time.</p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -418,20 +564,37 @@ contents = f.read()
             </div>
             </div>  
 
+            <div class="row row-cols-auto"> 
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#fs-Filepath"><h7> path</h7></a>
             </section>
-            <div class="pxs-property"></div>
-            <div class="pxs-self"></div><div class="pxs-excepts"></div><p>Returns: pxs_String </p><p> Path prop</p>
+            </div>
+            <div class="col"></div>
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="get." class="pxs-property-get"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            <p>Returns: <span class="terminal-line">pxs_String</span> </p><p> Path prop</p>
+            <div class="row row-cols-auto"> 
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#fs-Fileopen_type"><h7> open_type</h7></a>
             </section>
-            <div class="pxs-property"></div>
-            <div class="pxs-self"></div><div class="pxs-excepts"></div><p>Returns: pxs_Int64 </p><p> Open type prop</p>
+            </div>
+            <div class="col"></div>
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="get." class="pxs-property-get"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            <p>Returns: <span class="terminal-line">pxs_Int64</span> </p><p> Open type prop</p>
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#close"><h7>close</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p> @classmetdho #`fs-File`</p><p> Close the file.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p> @classmetdho #`fs-File`</p><p> Close the file.</p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -452,10 +615,17 @@ f.close() # can not use File operations after this.
             </div>
             </div>  
 
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#read_file"><h7>read_file</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: file_path: pxs_String the path to said file.).  read_type: pxs_Int64 how to return the contents.)). </p><p>Returns: pxs_String|pxs_List[pxs_Byte] </p><p> Read a file, returns either a pxs_String, or pxs_List of pxs_Byte.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>file_path: <span class="terminal-line">pxs_String</span> the path to said file.)</li> <li> read_type: <span class="terminal-line">pxs_Int64</span> how to return the contents.))</li> </ol><p>Returns: <span class="terminal-line">pxs_String|pxs_List[pxs_Byte]</span> </p><p> Read a file, returns either a pxs_String, or pxs_List of pxs_Byte.</p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -472,10 +642,17 @@ fs.read_file("test.txt")
             </div>
             </div>  
 
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#exists"><h7>exists</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String path to file.)). </p><p>Returns: pxs_Bool </p><p> Check if a path exists</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>path: <span class="terminal-line">pxs_String</span> path to file.))</li> </ol><p>Returns: <span class="terminal-line">pxs_Bool</span> </p><p> Check if a path exists</p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -492,10 +669,17 @@ fs.exists("test.txt")
             </div>
             </div>  
 
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#is_dir"><h7>is_dir</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String path to directory)). </p><p>Returns: pxs_Bool </p><p> Check if is a directory.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>path: <span class="terminal-line">pxs_String</span> path to directory))</li> </ol><p>Returns: <span class="terminal-line">pxs_Bool</span> </p><p> Check if is a directory.</p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -512,10 +696,17 @@ fs.is_dir("test")
             </div>
             </div>  
 
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#is_file"><h7>is_file</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String path to directory)). </p><p>Returns: pxs_Bool </p><p> Check if is a file</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>path: <span class="terminal-line">pxs_String</span> path to directory))</li> </ol><p>Returns: <span class="terminal-line">pxs_Bool</span> </p><p> Check if is a file</p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -532,10 +723,17 @@ fs.is_file("test")
             </div>
             </div>  
 
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#write_file"><h7>write_file</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String file path). contents: pxs_String|pxs_List[pxs_Byte] file contents)). </p><p> Write to a file.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>path: <span class="terminal-line">pxs_String</span> file path)</li> <li>contents: <span class="terminal-line">pxs_String|pxs_List[pxs_Byte]</span> file contents))</li> </ol><p> Write to a file.</p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -552,10 +750,17 @@ fs.write_file("test.txt", "dude!")
             </div>
             </div>  
 
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#append_file"><h7>append_file</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String file path). contents: pxs_String|pxs_List[pxs_Byte] file contents)). </p><p> Append to a file.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>path: <span class="terminal-line">pxs_String</span> file path)</li> <li>contents: <span class="terminal-line">pxs_String|pxs_List[pxs_Byte]</span> file contents))</li> </ol><p> Append to a file.</p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -572,10 +777,17 @@ fs.append_file("test.txt", "dude!")
             </div>
             </div>  
 
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#remove_file"><h7>remove_file</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String file path)). </p><p> Remove a file</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>path: <span class="terminal-line">pxs_String</span> file path))</li> </ol><p> Remove a file</p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -595,10 +807,17 @@ print(fs.exists("test.txt"))
             </div>
             </div>  
 
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#create_dir"><h7>create_dir</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String path to directory)). </p><p> Create a directory.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>path: <span class="terminal-line">pxs_String</span> path to directory))</li> </ol><p> Create a directory.</p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -615,10 +834,17 @@ fs.create_dir("test")
             </div>
             </div>  
 
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#create_dirs"><h7>create_dirs</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String path to directory)). </p><p> Create a directory recursively</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>path: <span class="terminal-line">pxs_String</span> path to directory))</li> </ol><p> Create a directory recursively</p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -635,10 +861,17 @@ fs.create_dir("test/test2/test3")
             </div>
             </div>  
 
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#remove_empty_dir"><h7>remove_empty_dir</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String path to directory)). </p><p> Remove a empty directory</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>path: <span class="terminal-line">pxs_String</span> path to directory))</li> </ol><p> Remove a empty directory</p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -655,10 +888,17 @@ fs.remove_empty_dir("test/test2/test3")
             </div>
             </div>  
 
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#remove_dir"><h7>remove_dir</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String path to directory)). </p><p> Remove a directory, regardless of emptyness.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>path: <span class="terminal-line">pxs_String</span> path to directory))</li> </ol><p> Remove a directory, regardless of emptyness.</p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -675,10 +915,17 @@ fs.remove_dir("test")
             </div>
             </div>  
 
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#read_dir"><h7>read_dir</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String path to directory)). </p><p>Returns: pxs_List[pxs_String] </p><p> Read contents of directory.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>path: <span class="terminal-line">pxs_String</span> path to directory))</li> </ol><p>Returns: <span class="terminal-line">pxs_List[pxs_String]</span> </p><p> Read contents of directory.</p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -705,10 +952,17 @@ for item in dir:
             </a>
         </section>
     
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#get_cwd"><h7>get_cwd</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Returns: pxs_String </p><p> Get the current working directory</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Returns: <span class="terminal-line">pxs_String</span> </p><p> Get the current working directory</p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -725,10 +979,17 @@ print(os.get_cwd())
             </div>
             </div>  
 
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#chdir"><h7>chdir</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String new directory)). </p><p> Change the current directory</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>path: <span class="terminal-line">pxs_String</span> new directory))</li> </ol><p> Change the current directory</p>
             <div class="row">
             <div class="col">
             <pre class="language-python code-container">
@@ -748,14 +1009,61 @@ print(os.get_cwd())
             </div>
             </div>  
 
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#read_env"><h7>read_env</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: key: pxs_String the key to read)). </p><p>Returns: pxs_String </p><p> Read a enviroment variable.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>key: <span class="terminal-line">pxs_String</span> the key to read))</li> </ol><p>Returns: <span class="terminal-line">pxs_String</span> </p><p> Read a enviroment variable.</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import os, print
+print(os.read_env('name'))
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('read_env')">Try it out</button>
+                <div class="code-container" id="read_env">
+                </div>
+            </div>
+            </div>  
+
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#set_env"><h7>set_env</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: key: pxs_String the key to set).  value:  pxs_String the value)). </p><p> Set a enviroment variable.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>key: <span class="terminal-line">pxs_String</span> the key to set)</li> <li> value: <span class="terminal-line"> pxs_String</span> the value))</li> </ol><p> Set a enviroment variable.</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import os, print
+os.set_env('name', 'Evelyn chan')
+print(os.read_env('name'))
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('set_env')">Try it out</button>
+                <div class="code-container" id="set_env">
+                </div>
+            </div>
+            </div>  
+
         <hr>
         <section id="pxs_shell">
             <a class="clean-anchor" href="#pxs_shell">
@@ -763,9 +1071,16 @@ print(os.get_cwd())
             </a>
         </section>
     
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#ShellOutput"><h7>ShellOutput</h7></a>
             </section>
+            </div>
+            <div class="col">
+            
+            </div>
+            </div>
             <p> Just a wrapper around Output</p>
                 <section>
                     <a class="clean-anchor" href="#pxs_shellShellOutput">
@@ -773,63 +1088,141 @@ print(os.get_cwd())
                     </a>
                 </section>
                 
+            <div class="row row-cols-auto"> 
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#shell-ShellOutputstdout"><h7> stdout</h7></a>
             </section>
-            <div class="pxs-property"></div>
-            <div class="pxs-self"></div><p>Returns: pxs_String </p><p> Get stdout</p>
+            </div>
+            <div class="col"></div>
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="get." class="pxs-property-get"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div>
+            </div>
+            <p>Returns: <span class="terminal-line">pxs_String</span> </p><p> Get stdout</p>
+            <div class="row row-cols-auto"> 
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#shell-ShellOutputstderr"><h7> stderr</h7></a>
             </section>
-            <div class="pxs-property"></div>
-            <div class="pxs-self"></div><p>Returns: pxs_String </p><p> Get stderr</p>
+            </div>
+            <div class="col"></div>
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="get." class="pxs-property-get"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div>
+            </div>
+            <p>Returns: <span class="terminal-line">pxs_String</span> </p><p> Get stderr</p>
+            <div class="row row-cols-auto"> 
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#shell-ShellOutputstatus"><h7> status</h7></a>
             </section>
-            <div class="pxs-property"></div>
-            <div class="pxs-self"></div><p>Returns: pxs_Int64 </p><p> Get status</p>
+            </div>
+            <div class="col"></div>
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="get." class="pxs-property-get"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div>
+            </div>
+            <p>Returns: <span class="terminal-line">pxs_Int64</span> </p><p> Get status</p>
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#Shell"><h7>Shell</h7></a>
             </section>
+            </div>
+            <div class="col">
+            
+            </div>
+            </div>
             <p> Just a wrapper around Command.</p>
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#PlatformShell"><h7>PlatformShell</h7></a>
             </section>
-            <p>Returns: shell-Shell </p><p> Create a new platform shell.</p>
+            </div>
+            <div class="col">
+            
+            </div>
+            </div>
+            <p>Returns: <span class="terminal-line">shell-Shell</span> </p><p> Create a new platform shell.</p>
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#Shell"><h7>Shell</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: program: pxs_String the starting program)). </p><p>Returns: shell-Shell </p><p> Create a new shell.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>program: <span class="terminal-line">pxs_String</span> the starting program))</li> </ol><p>Returns: <span class="terminal-line">shell-Shell</span> </p><p> Create a new shell.</p>
                 <section>
                     <a class="clean-anchor" href="#pxs_shellShell">
                         <h6>Shell</h6>
                     </a>
                 </section>
                 
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#shell-Shellcommand"><h7>command</h7></a>
             </section>
-            <div class="pxs-self"></div><div class="pxs-excepts"></div><p> Define this as a command. Only call this once before adding any args after program.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p> Define this as a command. Only call this once before adding any args after program.</p>
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#shell-Shellarg"><h7>arg</h7></a>
             </section>
-            <div class="pxs-self"></div><div class="pxs-excepts"></div><p>Paramaters are: argument: pxs_String the argument)). </p><p> Add a argument to the command.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>argument: <span class="terminal-line">pxs_String</span> the argument))</li> </ol><p> Add a argument to the command.</p>
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#shell-Shellstatus"><h7>status</h7></a>
             </section>
-            <div class="pxs-self"></div><div class="pxs-excepts"></div><p>Returns: pxs_Int64 </p><p> Run and get status code.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Returns: <span class="terminal-line">pxs_Int64</span> </p><p> Run and get status code.</p>
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#shell-Shellspawn"><h7>spawn</h7></a>
             </section>
-            <div class="pxs-self"></div><div class="pxs-excepts"></div><p> Spawn a process.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p> Spawn a process.</p>
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#shell-Shelloutput"><h7>output</h7></a>
             </section>
-            <div class="pxs-self"></div><div class="pxs-excepts"></div><p>Returns: shell-ShellOutput </p><p> Run and get output as a `Output`.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Returns: <span class="terminal-line">shell-ShellOutput</span> </p><p> Run and get output as a `Output`.</p>
+            <div class="row row-cols-auto">
+            <div class="col">
             <section>
             <a class="clean-anchor" href="#system"><h7>system</h7></a>
             </section>
-            <div class="pxs-excepts"></div><p>Paramaters are: command: pxs_String the command to run.)). </p><p>Returns: pxs_Int64  the status code.</p><p> Run a command. Prints to terminal by default.</p>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>command: <span class="terminal-line">pxs_String</span> the command to run.))</li> </ol><p>Returns: <span class="terminal-line">pxs_Int64</span>  the status code.</p><p> Run a command. Prints to terminal by default.</p>
     </div>
     <script>
         var Module = {
@@ -846,6 +1239,11 @@ print(os.get_cwd())
     <script src="/pixelscript.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+
+    <script>
+        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+        const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+    </script>
 </body>
 
 </html>
