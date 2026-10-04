@@ -113,7 +113,7 @@ impl Logger {
     /// @classmethod #`pxs-logger`
     /// @except
     /// @args(new_seperator:pxs_String(the new seperator.))
-    /// @prop
+    /// @prop seperator
     /// seperator prop
     /// @return(pxs_String)
     extern "C" fn seperator_prop(args: pxs_VarT) -> pxs_VarT {
@@ -146,14 +146,14 @@ impl Logger {
     }
 
     /// @pxs
+    /// @classmethod #`pxs-logger`
     /// @except
     /// @self
-    /// @prop
+    /// @args(end_line:pxs_Bool(add a '\n' or not))
+    /// @prop end_line
     /// end_line prop
-    /// args:
-    ///   - end_line: `bool` new end_line
     ///
-    /// returns `bool`
+    /// @return(pxs_Bool)
     extern "C" fn end_line_prop(args: pxs_VarT) -> pxs_VarT {
         let thisp = pxs_gettype(
             pxs_getrt(args),
@@ -183,9 +183,10 @@ impl Logger {
     }
 }
 
-/// Print to stdout
-/// args:
-///   - args: `...` n number of args to print. Pass in `Logger` instance to override default.
+/// @pxs
+/// @except
+/// @args(..., n[0]:#`pxs-logger`)
+/// Print to stdout. Pass in `Logger` as first instance to override default.
 extern "C" fn print(args: pxs_VarT) -> pxs_VarT {
     let rt = pxs_getrt(args);
     let arena = pxs_newarena();
@@ -233,11 +234,11 @@ extern "C" fn print(args: pxs_VarT) -> pxs_VarT {
     res
 }
 
+/// @pxs
+/// @args(expr:pxs_Bool(the expression being evaluated), msg:pxs_String(if failed error this))
 /// @except
 /// Error if expression is not true
-/// args:
-///   - expr: `bool` the expression being evaluated.
-///   - msg: `string` if failed error this.
+/// @return(pxs_Exception)
 extern "C" fn passert(args: pxs_VarT) -> pxs_VarT {
     let expr = pxs_arg(args, 0);
     if !pxs_isbool(expr) {

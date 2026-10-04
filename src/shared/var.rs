@@ -434,7 +434,6 @@ pub unsafe extern "C" fn default_deleter(_ptr: *mut c_void) {
 /// When using uints there is no gurantee that the supported language uses
 /// that type. Usually it defaults to i64 and f64.
 ///
-#[repr(C)]
 #[allow(non_camel_case_types)]
 pub struct pxs_Var {
     /// A tag for the variable type.

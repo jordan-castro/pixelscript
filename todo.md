@@ -76,7 +76,7 @@ already have their own benchmarks in the own repos. Please look at their documen
     - ~~lua~~
     - ~~quickjsng~~
     This is to support WASM, better cross platform control, and remove (bindgen, cbindgen) from build dependencies.
-- Make pxs_Var a opaque type. There is no longer any need for C level control. Use the api.
+- ~~Make pxs_Var a opaque type.~~ There is no longer any need for C level control. Use the api.
 
 ## v0.7 Wasm and Docs ~~and Dynamic Language support~~ (Dynamic support will not be supported. If you want to add a custom language)
 - ~~Add `dynamic` language support meaning a host language can add its own bindings backend that interops perfectly with Pxs.~~ (Developers should add fork and add their own backend following the docs. If they want to add it to pixelscript they will need to do a PR.)

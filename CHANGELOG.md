@@ -103,3 +103,5 @@
 - Added web/
 - Added web/docs
 - Added `srcipts/make_js_bindings.py` to generate JS bindings
+- Added `scripts/make_corelib.py` to generate `web/docs/corelib.html`.
+- Made pxs_Var opaque.

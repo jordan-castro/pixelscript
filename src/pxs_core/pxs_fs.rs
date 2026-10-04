@@ -21,7 +21,7 @@ use crate::{
     },
 };
 
-/// @pxs
+/// @pxs(ReadFile)
 /// @enum
 /// @values(Text = 1, Bytes = 2)
 /// How to read a file. Pass in `read_file`.
@@ -30,7 +30,7 @@ enum ReadFile {
     Bytes = 2,
 }
 
-/// @pxs
+/// @pxs(OpenType)
 /// @enum
 /// @values(Read = 1 << 0, Write = 1 << 1, Append = 1 << 2).
 /// How to open a file. Pass in `File`.
@@ -40,10 +40,12 @@ enum OpenType {
     Append = 1 << 2,
 }
 
+/// @pxs(File)
+/// Access to a File.
 /// Our pxs exposed File object
 struct File {
     /// The actual file.
-    _f: std::fs::File,
+    _f: Option<std::fs::File>,
     /// The open type
     open_file: u8,
     /// Path
@@ -53,8 +55,6 @@ struct File {
 // A helper for working with pointers.
 impl PtrMagic for File {}
 
-/// @pxs(#`fs-File`)
-/// Access to a File.
 impl File {
     /// @private
     /// Free a `File`
@@ -66,14 +66,15 @@ impl File {
 
     /// @pxs(File)
     /// @except
-    /// @new #`fs-File`
     /// @args(path:pxs_String(path to the file.),open_file:pxs_Int64(open file type. Defaults to READ.))
     /// Open or create a new #`fs-File`.
     /// open_file is defaulted to Read if not passed.
     /// @return(#`fs-File`)
     /// @example(begin)
     /// from pxs import fs
-    /// 
+    /// f = fs.File("text.txt", fs.OPEN_TYPE_WRITE)
+    /// f.write('test')
+    /// f.close() # remember to close your files.
     /// @example(end)
     extern "C" fn open(args: pxs_VarT) -> pxs_VarT {
         if pxs_argc(args) == 0 {
@@ -110,7 +111,7 @@ impl File {
         match file {
             Ok(val) => {
                 let f = File {
-                    _f: val,
+                    _f: Some(val),
                     open_file,
                     path,
                 };
@@ -125,6 +126,7 @@ impl File {
                 // Methods
                 pxs_object_addfunc(obj, c"write".as_ptr(), File::write);
                 pxs_object_addfunc(obj, c"read".as_ptr(), File::read);
+                pxs_object_addfunc(obj, c"close".as_ptr(), File::close);
                 // Properties
                 pxs_object_addprop(obj, c"path".as_ptr(), File::path_prop);
                 pxs_object_addprop(obj, c"open_type".as_ptr(), File::open_file_prop);
@@ -140,6 +142,13 @@ impl File {
     /// @classmethod #`fs-File`
     /// @self
     /// @args(contents:pxs_String|pxs_List[pxs_Byte](the contents to write. It can either be a string or a list of bytes.))
+    /// @example(begin)
+    /// from pxs import fs
+    /// from pxs import print
+    /// f = fs.File("test.txt", fs.OPEN_TYPE_WRITE)
+    /// f.write("test")
+    /// print(fs.read_file('test.txt'))
+    /// @example(end)
     /// Write some file.
     extern "C" fn write(args: pxs_VarT) -> pxs_VarT {
         // Check for this
@@ -156,10 +165,14 @@ impl File {
             return pxs_newexception(c"File was not opened to Write.".as_ptr());
         }
 
+        if this._f.is_none() {
+            return pxs_newexception(c"Can not write to file after close.".as_ptr());
+        }
+
         // Copy bytes and write them.
         let mut contents = vec![0; pxs_varsize(pxs_arg(args, 1))];
         pxs_copybytes(pxs_arg(args, 1), contents.as_mut_ptr() as pxs_Opaque);
-        match this._f.write(contents.as_slice()) {
+        match this._f.as_ref().unwrap().write(contents.as_slice()) {
             Ok(_) => {}
             Err(err) => {
                 return pxs_Var::new_exception(err).into_raw();
@@ -176,6 +189,11 @@ impl File {
     /// @args(read_type:pxs_Int64(how do we read the file. Should we return a pxs_String or pxs_List[pxs_Byte]))
     /// Read
     /// @return(pxs_String|pxs_List[pxs_Byte])
+    /// @example(begin)
+    /// from pxs import fs
+    /// f = fs.File("test.txt", fs.OPEN_TYPE_READ)
+    /// contents = f.read()
+    /// @example(end)
     /// TODO(jc) return num bytes read, make it possible to read up to a certain number at a time.
     extern "C" fn read(args: pxs_VarT) -> pxs_VarT {
         // Check for this
@@ -185,6 +203,10 @@ impl File {
         }
         let this = unsafe { Self::from_borrow_void(thisp) };
 
+        if this._f.is_none() {
+            return pxs_newexception(c"Can not read after close.".as_ptr());
+        }
+
         // Get read type
         let read_type = match pxs_getint(pxs_arg(args, 1)) {
             2 => ReadFile::Bytes,
@@ -193,7 +215,7 @@ impl File {
 
         let mut buffer = vec![];
         // let mut buffer = vec![0;len as usize];
-        match this._f.read_to_end(&mut buffer) {
+        match this._f.as_ref().unwrap().read_to_end(&mut buffer) {
             Ok(_) => {}
             Err(err) => {
                 return pxs_Var::new_exception(err).into_raw();
@@ -247,6 +269,29 @@ impl File {
         }
         let this = unsafe { Self::from_borrow_void(thisp) };
         pxs_newint(this.open_file as i64)
+    }
+
+    /// @pxs
+    /// @classmetdho #`fs-File`
+    /// @except
+    /// Close the file.
+    /// @example(begin)
+    /// from pxs import fs
+    /// from pxs import print
+    /// f = fs.File("new.py", fs.OPEN_TYPE_WRITE | fs.OPEN_TYPE_READ)
+    /// f.write('print(1 + 1)')
+    /// print(f.read())
+    /// f.close() # can not use File operations after this.
+    /// @example(end)
+    extern "C" fn close(args: pxs_VarT) -> pxs_VarT {
+        let thisp = pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), PxsCoreType::File as i32);
+        if thisp.is_null() {
+            return pxs_newexception(c"Self expected".as_ptr());
+        }
+        let this = unsafe { Self::from_borrow_void(thisp) };
+        this._f = None
+        ;
+        pxs_newnull()
     }
 }
 
@@ -327,8 +372,12 @@ fn _call(
 
 /// @pxs
 /// @except
-/// @args(file_path, read_type)
+/// @args(file_path:pxs_String(the path to said file.), read_type:pxs_Int64(how to return the contents.))
 /// @return(pxs_String|pxs_List[pxs_Byte])
+/// @example(begin)
+/// from pxs import fs
+/// fs.read_file("test.txt")
+/// @example(end)
 /// Read a file, returns either a pxs_String, or pxs_List of pxs_Byte.
 extern "C" fn read_file(args: pxs_VarT) -> pxs_VarT {
     _call(
@@ -345,6 +394,10 @@ extern "C" fn read_file(args: pxs_VarT) -> pxs_VarT {
 /// @args(path:pxs_String(path to file.))
 /// @return(pxs_Bool)
 /// Check if a path exists
+/// @example(begin)
+/// from pxs import fs
+/// fs.exists("test.txt")
+/// @example(end)
 extern "C" fn exists(args: pxs_VarT) -> pxs_VarT {
     // Check argc
     if pxs_argc(args) == 0 {
@@ -370,6 +423,10 @@ extern "C" fn exists(args: pxs_VarT) -> pxs_VarT {
 /// @args(path:pxs_String(path to directory))
 /// @return(pxs_Bool)
 /// Check if is a directory.
+/// @example(begin)
+/// from pxs import fs
+/// fs.is_dir("test")
+/// @example(end)
 extern "C" fn is_dir(args: pxs_VarT) -> pxs_VarT {
     _is(args, false, true)
 }
@@ -379,6 +436,10 @@ extern "C" fn is_dir(args: pxs_VarT) -> pxs_VarT {
 /// @args(path:pxs_String(path to directory))
 /// @return(pxs_Bool)
 /// Check if is a file
+/// @example(begin)
+/// from pxs import fs
+/// fs.is_file("test")
+/// @example(end)
 extern "C" fn is_file(args: pxs_VarT) -> pxs_VarT {
     _is(args, true, false)
 }
@@ -387,6 +448,10 @@ extern "C" fn is_file(args: pxs_VarT) -> pxs_VarT {
 /// @except
 /// @args(path:pxs_String(file path),contents:pxs_String|pxs_List[pxs_Byte](file contents))
 /// Write to a file.
+/// @example(begin)
+/// from pxs import fs
+/// fs.write_file("test.txt", "dude!")
+/// @example(end)
 extern "C" fn write_file(args: pxs_VarT) -> pxs_VarT {
     // Check argc
     if pxs_argc(args) != 2 {
@@ -406,6 +471,10 @@ extern "C" fn write_file(args: pxs_VarT) -> pxs_VarT {
 /// @except
 /// @args(path:pxs_String(file path),contents:pxs_String|pxs_List[pxs_Byte](file contents))
 /// Append to a file.
+/// @example(begin)
+/// from pxs import fs
+/// fs.append_file("test.txt", "dude!")
+/// @example(end)
 extern "C" fn append_file(args: pxs_VarT) -> pxs_VarT {
     // Check argc
     if pxs_argc(args) != 2 {
@@ -425,6 +494,13 @@ extern "C" fn append_file(args: pxs_VarT) -> pxs_VarT {
 /// @except
 /// @args(path:pxs_String(file path))
 /// Remove a file
+/// @example(begin)
+/// from pxs import fs, print
+/// fs.write_file("test.txt", "contents")
+/// print(fs.read_file("test.txt"))
+/// fs.remove_file("test.txt")
+/// print(fs.exists("test.txt"))
+/// @example(end)
 extern "C" fn remove_file(args: pxs_VarT) -> pxs_VarT {
     _internal_runner(args, std::fs::remove_file)
 }
@@ -433,6 +509,10 @@ extern "C" fn remove_file(args: pxs_VarT) -> pxs_VarT {
 /// @except
 /// @args(path:pxs_String(path to directory))
 /// Create a directory.
+/// @example(begin)
+/// from pxs import fs
+/// fs.create_dir("test")
+/// @example(end)
 extern "C" fn create_dir(args: pxs_VarT) -> pxs_VarT {
     _internal_runner(args, std::fs::create_dir)
 }
@@ -441,6 +521,10 @@ extern "C" fn create_dir(args: pxs_VarT) -> pxs_VarT {
 /// @except
 /// @args(path:pxs_String(path to directory))
 /// Create a directory recursively
+/// @example(begin)
+/// from pxs import fs
+/// fs.create_dir("test/test2/test3")
+/// @example(end)
 extern "C" fn create_dirs(args: pxs_VarT) -> pxs_VarT {
     _internal_runner(args, std::fs::create_dir_all)
 }
@@ -449,6 +533,10 @@ extern "C" fn create_dirs(args: pxs_VarT) -> pxs_VarT {
 /// @except
 /// @args(path:pxs_String(path to directory))
 /// Remove a empty directory
+/// @example(begin)
+/// from pxs import fs
+/// fs.remove_empty_dir("test/test2/test3")
+/// @example(end)
 extern "C" fn remove_empty_dir(args: pxs_VarT) -> pxs_VarT {
     _internal_runner(args, std::fs::remove_dir)
 }
@@ -457,6 +545,10 @@ extern "C" fn remove_empty_dir(args: pxs_VarT) -> pxs_VarT {
 /// @except
 /// @args(path:pxs_String(path to directory))
 /// Remove a directory, regardless of emptyness.
+/// @example(begin)
+/// from pxs import fs
+/// fs.remove_dir("test")
+/// @example(end)
 extern "C" fn remove_dir(args: pxs_VarT) -> pxs_VarT {
     _internal_runner(args, std::fs::remove_dir_all)
 }
@@ -466,6 +558,13 @@ extern "C" fn remove_dir(args: pxs_VarT) -> pxs_VarT {
 /// @args(path:pxs_String(path to directory))
 /// @return(pxs_List[pxs_String])
 /// Read contents of directory.
+/// @example(begin)
+/// from pxs import fs
+/// from pxs import print
+/// dir = fs.read_dir("test")
+/// for item in dir:
+///     print(item)
+/// @example(end)
 extern "C" fn read_dir(args: pxs_VarT) -> pxs_VarT {
     if pxs_argc(args) == 0 {
         return pxs_newexception(c"Expected 1 arg".as_ptr());

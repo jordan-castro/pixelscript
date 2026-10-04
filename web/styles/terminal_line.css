@@ -18,4 +18,11 @@
 
 code {
     background-color: white !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+}
+
+.code-result-text {
+    color: white;
+    padding-left: 10px;
 }

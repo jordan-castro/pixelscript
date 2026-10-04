@@ -9,6 +9,25 @@
 #include <stdlib.h>
 
 /**
+ * Public enum for supported runtimes.
+ */
+typedef enum pxs_Runtime {
+  /**
+   * Lua v5.5 with lua.
+   */
+  pxs_Lua = 0,
+  /**
+   * Python v3.x with pocketpy.
+   */
+  pxs_Python = 1,
+  /**
+   * ES 2020 using quickjsng
+   */
+  pxs_JavaScript = 2,
+  pxs_Wren = 3,
+} pxs_Runtime;
+
+/**
  * This represents the variable type that is being read or created.
  */
 typedef enum pxs_VarType {
@@ -58,25 +77,6 @@ typedef enum pxs_VarType {
 } pxs_VarType;
 
 /**
- * Public enum for supported runtimes.
- */
-typedef enum pxs_Runtime {
-  /**
-   * Lua v5.5 with lua.
-   */
-  pxs_Lua = 0,
-  /**
-   * Python v3.x with pocketpy.
-   */
-  pxs_Python = 1,
-  /**
-   * ES 2020 using quickjsng
-   */
-  pxs_JavaScript = 2,
-  pxs_Wren = 3,
-} pxs_Runtime;
-
-/**
  * Bitflags for modules.
  */
 enum pxs_ModuleFlag
@@ -101,14 +101,6 @@ typedef enum pxs_ModuleFlag pxs_ModuleFlag;
 typedef uint8_t pxs_ModuleFlag;
 #endif // __STDC_VERSION__ >= 202311L
 #endif // __cplusplus
-
-/**
- * A Factory variable data holder.
- *
- * Holds a callback for creation. And the arguments to be supplied.
- * Runtime will be supplied automatically.
- */
-typedef struct pxs_FactoryHolder pxs_FactoryHolder;
 
 /**
  * A Module is a C representation of data that needs to be (imported,required, etc)
@@ -211,78 +203,6 @@ typedef struct pxs_PixelArena pxs_PixelArena;
 typedef struct pxs_PixelObject pxs_PixelObject;
 
 /**
- * Holds data for a pxs_Var of list.
- *
- * It holds multiple pxsVar within.
- *
- * When creating call:
- *
- * `pxs_newlist()`.
- *
- * To add items
- *
- * `pxs_listadd(list_ptr, item_ptr)`
- *
- * To get items
- *
- * `pxs_listget(list_ptr, index)`
- *
- * A full example looks like:
- * ```c
- * // Create a new list (you never interact with pxs_VarList directly...)
- * pxs_VarT list = pxs_newlist();
- *
- * // Add a item
- * pxs_VarT number = pxs_newint(1);
- * pxs_listadd(list, number);
- *
- * // Get a item
- * pxs_VarT item_got = pxs_listget(list, 0);
- * ```
- */
-typedef struct pxs_VarList pxs_VarList;
-
-/**
- * A `Map` in pixelscript is very simply a Key (pxs_Var) to Value (pxs_Var) pair.
- * 
- * In Python it's a dictionary, in Lua it's a table, and in JS it's a object.
- */
-typedef struct pxs_VarMap pxs_VarMap;
-
-/**
- * A `Object` in pixelscript is wrapped with a potential host_ptr. This allows for non language specific ref counting.
- * 
- * To access the raw pointer, use `get_raw()`. Reference counting is automatically applied when this struct is dropped.
- */
-typedef struct pxs_VarObject pxs_VarObject;
-
-/**
- * The Variables actual value union.
- */
-typedef union pxs_VarValue {
-  int64_t i64_val;
-  uint64_t u64_val;
-  char *string_val;
-  bool bool_val;
-  double f64_val;
-  const void *null_val;
-  struct pxs_VarObject *object_val;
-  int32_t host_object_val;
-  struct pxs_VarList *list_val;
-  void *function_val;
-  struct pxs_FactoryHolder *factory_val;
-  struct pxs_VarMap *map_val;
-  uint8_t byte_val;
-} pxs_VarValue;
-
-typedef void *pxs_Opaque;
-
-/**
- * Deleter Function type. It takes a *void, and returns void.
- */
-typedef void (*pxs_DeleterFn)(pxs_Opaque ptr);
-
-/**
  * A PixelScript Var(iable).
  *
  * This is the universal truth between all languages PixelScript supports.
@@ -314,20 +234,7 @@ typedef void (*pxs_DeleterFn)(pxs_Opaque ptr);
  * that type. Usually it defaults to i64 and f64.
  *
  */
-typedef struct pxs_Var {
-  /**
-   * A tag for the variable type.
-   */
-  enum pxs_VarType tag;
-  /**
-   * A value as a union.
-   */
-  union pxs_VarValue value;
-  /**
-   * Optional delete method. This is used for Pointers in Objects, and Functions.
-   */
-  pxs_DeleterFn deleter;
-} pxs_Var;
+typedef struct pxs_Var pxs_Var;
 
 /**
  * Type Helper for a pxs_Var
@@ -353,6 +260,13 @@ typedef pxs_VarT (*pxs_Func)(pxs_VarT args);
  * Object type.
  */
 typedef struct pxs_PixelObject *pxs_PixelObjectT;
+
+typedef void *pxs_Opaque;
+
+/**
+ * Deleter Function type. It takes a *void, and returns void.
+ */
+typedef void (*pxs_DeleterFn)(pxs_Opaque ptr);
 
 /**
  * Function Type for Loading a file.

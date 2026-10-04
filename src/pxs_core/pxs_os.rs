@@ -6,6 +6,13 @@ use crate::{
     }},
 };
 
+/// @pxs
+/// @except
+/// @return(pxs_String)
+/// @example(begin)
+/// from pxs import print, os
+/// print(os.get_cwd())
+/// @example(end)
 /// Get the current working directory
 extern "C" fn get_cwd(_args: pxs_VarT) -> pxs_VarT {
     let mut cstring = CStringSafe::new();
@@ -16,6 +23,16 @@ extern "C" fn get_cwd(_args: pxs_VarT) -> pxs_VarT {
     }
 }
 
+/// @pxs
+/// @except
+/// @args(path:pxs_String(new directory))
+/// @example(begin)
+/// from pxs import print, os, fs
+/// print(os.get_cwd())
+/// fs.create_dir('example')
+/// os.chdir("example")
+/// print(os.get_cwd())
+/// @example(end)
 /// Change the current directory
 extern "C" fn chdir(args: pxs_VarT) -> pxs_VarT {
     // Ensure at least 1 arg
@@ -42,12 +59,11 @@ extern "C" fn chdir(args: pxs_VarT) -> pxs_VarT {
     }
 }
 
+/// @pxs
 /// @except
+/// @args(key:pxs_String(the key to read))
 /// Read a enviroment variable.
-/// args:
-///  - key: `string` the key to read.
-/// 
-/// returns `string?`
+/// @return(pxs_String)
 extern "C" fn read_env(args: pxs_VarT) -> pxs_VarT {
     if pxs_argc(args) != 1 {
         return pxs_newexception(c"Expected 1 arg".as_ptr());
@@ -70,11 +86,10 @@ extern "C" fn read_env(args: pxs_VarT) -> pxs_VarT {
     }
 }
 
+/// @pxs
+/// @args(key:pxs_String(the key to set), value: pxs_String(the value))
 /// @except
 /// Set a enviroment variable.
-/// args:
-///  - key: `string` the key to set.
-///  - value: `string` the value.
 extern "C" fn set_env(args: pxs_VarT) -> pxs_VarT {
     if pxs_argc(args) != 2 {
         return pxs_newexception(c"Expected 2 args".as_ptr());

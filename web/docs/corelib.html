@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -6,6 +7,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PixelScript docs</title>
 
+    <script src="/pxswrap.js"></script>
     <script src="/components/bootstrap.js"></script>
     <link rel="stylesheet" href="/styles/terminal_line.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet">
@@ -22,7 +24,98 @@
     </style>
 
     <link rel="stylesheet" href="https://unpkg.com/dracula-prism/dist/css/dracula-prism.css">
+    <script>
+        const oglog = console.log;
+        let CURRENT_ID = "";
 
+        function clear_output() {
+            const output = document.getElementById(CURRENT_ID);
+            if (!output) {
+                console.error("Can not clear null output.");
+                return;
+            }
+            output.replaceChildren();
+        }
+
+        function write_output(...args) {
+            let output = document.getElementById(CURRENT_ID);
+            if (!output) {
+                return;
+            }
+            for (let arg of args) {
+                let div = document.createElement("div");
+                div.className = "code-result-text";
+                div.innerHTML = arg;
+                output.appendChild(div);
+            }
+        }
+
+        console.log = (...args) => {
+            oglog(...args);
+            write_output(args);
+        };
+
+        const CODES = {memdel: `from pxs import mem
+from pxs import Logger
+l = Logger()
+mem.memdel(l)`,mem_delall: `from pxs import mem
+from pxs import Logger
+
+l1 = Logger()
+l2 = Logger()
+l3 = Logger()
+
+mem.mem_delall([l1, l2, l3])`,File: `from pxs import fs
+f = fs.File("text.txt", fs.OPEN_TYPE_WRITE)
+f.write('test')
+f.close() # remember to close your files.`,write: `from pxs import fs
+from pxs import print
+f = fs.File("test.txt", fs.OPEN_TYPE_WRITE)
+f.write("test")
+print(fs.read_file('test.txt'))`,read: `from pxs import fs
+f = fs.File("test.txt", fs.OPEN_TYPE_READ)
+contents = f.read()`,close: `from pxs import fs
+from pxs import print
+f = fs.File("new.py", fs.OPEN_TYPE_WRITE | fs.OPEN_TYPE_READ)
+f.write('print(1 + 1)')
+print(f.read())
+f.close() # can not use File operations after this.`,read_file: `from pxs import fs
+fs.read_file("test.txt")`,exists: `from pxs import fs
+fs.exists("test.txt")`,is_dir: `from pxs import fs
+fs.is_dir("test")`,is_file: `from pxs import fs
+fs.is_file("test")`,write_file: `from pxs import fs
+fs.write_file("test.txt", "dude!")`,append_file: `from pxs import fs
+fs.append_file("test.txt", "dude!")`,remove_file: `from pxs import fs, print
+fs.write_file("test.txt", "contents")
+print(fs.read_file("test.txt"))
+fs.remove_file("test.txt")
+print(fs.exists("test.txt"))`,create_dir: `from pxs import fs
+fs.create_dir("test")`,create_dirs: `from pxs import fs
+fs.create_dir("test/test2/test3")`,remove_empty_dir: `from pxs import fs
+fs.remove_empty_dir("test/test2/test3")`,remove_dir: `from pxs import fs
+fs.remove_dir("test")`,read_dir: `from pxs import fs
+from pxs import print
+dir = fs.read_dir("test")
+for item in dir:
+    print(item)`,get_cwd: `from pxs import print, os
+print(os.get_cwd())`,chdir: `from pxs import print, os, fs
+print(os.get_cwd())
+fs.create_dir('example')
+os.chdir("example")
+print(os.get_cwd())`,};
+        function runblock(cid) {
+            clear_output();
+            CURRENT_ID = cid;
+            clear_output();
+            if (CODES[cid]) {
+                let val = pxs_exec(pxs_Runtime.pxs_Python, CODES[cid], cid);
+                if (pxs_isexception(val)) {
+                    console.log(pxs_getstring(val));
+                }
+                pxs_freevar(val);
+            }
+        }
+    </script>
 </head>
 
 <body>
@@ -90,59 +183,667 @@
             </tbody>
         </table>
         <hr>
-        <section id="mem">
-            <a class="clean-anchor" href="#mem">
+        
+        <hr>
+        <section id="pxs.http">
+            <a class="clean-anchor" href="#pxs.http">
+                <h5>pxs.http</h5>
+            </a>
+        </section>
+    
+            <section>
+            <a class="clean-anchor" href="#HTTPVersion"><h7>HTTPVersion</h7></a>
+            </section>
+            <div class="pxs-enum"></div><p> HTTP Version</p>
+                <section>
+                    <a class="clean-anchor" href="#pxshttpClientResponse">
+                        <h6>ClientResponse</h6>
+                    </a>
+                </section>
+                
+            <section>
+            <a class="clean-anchor" href="#http-ClientResponsestatus"><h7> status</h7></a>
+            </section>
+            <div class="pxs-property"></div>
+            <div class="pxs-self"></div><p>Returns: pxs_Int64 </p><p> The response status.</p>
+            <section>
+            <a class="clean-anchor" href="#http-ClientResponsebytes"><h7> bytes</h7></a>
+            </section>
+            <div class="pxs-property"></div>
+            <div class="pxs-self"></div><p>Returns: pxs_List[pxs_Byte] </p><p> The response bytes.</p>
+            <section>
+            <a class="clean-anchor" href="#http-ClientResponsetext"><h7> text</h7></a>
+            </section>
+            <div class="pxs-property"></div>
+            <div class="pxs-self"></div><p>Returns: pxs_String </p><p> The response text.</p>
+            <section>
+            <a class="clean-anchor" href="#Client"><h7>Client</h7></a>
+            </section>
+            <p>Returns: http-Client </p><p> Create a new #`http-Client`</p><p></p>
+                <section>
+                    <a class="clean-anchor" href="#pxshttpClient">
+                        <h6>Client</h6>
+                    </a>
+                </section>
+                
+            <section>
+            <a class="clean-anchor" href="#http-Clientheaders"><h7> headers</h7></a>
+            </section>
+            <div class="pxs-property set"></div>
+            <div class="pxs-self"></div><p>Paramaters are: headers:  pxs_List[pxs_List[pxs_String]] the headers to set.)). </p><p>Returns: pxs_List[pxs_List[pxs_String]] </p><p> The headers.</p>
+            <section>
+            <a class="clean-anchor" href="#http-Clientget_header"><h7>get_header</h7></a>
+            </section>
+            <div class="pxs-self"></div><p>Paramaters are: key: pxs_String the header key.)). </p><p>Returns: pxs_String  value if found.</p><p> Get a single header.</p>
+            <section>
+            <a class="clean-anchor" href="#http-Clientset_header"><h7>set_header</h7></a>
+            </section>
+            <div class="pxs-self"></div><p>Paramaters are: key: pxs_String header key).  value:  pxs_String header value)). </p><p> Set a single header.</p>
+            <section>
+            <a class="clean-anchor" href="#http-Clientbody"><h7> body</h7></a>
+            </section>
+            <div class="pxs-property set"></div>
+            <div class="pxs-self"></div><p>Paramaters are: body: pxs_String|pxs_List[pxs_Byte] body as string or bytes.)). </p><p>Returns: pxs_String </p>
+            <section>
+            <a class="clean-anchor" href="#http-Clientversion"><h7> version</h7></a>
+            </section>
+            <div class="pxs-property set"></div>
+            <div class="pxs-self"></div><p>Paramaters are: version: pxs_Int64 the http version to use.)). </p><p>Returns: pxs_Int64 </p><p> Version</p>
+            <section>
+            <a class="clean-anchor" href="#http-Clientdomain"><h7> domain</h7></a>
+            </section>
+            <div class="pxs-property set"></div>
+            <div class="pxs-self"></div><p>Paramaters are: dn:  pxs_String the domain name)). </p><p>Returns: pxs_String </p><p> Domain name</p>
+            <section>
+            <a class="clean-anchor" href="#http-Clienttimeout"><h7> timeout</h7></a>
+            </section>
+            <div class="pxs-property set"></div>
+            <div class="pxs-self"></div><p>Paramaters are: ms:  pxs_Int64 millisecond)). </p><p>Returns: pxs_Int64 </p><p> Tiemout in MS</p>
+            <section>
+            <a class="clean-anchor" href="#http-Clientmake_request"><h7>make_request</h7></a>
+            </section>
+            <div class="pxs-self"></div><div class="pxs-excepts"></div><p>Paramaters are: url: pxs_String the url to request).  rt:  pxs_Int64 the request type to send.)). </p><p>Returns: pxs_String </p><p> Make a request</p>
+            <section>
+            <a class="clean-anchor" href="#http-Clienthttps"><h7> https</h7></a>
+            </section>
+            <div class="pxs-property"></div>
+            <div class="pxs-self"></div><p>Paramaters are: use:  pxs_Bool true for using. false for not.)). </p><p>Returns: pxs_Bool </p><p> Use HTTPS.</p>
+            <section>
+            <a class="clean-anchor" href="#post"><h7>post</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: url: pxs_String the url to request to). body: pxs_String the body to send). headers: @opt pxs_List[pxs_List[pxs_String]] the headers to apply).  version: @opt pxs_Int64 the HTTP version to use)). </p><p>Returns: http-ClientResponse </p><p> Make a HTTP Post request.</p>
+        <hr>
+        <section id="pxs.mem">
+            <a class="clean-anchor" href="#pxs.mem">
                 <h5>pxs.mem</h5>
             </a>
         </section>
-        <p><span class="terminal-line">pxs.mem</span> exposes memory access to core pxs types. This includes functions
-            like:</p>
-        <section id="mem-memdel">
-            <a class="clean-anchor" href="#mem-memdel">
-                <h6>memdel</h6>
-            </a>
-        </section>
-        <p>Deletes the pxs_Var intenral PixelObject value. This should only be used in sripts that require strict memory
-            control.</p>
-        <p>This process is called automatically when using <span class="terminal-line">pxs_clear</span></p>
-        <p>Paramaters are: <span class="terminal-line">object: pxs_Object</span></p>
-        <P>Returns: <span class="terminal-line">pxs_Null</span></P>
-        <pre class="language-python code-container">
-            <code class="code-editor">
+    
+            <section>
+            <a class="clean-anchor" href="#memdel"><h7>memdel</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: object: pxs_Object the object to delete. Must contain <_pxs_ptr>)).. </p><p> Delete a <pxs_Var>s <PixelObject>.</p><p></p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import mem
+from pxs import Logger
+l = Logger()
+mem.memdel(l)
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('memdel')">Try it out</button>
+                <div class="code-container" id="memdel">
+                </div>
+            </div>
+            </div>  
+
+            <section>
+            <a class="clean-anchor" href="#mem_delall"><h7>mem_delall</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: objects: pxs_List[pxs_Object] a list of object that have <pxs_ptr> assigned.)). </p><p> Delete a List of `pxs_Var` `PixelObject`</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
 from pxs import mem
 from pxs import Logger
 
-l = Logger()
+l1 = Logger()
+l2 = Logger()
+l3 = Logger()
 
-mem.memdel(l)</code>
-        </pre>
-        <section id="mem-mem_delall">
-            <a class="clean-anchor" href="#mem-mem_delall">
-                <h6>mem_delall</h6>
+mem.mem_delall([l1, l2, l3])
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('mem_delall')">Try it out</button>
+                <div class="code-container" id="mem_delall">
+                </div>
+            </div>
+            </div>  
+
+        <hr>
+        <section id="pxs.fs">
+            <a class="clean-anchor" href="#pxs.fs">
+                <h5>pxs.fs</h5>
             </a>
         </section>
-        <p>Deletes the pxs_Var intenral PixelObject value. This should only be used in sripts that require strict memory
-            control.</p>
-        <p>This process is called automatically when using <span class="terminal-line">pxs_clear</span></p>
-        <p>Paramaters are: <span class="terminal-line">object: pxs_Object</span></p>
-        <P>Returns: <span class="terminal-line">pxs_Null</span></P>
-        <pre class="language-python code-container">
-            <code class="code-editor">
-from pxs import mem
-from pxs import Logger
+    
+            <section>
+            <a class="clean-anchor" href="#ReadFile"><h7>ReadFile</h7></a>
+            </section>
+            <div class="pxs-enum"></div><p> How to read a file. Pass in `read_file`.</p>
+            <section>
+            <a class="clean-anchor" href="#OpenType"><h7>OpenType</h7></a>
+            </section>
+            <div class="pxs-enum"></div><p> How to open a file. Pass in `File`.</p>
+            <section>
+            <a class="clean-anchor" href="#File"><h7>File</h7></a>
+            </section>
+            <p> Access to a File.</p><p> Our pxs exposed File object</p>
+            <section>
+            <a class="clean-anchor" href="#File"><h7>File</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String path to the file.). open_file: pxs_Int64 open file type. Defaults to READ.)). </p><p>Returns: fs-File </p><p> Open or create a new #`fs-File`.</p><p> open_file is defaulted to Read if not passed.</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import fs
+f = fs.File("text.txt", fs.OPEN_TYPE_WRITE)
+f.write('test')
+f.close() # remember to close your files.
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('File')">Try it out</button>
+                <div class="code-container" id="File">
+                </div>
+            </div>
+            </div>  
 
-l = Logger()
+                <section>
+                    <a class="clean-anchor" href="#pxsfsFile">
+                        <h6>File</h6>
+                    </a>
+                </section>
+                
+            <section>
+            <a class="clean-anchor" href="#fs-Filewrite"><h7>write</h7></a>
+            </section>
+            <div class="pxs-self"></div><div class="pxs-excepts"></div><p>Paramaters are: contents: pxs_String|pxs_List[pxs_Byte] the contents to write. It can either be a string or a list of bytes.)). </p><p> Write some file.</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import fs
+from pxs import print
+f = fs.File("test.txt", fs.OPEN_TYPE_WRITE)
+f.write("test")
+print(fs.read_file('test.txt'))
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('write')">Try it out</button>
+                <div class="code-container" id="write">
+                </div>
+            </div>
+            </div>  
 
-mem.memdel(l)</code>
-        </pre>
+            <section>
+            <a class="clean-anchor" href="#fs-Fileread"><h7>read</h7></a>
+            </section>
+            <div class="pxs-self"></div><div class="pxs-excepts"></div><p>Paramaters are: read_type: pxs_Int64 how do we read the file. Should we return a pxs_String or pxs_List[pxs_Byte])). </p><p>Returns: pxs_String|pxs_List[pxs_Byte] </p><p> Read</p><p> TODO(jc) return num bytes read, make it possible to read up to a certain number at a time.</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import fs
+f = fs.File("test.txt", fs.OPEN_TYPE_READ)
+contents = f.read()
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('read')">Try it out</button>
+                <div class="code-container" id="read">
+                </div>
+            </div>
+            </div>  
 
+            <section>
+            <a class="clean-anchor" href="#fs-Filepath"><h7> path</h7></a>
+            </section>
+            <div class="pxs-property"></div>
+            <div class="pxs-self"></div><div class="pxs-excepts"></div><p>Returns: pxs_String </p><p> Path prop</p>
+            <section>
+            <a class="clean-anchor" href="#fs-Fileopen_type"><h7> open_type</h7></a>
+            </section>
+            <div class="pxs-property"></div>
+            <div class="pxs-self"></div><div class="pxs-excepts"></div><p>Returns: pxs_Int64 </p><p> Open type prop</p>
+            <section>
+            <a class="clean-anchor" href="#close"><h7>close</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p> @classmetdho #`fs-File`</p><p> Close the file.</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import fs
+from pxs import print
+f = fs.File("new.py", fs.OPEN_TYPE_WRITE | fs.OPEN_TYPE_READ)
+f.write('print(1 + 1)')
+print(f.read())
+f.close() # can not use File operations after this.
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('close')">Try it out</button>
+                <div class="code-container" id="close">
+                </div>
+            </div>
+            </div>  
+
+            <section>
+            <a class="clean-anchor" href="#read_file"><h7>read_file</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: file_path: pxs_String the path to said file.).  read_type: pxs_Int64 how to return the contents.)). </p><p>Returns: pxs_String|pxs_List[pxs_Byte] </p><p> Read a file, returns either a pxs_String, or pxs_List of pxs_Byte.</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import fs
+fs.read_file("test.txt")
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('read_file')">Try it out</button>
+                <div class="code-container" id="read_file">
+                </div>
+            </div>
+            </div>  
+
+            <section>
+            <a class="clean-anchor" href="#exists"><h7>exists</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String path to file.)). </p><p>Returns: pxs_Bool </p><p> Check if a path exists</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import fs
+fs.exists("test.txt")
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('exists')">Try it out</button>
+                <div class="code-container" id="exists">
+                </div>
+            </div>
+            </div>  
+
+            <section>
+            <a class="clean-anchor" href="#is_dir"><h7>is_dir</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String path to directory)). </p><p>Returns: pxs_Bool </p><p> Check if is a directory.</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import fs
+fs.is_dir("test")
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('is_dir')">Try it out</button>
+                <div class="code-container" id="is_dir">
+                </div>
+            </div>
+            </div>  
+
+            <section>
+            <a class="clean-anchor" href="#is_file"><h7>is_file</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String path to directory)). </p><p>Returns: pxs_Bool </p><p> Check if is a file</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import fs
+fs.is_file("test")
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('is_file')">Try it out</button>
+                <div class="code-container" id="is_file">
+                </div>
+            </div>
+            </div>  
+
+            <section>
+            <a class="clean-anchor" href="#write_file"><h7>write_file</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String file path). contents: pxs_String|pxs_List[pxs_Byte] file contents)). </p><p> Write to a file.</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import fs
+fs.write_file("test.txt", "dude!")
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('write_file')">Try it out</button>
+                <div class="code-container" id="write_file">
+                </div>
+            </div>
+            </div>  
+
+            <section>
+            <a class="clean-anchor" href="#append_file"><h7>append_file</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String file path). contents: pxs_String|pxs_List[pxs_Byte] file contents)). </p><p> Append to a file.</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import fs
+fs.append_file("test.txt", "dude!")
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('append_file')">Try it out</button>
+                <div class="code-container" id="append_file">
+                </div>
+            </div>
+            </div>  
+
+            <section>
+            <a class="clean-anchor" href="#remove_file"><h7>remove_file</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String file path)). </p><p> Remove a file</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import fs, print
+fs.write_file("test.txt", "contents")
+print(fs.read_file("test.txt"))
+fs.remove_file("test.txt")
+print(fs.exists("test.txt"))
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('remove_file')">Try it out</button>
+                <div class="code-container" id="remove_file">
+                </div>
+            </div>
+            </div>  
+
+            <section>
+            <a class="clean-anchor" href="#create_dir"><h7>create_dir</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String path to directory)). </p><p> Create a directory.</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import fs
+fs.create_dir("test")
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('create_dir')">Try it out</button>
+                <div class="code-container" id="create_dir">
+                </div>
+            </div>
+            </div>  
+
+            <section>
+            <a class="clean-anchor" href="#create_dirs"><h7>create_dirs</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String path to directory)). </p><p> Create a directory recursively</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import fs
+fs.create_dir("test/test2/test3")
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('create_dirs')">Try it out</button>
+                <div class="code-container" id="create_dirs">
+                </div>
+            </div>
+            </div>  
+
+            <section>
+            <a class="clean-anchor" href="#remove_empty_dir"><h7>remove_empty_dir</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String path to directory)). </p><p> Remove a empty directory</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import fs
+fs.remove_empty_dir("test/test2/test3")
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('remove_empty_dir')">Try it out</button>
+                <div class="code-container" id="remove_empty_dir">
+                </div>
+            </div>
+            </div>  
+
+            <section>
+            <a class="clean-anchor" href="#remove_dir"><h7>remove_dir</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String path to directory)). </p><p> Remove a directory, regardless of emptyness.</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import fs
+fs.remove_dir("test")
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('remove_dir')">Try it out</button>
+                <div class="code-container" id="remove_dir">
+                </div>
+            </div>
+            </div>  
+
+            <section>
+            <a class="clean-anchor" href="#read_dir"><h7>read_dir</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String path to directory)). </p><p>Returns: pxs_List[pxs_String] </p><p> Read contents of directory.</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import fs
+from pxs import print
+dir = fs.read_dir("test")
+for item in dir:
+    print(item)
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('read_dir')">Try it out</button>
+                <div class="code-container" id="read_dir">
+                </div>
+            </div>
+            </div>  
+
+        <hr>
+        <section id="pxs.os">
+            <a class="clean-anchor" href="#pxs.os">
+                <h5>pxs.os</h5>
+            </a>
+        </section>
+    
+            <section>
+            <a class="clean-anchor" href="#get_cwd"><h7>get_cwd</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Returns: pxs_String </p><p> Get the current working directory</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import print, os
+print(os.get_cwd())
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('get_cwd')">Try it out</button>
+                <div class="code-container" id="get_cwd">
+                </div>
+            </div>
+            </div>  
+
+            <section>
+            <a class="clean-anchor" href="#chdir"><h7>chdir</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: path: pxs_String new directory)). </p><p> Change the current directory</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import print, os, fs
+print(os.get_cwd())
+fs.create_dir('example')
+os.chdir("example")
+print(os.get_cwd())
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('chdir')">Try it out</button>
+                <div class="code-container" id="chdir">
+                </div>
+            </div>
+            </div>  
+
+            <section>
+            <a class="clean-anchor" href="#read_env"><h7>read_env</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: key: pxs_String the key to read)). </p><p>Returns: pxs_String </p><p> Read a enviroment variable.</p>
+            <section>
+            <a class="clean-anchor" href="#set_env"><h7>set_env</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: key: pxs_String the key to set).  value:  pxs_String the value)). </p><p> Set a enviroment variable.</p>
+        <hr>
+        <section id="pxs_shell">
+            <a class="clean-anchor" href="#pxs_shell">
+                <h5>pxs_shell</h5>
+            </a>
+        </section>
+    
+            <section>
+            <a class="clean-anchor" href="#ShellOutput"><h7>ShellOutput</h7></a>
+            </section>
+            <p> Just a wrapper around Output</p>
+                <section>
+                    <a class="clean-anchor" href="#pxs_shellShellOutput">
+                        <h6>ShellOutput</h6>
+                    </a>
+                </section>
+                
+            <section>
+            <a class="clean-anchor" href="#shell-ShellOutputstdout"><h7> stdout</h7></a>
+            </section>
+            <div class="pxs-property"></div>
+            <div class="pxs-self"></div><p>Returns: pxs_String </p><p> Get stdout</p>
+            <section>
+            <a class="clean-anchor" href="#shell-ShellOutputstderr"><h7> stderr</h7></a>
+            </section>
+            <div class="pxs-property"></div>
+            <div class="pxs-self"></div><p>Returns: pxs_String </p><p> Get stderr</p>
+            <section>
+            <a class="clean-anchor" href="#shell-ShellOutputstatus"><h7> status</h7></a>
+            </section>
+            <div class="pxs-property"></div>
+            <div class="pxs-self"></div><p>Returns: pxs_Int64 </p><p> Get status</p>
+            <section>
+            <a class="clean-anchor" href="#Shell"><h7>Shell</h7></a>
+            </section>
+            <p> Just a wrapper around Command.</p>
+            <section>
+            <a class="clean-anchor" href="#PlatformShell"><h7>PlatformShell</h7></a>
+            </section>
+            <p>Returns: shell-Shell </p><p> Create a new platform shell.</p>
+            <section>
+            <a class="clean-anchor" href="#Shell"><h7>Shell</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: program: pxs_String the starting program)). </p><p>Returns: shell-Shell </p><p> Create a new shell.</p>
+                <section>
+                    <a class="clean-anchor" href="#pxs_shellShell">
+                        <h6>Shell</h6>
+                    </a>
+                </section>
+                
+            <section>
+            <a class="clean-anchor" href="#shell-Shellcommand"><h7>command</h7></a>
+            </section>
+            <div class="pxs-self"></div><div class="pxs-excepts"></div><p> Define this as a command. Only call this once before adding any args after program.</p>
+            <section>
+            <a class="clean-anchor" href="#shell-Shellarg"><h7>arg</h7></a>
+            </section>
+            <div class="pxs-self"></div><div class="pxs-excepts"></div><p>Paramaters are: argument: pxs_String the argument)). </p><p> Add a argument to the command.</p>
+            <section>
+            <a class="clean-anchor" href="#shell-Shellstatus"><h7>status</h7></a>
+            </section>
+            <div class="pxs-self"></div><div class="pxs-excepts"></div><p>Returns: pxs_Int64 </p><p> Run and get status code.</p>
+            <section>
+            <a class="clean-anchor" href="#shell-Shellspawn"><h7>spawn</h7></a>
+            </section>
+            <div class="pxs-self"></div><div class="pxs-excepts"></div><p> Spawn a process.</p>
+            <section>
+            <a class="clean-anchor" href="#shell-Shelloutput"><h7>output</h7></a>
+            </section>
+            <div class="pxs-self"></div><div class="pxs-excepts"></div><p>Returns: shell-ShellOutput </p><p> Run and get output as a `Output`.</p>
+            <section>
+            <a class="clean-anchor" href="#system"><h7>system</h7></a>
+            </section>
+            <div class="pxs-excepts"></div><p>Paramaters are: command: pxs_String the command to run.)). </p><p>Returns: pxs_Int64  the status code.</p><p> Run a command. Prints to terminal by default.</p>
     </div>
-<!-- /// @except
-/// Delete a List of `pxs_Var` `PixelObject`
-/// args:
-///   - objects: `list[pxs_Object]` a list of objects that have `_pxs_ptr` assigned.
- -->
+    <script>
+        var Module = {
+            onRuntimeInitialized: function () {
+                console.log("PXS is ready.");
+                pxs_wrap(Module);
+                READY = true;
+                pxs_core_initall();
+            }
+        };
+    </script>
+
     <script src="/components/navbar.js"></script>
+    <script src="/pixelscript.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
 </body>

@@ -50,6 +50,9 @@ impl RequestType {
     }
 }
 
+/// @pxs(HTTPVersion)
+/// @enum
+/// @values(HTTP_VERSION_1_1 = 0, HTTP_VERSION_2 = 1, HTTP_VERSION_3 = 2)
 /// HTTP Version
 #[derive(Clone, Copy, PartialEq)]
 #[repr(i32)]
@@ -148,10 +151,10 @@ impl ClientResponse {
     }
 
     /// @self
-    /// @prop(get)
+    /// @prop(get) version
+    /// @classmethod(#`http-ClientResponse`)
     /// The HTTP Version.
-    ///
-    /// returns `int`
+    /// @return(pxs_Int64)
     extern "C" fn prop_version(args: pxs_VarT) -> pxs_VarT {
         expected_argc!(args, 1);
         let ptr = pxs_gettype(
@@ -167,11 +170,12 @@ impl ClientResponse {
         pxs_newint(this.data.version as i64)
     }
 
+    /// @pxs
     /// @self
-    /// @prop(get)
+    /// @classmethod(#`http-ClientResponse`)
+    /// @prop(get) status
     /// The response status.
-    ///
-    /// returns `int`
+    /// @return(pxs_Int64)
     extern "C" fn prop_status(args: pxs_VarT) -> pxs_VarT {
         expected_argc!(args, 1);
         let ptr = pxs_gettype(
@@ -187,11 +191,12 @@ impl ClientResponse {
         pxs_newint(this.status as i64)
     }
 
+    /// @pxs
+    /// @classmethod(#`http-ClientResponse`)
     /// @self
-    /// @prop(get)
+    /// @prop(get) bytes
     /// The response bytes.
-    ///
-    /// returns `[]uint`
+    /// @return(pxs_List[pxs_Byte])
     extern "C" fn prop_bytes(args: pxs_VarT) -> pxs_VarT {
         expected_argc!(args, 1);
         let ptr = pxs_gettype(
@@ -212,11 +217,12 @@ impl ClientResponse {
         )
     }
 
+    /// @pxs
+    /// @classmethod(#`http-ClientResponse`)
     /// @self
-    /// @prop(get)
+    /// @prop(get) text
     /// The response text.
-    ///
-    /// returns `string`
+    /// @return(pxs_String)
     extern "C" fn prop_text(args: pxs_VarT) -> pxs_VarT {
         expected_argc!(args, 1);
         let ptr = pxs_gettype(
@@ -369,10 +375,10 @@ impl Client {
         }
     }
 
-    /// @name(Client)
-    /// Create a new `Client`
+    /// @pxs(Client)
+    /// Create a new #`http-Client`
     ///
-    /// returns `Client`
+    /// @return(#`http-Client`)
     extern "C" fn new_client(_: pxs_VarT) -> pxs_VarT {
         let client = Self::new();
 
@@ -400,13 +406,13 @@ impl Client {
         pxs_newhost(obj)
     }
 
+    /// @pxs
+    /// @classmethod(#`http-Client`)
     /// @self
-    /// @prop(get,set)
+    /// @prop(get,set) headers
     /// The headers.
-    /// args:
-    ///  - headers: @set `[][]string` the headers to set.
-    ///
-    /// returns `[][]string`|`null`
+    /// @args(headers: pxs_List[pxs_List[pxs_String]](the headers to set.))
+    /// @return(pxs_List[pxs_List[pxs_String]])
     extern "C" fn prop_headers(args: pxs_VarT) -> pxs_VarT {
         let ptr = pxs_gettype(
             pxs_getrt(args),
@@ -439,12 +445,12 @@ impl Client {
         pxs_newnull()
     }
 
+    /// @pxs
+    /// @classmethod(#`http-Client`)
     /// @self
+    /// @args(key:pxs_String(the header key.))
     /// Get a single header.
-    /// args:
-    ///  - key: `string` the header key.
-    ///
-    /// returns `string` value if found.
+    /// @return(pxs_String) value if found.
     extern "C" fn get_header(args: pxs_VarT) -> pxs_VarT {
         let ptr = pxs_gettype(
             pxs_getrt(args),
@@ -471,11 +477,11 @@ impl Client {
         }
     }
 
+    /// @pxs
+    /// @classmethod(#`http-Client`)
     /// @self
+    /// @args(key:pxs_String(header key), value: pxs_String(header value))
     /// Set a single header.
-    /// args:
-    ///  - key: `string` header key.
-    ///  - value: `string` header value.
     extern "C" fn set_header(args: pxs_VarT) -> pxs_VarT {
         let ptr = pxs_gettype(
             pxs_getrt(args),
@@ -504,13 +510,12 @@ impl Client {
         pxs_newnull()
     }
 
+    /// @pxs
+    /// @classmethod(#`http-Client`)
     /// @self
-    /// @prop(get,set)
-    ///
-    /// args:
-    ///  - body: @set `string`|`[]uint` body as string or bytes.
-    ///
-    /// returns `string`|`null`
+    /// @prop(get,set) body
+    /// @args(body:pxs_String|pxs_List[pxs_Byte](body as string or bytes.))
+    /// @return(pxs_String)
     extern "C" fn prop_body(args: pxs_VarT) -> pxs_VarT {
         let ptr = pxs_gettype(
             pxs_getrt(args),
@@ -553,13 +558,13 @@ impl Client {
         pxs_newnull()
     }
 
+    /// @pxs
+    /// @classmethod(#`http-Client`)
     /// @self
-    /// @prop(get,set)
+    /// @prop(get,set) version
+    /// @args(version:pxs_Int64(the http version to use.))
     /// Version
-    /// args:
-    ///  - version: @set `int` the http version to use.
-    ///
-    /// returns `int`|`null`
+    /// @return(pxs_Int64)
     extern "C" fn prop_version(args: pxs_VarT) -> pxs_VarT {
         let ptr = pxs_gettype(
             pxs_getrt(args),
@@ -596,13 +601,13 @@ impl Client {
         pxs_newnull()
     }
 
+    /// @pxs
+    /// @classmethod(#`http-Client`)
     /// @self
-    /// @prop(get,set)
+    /// @prop(get,set) domain
     /// Domain name
-    /// args:
-    ///  - dn: @set `string` the domain name.
-    ///
-    /// returns `string`|`null`
+    /// @args(dn: pxs_String(the domain name))
+    /// @return(pxs_String)
     extern "C" fn prop_domain(args: pxs_VarT) -> pxs_VarT {
         let ptr = pxs_gettype(
             pxs_getrt(args),
@@ -631,13 +636,13 @@ impl Client {
         pxs_newnull()
     }
 
+    /// @pxs
+    /// @classmethod(#`http-Client`)
     /// @self
-    /// @prop(get,set)
+    /// @prop(get,set) timeout
     /// Tiemout in MS
-    /// args:
-    ///  - ms: @set `int` milliseconds.
-    ///
-    /// returns `int`
+    /// @args(ms: pxs_Int64(millisecond))
+    /// @return(pxs_Int64)
     extern "C" fn prop_timeout(args: pxs_VarT) -> pxs_VarT {
         let ptr = pxs_gettype(
             pxs_getrt(args),
@@ -666,14 +671,13 @@ impl Client {
         pxs_newnull()
     }
 
+    /// @pxs
+    /// @classmethod(#`http-Client`)
     /// @except
     /// @self
+    /// @args(url:pxs_String(the url to request), rt: pxs_Int64(the request type to send.))
     /// Make a request
-    /// args:
-    ///  - url: `string` the url to make the request to.
-    ///  - rt: `RequestType` the request type to send.
-    ///
-    /// returns `string`
+    /// @return(pxs_String)
     extern "C" fn make_request(args: pxs_VarT) -> pxs_VarT {
         let ptr = pxs_gettype(
             pxs_getrt(args),
@@ -713,13 +717,13 @@ impl Client {
         }
     }
 
+    /// @pxs
+    /// @classmethod(#`http-Client`)
     /// @self
-    /// @prop(get, set)
+    /// @prop(get, set) https
+    /// @args(use: pxs_Bool(true for using. false for not.))
     /// Use HTTPS.
-    /// args:
-    ///   - use: @set `bool` true for using false for not.
-    ///
-    /// returns `bool`
+    /// @return(pxs_Bool)
     extern "C" fn prop_https(args: pxs_VarT) -> pxs_VarT {
         let ptr = pxs_gettype(
             pxs_getrt(args),
@@ -778,13 +782,9 @@ fn get_domain_and_path(url: pxs_VarT) -> [String; 2] {
 }
 
 /// @except
+/// @args(url:pxs_String(the url to request to),headers: @opt pxs_List[pxs_List[pxs_String]](the headers to apply.), version: @opt pxs_Int64 the HTTP version.)
 /// Make a HTTP Get request.
-/// args:
-///  - url: `string` the url to request to.
-///  - headers: @opt `[][]string` the headers to apply.
-///  - version: @opt `int` the HTTP version to use.
-///
-/// returns `ClientResponse`
+/// @return(#`http-ClientResponse`)
 extern "C" fn get(args: pxs_VarT) -> pxs_VarT {
     // Check URL
     let argc = pxs_argc(args);
@@ -834,15 +834,11 @@ extern "C" fn get(args: pxs_VarT) -> pxs_VarT {
     result
 }
 
+/// @pxs
+/// @args(url:pxs_String(the url to request to),body:pxs_String(the body to send),headers:@opt pxs_List[pxs_List[pxs_String]](the headers to apply), version:@opt pxs_Int64(the HTTP version to use))
 /// @except
 /// Make a HTTP Post request.
-/// args:
-///  - url: `string` the url to request to.
-///  - body: `string` the body to send.
-///  - headers: @opt `[][]string` the headers to apply.
-///  - version: @opt `int` the HTTP version to use.
-///
-/// returns `ClientResponse`
+/// @return(#`http-ClientResponse`)
 extern "C" fn post(args: pxs_VarT) -> pxs_VarT {
     // Check URL
     let argc = pxs_argc(args);

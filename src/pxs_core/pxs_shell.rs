@@ -37,6 +37,7 @@ macro_rules! stdwhateva {
     }};
 }
 
+/// @pxs(ShellOutput)
 /// Just a wrapper around Output
 struct ShellOutput {
     output: Output,
@@ -67,26 +68,32 @@ impl ShellOutput {
         pxs_newhost(obj)
     }
 
+    /// @pxs
+    /// @classmethod(#`shell-ShellOutput`)
     /// @self
-    /// @prop.get
+    /// @prop(get) stdout
     /// Get stdout
-    /// returns `string`
+    /// @return(pxs_String)
     extern "C" fn stdout(args: pxs_VarT) -> pxs_VarT {
         stdwhateva!(args, stdout)
     }
 
+    /// @pxs
+    /// @classmethod(#`shell-ShellOutput`)
     /// @self
-    /// @prop.get
+    /// @prop(get) stderr
     /// Get stderr
-    /// returns `string`
+    /// @return(pxs_String)
     extern "C" fn stderr(args: pxs_VarT) -> pxs_VarT {
         stdwhateva!(args, stderr)
     }
 
+    /// @pxs
+    /// @classmethod(#`shell-ShellOutput`)
     /// @self
-    /// @prop.get
+    /// @prop(get) status
     /// Get status
-    /// returns `int`
+    /// @return(pxs_Int64)
     extern "C" fn status(args: pxs_VarT) -> pxs_VarT {
         let thisp = pxs_gettype(
             pxs_getrt(args),
@@ -102,6 +109,7 @@ impl ShellOutput {
     }
 }
 
+/// @pxs(Shell)
 /// Just a wrapper around Command.
 struct Shell {
     cmd: Command,
@@ -115,9 +123,9 @@ impl Shell {
         }
     }
 
+    /// @pxs(PlatformShell)
     /// Create a new platform shell.
-    ///
-    /// returns `Shell`
+    /// @return(#`shell-Shell`)
     extern "C" fn platform(args: pxs_VarT) -> pxs_VarT {
         let nargs = pxs_newlist();
         pxs_listadd(nargs, pxs_new_shallowcopy(pxs_getrt(args)));
@@ -133,12 +141,11 @@ impl Shell {
         shell
     }
 
+    /// @pxs(Shell)
     /// Create a new shell.
-    ///
-    /// args:
-    ///   - program: `string` the starting program.
-    ///
-    /// returns `Shell` instance.
+    /// @args(program:pxs_String(the starting program))
+    /// @except
+    /// @return(#`shell-Shell`)
     extern "C" fn new(args: pxs_VarT) -> pxs_VarT {
         let program_arg = pxs_arg(args, 0);
         if !pxs_isstring(program_arg) {
@@ -166,6 +173,8 @@ impl Shell {
         pxs_newhost(obj)
     }
 
+    /// @pxs
+    /// @classmethod(#`shell-Shell`)
     /// @except
     /// @self
     /// Define this as a command. Only call this once before adding any args after program.
@@ -191,12 +200,12 @@ impl Shell {
         pxs_newnull()
     }
 
+    /// @pxs
+    /// @classmethod(#`shell-Shell`)
     /// @self
     /// @except
+    /// @args(argument:pxs_String(the argument))
     /// Add a argument to the command.
-    /// args:
-    ///   - argument: `string` the argument.
-    ///
     extern "C" fn arg(args: pxs_VarT) -> pxs_VarT {
         let thisp = pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), PxsCoreType::Shell as i32);
         if thisp.is_null() {
@@ -215,11 +224,12 @@ impl Shell {
         pxs_newnull()
     }
 
+    /// @pxs
+    /// @classmethod(#`shell-Shell`)
     /// @self
     /// @except
     /// Run and get status code.
-    ///
-    /// returns `int`
+    /// @return(pxs_Int64)
     extern "C" fn status(args: pxs_VarT) -> pxs_VarT {
         let thisp = pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), PxsCoreType::Shell as i32);
         if thisp.is_null() {
@@ -233,6 +243,8 @@ impl Shell {
         }
     }
 
+    /// @pxs
+    /// @classmethod(#`shell-Shell`)
     /// @self
     /// @except
     /// Spawn a process.
@@ -249,11 +261,12 @@ impl Shell {
         }
     }
 
+    /// @pxs
+    /// @classmethod(#`shell-Shell`)
     /// @self
     /// @except
     /// Run and get output as a `Output`.
-    ///
-    /// returns `Output` the output
+    /// @return(#`shell-ShellOutput`)
     extern "C" fn output(args: pxs_VarT) -> pxs_VarT {
         let thisp = pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), PxsCoreType::Shell as i32);
         if thisp.is_null() {
@@ -271,12 +284,11 @@ impl Shell {
     }
 }
 
+/// @pxs
+/// @args(command:pxs_String(the command to run.))
 /// @except
 /// Run a command. Prints to terminal by default.
-/// args:
-///   - command: `string` the command to run.
-///
-/// returns `int` the status code.
+/// @return(pxs_Int64) the status code.
 extern "C" fn system(args: pxs_VarT) -> pxs_VarT {
     if pxs_argc(args) != 1 {
         return pxs_newexception(c"Expected 1 arg".as_ptr());
