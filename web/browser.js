@@ -72,6 +72,27 @@ function setup_browser_apis() {
         }
         return pxs_newnull();
     });
+    pxs_addfunc(module, "pretty_alert", (args) => {
+        let argc = pxs_argc(args);
+        if (argc == 2) {
+            let msg_arg = pxs_arg(args, 0);
+            if (!pxs_isstring(msg_arg)) {
+                return pxs_newexception("Expected string.");
+            }
+            let body_arg = pxs_arg(args, 1);
+            if (!pxs_isstring(body_arg)) {
+                return pxs_newexception("Expected string.");
+            }
+            const title = document.getElementById("pxs-modal-title");
+            const body = document.getElementById("pxs-modal-body");
+            title.innerText = pxs_getstring(msg_arg);
+            body.innerText = pxs_getstring(body_arg);
+            const modalElement = document.getElementById('myModal');
+            const myModal = new bootstrap.Modal(modalElement);
+            myModal.show();
+        }
+        return pxs_newnull();
+    });
     pxs_addmod(module);
 }
 

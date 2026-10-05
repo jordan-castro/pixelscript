@@ -20,7 +20,7 @@ pub mod wasm;
 #[cfg(target_os = "windows")]
 pub mod windows;
 
-#[cfg(target_vendor = "apple")]
+// #[cfg(target_vendor = "apple")]
 pub mod apple;
 
 #[cfg(target_os = "linux")]

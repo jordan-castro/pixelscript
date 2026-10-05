@@ -1,12 +1,21 @@
 // Apple native IMPL uses Fondation
 // Works on all Apple OS.
 
+#![allow(non_snake_case)]
+
 // ============ BINDINGS ===============
 
-use etffi::create_raw_string;
+use std::ptr::null_mut;
+
+use etffi::{create_raw_string, free_raw_string};
+
+use crate::pxs_core::http::ClientCallbacks;
 
 type ClassName = *const std::ffi::c_char;
 type Class = *mut std::ffi::c_void;
+type Id = *mut std::ffi::c_void;
+
+const DISPATCH_TIME_FOREVER: u64 = !0;
 
 #[link(name="objc", kind="dylib")]
 #[link(name="System", kind="dylib")]
@@ -18,60 +27,117 @@ unsafe extern "C" {
     fn objc_msgSend(receiver: Class, selector: *mut std::ffi::c_void, ...) -> *mut std::ffi::c_void;
 }
 
-struct ObjCClass {
-    name: String,
-    ptr: Class,
-    class_name: ClassName
+#[link(name="System", kind="dylib")]
+unsafe extern "C" {
+    fn dispatch_semaphore_create(value: std::ffi::c_long) -> Id;
+    fn dispatch_semaphore_wait(dsema: Id, timeout: u64) -> std::ffi::c_long;
+    fn dispatch_semaphore_signal(dsema: Id) -> std::ffi::c_long;
+    fn dispatch_release(object: Id);
 }
+
+struct ObjCClass {
+    ptr: Class,
+}
+
 impl ObjCClass {
     fn new(name: String) -> ObjCClass {
         let class_name = create_raw_string!(name.as_str());
-        
+        unsafe {
+            let ptr = objc_getClass(class_name); 
+            free_raw_string!(class_name);
+            ObjCClass { ptr } 
+        }
+    }
+
+    fn from_ptr(ptr: Class) -> ObjCClass {
+        ObjCClass { ptr }
+    }
+
+    fn invalidateAndCancel(&self) {
+        unsafe {
+            let sel = sel_registerName(c"invalidateAndCancel".as_ptr());
+            objc_msgSend(self.ptr, sel);
+        }
+    }
+
+    fn release(&self) {
+        unsafe {
+            let sel = sel_registerName(c"release".as_ptr());
+            objc_msgSend(self.ptr, sel);
+        }
+    }
+
+    fn retain(&self) {
+        unsafe {
+            let sel = sel_registerName(c"retain".as_ptr());
+            Self::from_ptr(objc_msgSend(self.ptr, sel));
+        }
     }
 }
-impl Drop for ObjCClass {
-    fn drop(&mut self) {
-        todo!()
+
+struct NSURLSessionConfiguration {
+    class: ObjCClass
+}
+
+impl NSURLSessionConfiguration {
+    /// This is specific to NSURLSessionConfiguration class.
+    fn defaultSessionConfiguration() -> ObjCClass {
+        unsafe {
+            let class = ObjCClass::new("NSURLSessionConfiguration".to_string());
+            let sel = sel_registerName(c"defaultSessionConfiguration".as_ptr());
+
+            // class.
+            ObjCClass { ptr: objc_msgSend(class.ptr, sel) }
+        }
     }
 }
+
 
 // ============ END BINDINGS ===========
 
-// #import <Foundation/Foundation.h>
-// #include <string>
-// #include <vector>
-// #include <stdexcept>
-// #include "http.hpp"
-// #include "utils.hpp"
-// #include <stdexcept>
-// #include <dispatch/dispatch.h>
-// #include <iostream>
+struct SessionWrapper {
+    session: ObjCClass
+}
 
-// // Wrap the session using RAII.
-// struct SessionWrapper {
-//     NSURLSession* session;
+impl SessionWrapper {
+    fn new(session: ObjCClass) -> Self {
+        session.retain();
+        SessionWrapper { session }
+    }
+}
 
-//     SessionWrapper(NSURLSession* s) {
-//         session = [s retain];
-//     }
-//     ~SessionWrapper() {
-//         if (session) {
-//             [session invalidateAndCancel];
-//             [session release];
-//             session = nil;
-//         }
-//     }
-// };
+impl Drop for SessionWrapper {
+    fn drop(&mut self) {
+        self.session.release();
+    }
+}
+
+pub(super) struct MacOSHttp {}
+impl ClientCallbacks for MacOSHttp {
+    fn setup(client: &mut super::Client) -> Result<(), String> {
+        if client.value != null_mut() {
+            return Ok(());
+        }   
+
+        // user agent
+        let config = NSURLSessionConfiguration::defaultSessionConfiguration();
+    }
+
+    fn create_request(client: &mut super::Client, path: String, rt: super::RequestType) -> Result<super::ClientResponse, String> {
+        todo!()
+    }
+
+    fn free(v:crate::shared::pxs_Opaque) {
+        todo!()
+    }
+}
+// pub(super) struct WindowsHTTP {}
+
 
 // void Client::setup() {
 //     // Already exists?
 //     if (this->internal != nullptr) {
 //         return;
-//     }
-
-//     auto user_agent = this->data.user_agent;
-//     if (user_agent.empty()) {
-//         user_agent = "yoyo_rt";
 //     }
 
 //     NSURLSessionConfiguration* config = [NSURLSessionConfiguration defaultSessionConfiguration];

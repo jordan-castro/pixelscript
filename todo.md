@@ -78,11 +78,11 @@ already have their own benchmarks in the own repos. Please look at their documen
     This is to support WASM, better cross platform control, and remove (bindgen, cbindgen) from build dependencies.
 - ~~Make pxs_Var a opaque type.~~ There is no longer any need for C level control. Use the api.
 
-## v0.7 Wasm and Docs ~~and Dynamic Language support~~ (Dynamic support will not be supported. If you want to add a custom language)
+## v0.7 Wasm and Docs ~~and Dynamic Language support~~ (Dynamic support will not be supported. If you want to add a custom language create a fork.)
 - ~~Add `dynamic` language support meaning a host language can add its own bindings backend that interops perfectly with Pxs.~~ (Developers should add fork and add their own backend following the docs. If they want to add it to pixelscript they will need to do a PR.)
     ~~- This will be useful when a developer wants to create a custom DSL.~~
 - ~~WASM support~~ + ~~Wasm web page similar to pocketpy live playground.~~ (at pixelscript.epochtech.us/playground)
-- Write documentation at (pixelscript.epochtech.us)
+- ~~Write documentation at (pixelscript.epochtech.us)~~
 
 ## v0.8 Cross language, Binary (pxs), Wren backend
 - Cross language support. Calling JS from Python, Lua from JS, Python from JS, etc.
