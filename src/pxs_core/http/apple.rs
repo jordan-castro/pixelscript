@@ -5,11 +5,17 @@
 
 // ============ BINDINGS ===============
 
+use core::slice;
 use std::ptr::null_mut;
 
-use etffi::{create_raw_string, free_raw_string};
+use etffi::{
+    borrow_string, create_raw_string, cstring::CStringSafe, free_raw_string, ptr_magic::PtrMagic,
+};
 
-use crate::pxs_core::http::ClientCallbacks;
+use crate::{
+    pxs_core::http::{ClientCallbacks, ClientResponse, RequestType, get_header_parts},
+    pxs_error,
+};
 
 type ClassName = *const std::ffi::c_char;
 type Class = *mut std::ffi::c_void;
@@ -17,17 +23,31 @@ type Id = *mut std::ffi::c_void;
 
 const DISPATCH_TIME_FOREVER: u64 = !0;
 
-#[link(name="objc", kind="dylib")]
-#[link(name="System", kind="dylib")]
-#[link(name="Foundation", kind="framework")]
+#[repr(C)]
+struct HttpCompletionBlock {
+    isa: Class,
+    flags: i32,
+    reserved: i32,
+    invoke: extern "C" fn(Class, Class, Class, Class),
+    response_data_ptr: Class,
+    http_response_ptr: Class,
+    execution_error_ptr: Class,
+    semaphore: Id,
+}
+impl PtrMagic for HttpCompletionBlock {}
+
+#[link(name = "objc", kind = "dylib")]
+#[link(name = "System", kind = "dylib")]
+#[link(name = "Foundation", kind = "framework")]
 unsafe extern "C" {
     fn objc_getClass(name: ClassName) -> Class;
     fn sel_registerName(name: ClassName) -> Class;
 
-    fn objc_msgSend(receiver: Class, selector: *mut std::ffi::c_void, ...) -> *mut std::ffi::c_void;
+    fn objc_msgSend(receiver: Class, selector: *mut std::ffi::c_void, ...)
+    -> *mut std::ffi::c_void;
 }
 
-#[link(name="System", kind="dylib")]
+#[link(name = "System", kind = "dylib")]
 unsafe extern "C" {
     fn dispatch_semaphore_create(value: std::ffi::c_long) -> Id;
     fn dispatch_semaphore_wait(dsema: Id, timeout: u64) -> std::ffi::c_long;
@@ -35,258 +55,331 @@ unsafe extern "C" {
     fn dispatch_release(object: Id);
 }
 
-struct ObjCClass {
-    ptr: Class,
+macro_rules! create_class {
+    ($name:expr) => {{
+        let class_name = create_raw_string!($name);
+        let ptr = objc_getClass(class_name);
+        free_raw_string!(class_name);
+        ptr
+    }};
 }
 
-impl ObjCClass {
-    fn new(name: String) -> ObjCClass {
-        let class_name = create_raw_string!(name.as_str());
+macro_rules! call_function {
+    ($class:expr, $name:expr $(, $args:expr)* $(,)?) => {{
         unsafe {
-            let ptr = objc_getClass(class_name); 
-            free_raw_string!(class_name);
-            ObjCClass { ptr } 
-        }
-    }
+            let cstr = create_raw_string!($name);
+            let sel = sel_registerName(cstr);
+            free_raw_string!(cstr);
 
-    fn from_ptr(ptr: Class) -> ObjCClass {
-        ObjCClass { ptr }
-    }
-
-    fn invalidateAndCancel(&self) {
-        unsafe {
-            let sel = sel_registerName(c"invalidateAndCancel".as_ptr());
-            objc_msgSend(self.ptr, sel);
+            objc_msgSend($class, sel $(, $args)*)
         }
-    }
-
-    fn release(&self) {
-        unsafe {
-            let sel = sel_registerName(c"release".as_ptr());
-            objc_msgSend(self.ptr, sel);
-        }
-    }
-
-    fn retain(&self) {
-        unsafe {
-            let sel = sel_registerName(c"retain".as_ptr());
-            Self::from_ptr(objc_msgSend(self.ptr, sel));
-        }
-    }
+    }};
 }
-
-struct NSURLSessionConfiguration {
-    class: ObjCClass
-}
-
-impl NSURLSessionConfiguration {
-    /// This is specific to NSURLSessionConfiguration class.
-    fn defaultSessionConfiguration() -> ObjCClass {
-        unsafe {
-            let class = ObjCClass::new("NSURLSessionConfiguration".to_string());
-            let sel = sel_registerName(c"defaultSessionConfiguration".as_ptr());
-
-            // class.
-            ObjCClass { ptr: objc_msgSend(class.ptr, sel) }
-        }
-    }
-}
-
 
 // ============ END BINDINGS ===========
 
 struct SessionWrapper {
-    session: ObjCClass
+    session: Class,
 }
 
 impl SessionWrapper {
-    fn new(session: ObjCClass) -> Self {
-        session.retain();
+    fn new(session: Class) -> Self {
+        // session.retain();
         SessionWrapper { session }
     }
 }
 
 impl Drop for SessionWrapper {
     fn drop(&mut self) {
-        self.session.release();
+        call_function!(self.session, "release");
     }
 }
 
+impl PtrMagic for SessionWrapper {}
+
 pub(super) struct MacOSHttp {}
+
+extern "C" fn http_completion_invoke(block_ptr: Class, data: Class, response: Class, error: Class) {
+    let block = unsafe { HttpCompletionBlock::from_borrow_void(block_ptr) };
+
+    if !data.is_null() {
+        block.response_data_ptr = call_function!(data, "retain");
+    }
+
+    if !response.is_null() {
+        let is_http = call_function!(
+            response,
+            "isKindOfClass:",
+            create_class!("NSHTTPURLResponse")
+        );
+        if !is_http.is_null() {
+            block.http_response_ptr = call_function!(response, "retain");
+        }
+    }
+
+    if !error.is_null() {
+        block.execution_error_ptr = call_function!(error, "retain");
+    }
+
+    unsafe {
+        dispatch_semaphore_signal(block.semaphore);
+    }
+}
+
 impl ClientCallbacks for MacOSHttp {
     fn setup(client: &mut super::Client) -> Result<(), String> {
         if client.value != null_mut() {
             return Ok(());
-        }   
+        }
 
         // user agent
-        let config = NSURLSessionConfiguration::defaultSessionConfiguration();
+        let config = call_function!(
+            create_class!("NSURLSessionConfiguration"),
+            "defaultSessionConfiguration"
+        );
+
+        // Create strings
+        let user_agent_key = call_function!(
+            create_class!("NSString"),
+            "stringWithUTF8String:",
+            c"User-Agent".as_ptr()
+        );
+        let user_agent_cval = create_raw_string!(client.data.user_agent.clone());
+        let user_agent_value = call_function!(
+            create_class!("NSString"),
+            "stringWithUTF8String:",
+            user_agent_cval
+        );
+        unsafe {
+            free_raw_string!(user_agent_cval);
+        }
+        let headers_dict = call_function!(
+            create_class!("NSDictionary"),
+            "dictionaryWithObject:forKey:",
+            user_agent_value,
+            user_agent_key
+        );
+        // Set it to config
+        call_function!(config, "setHTTPAdditionalHeaders:", headers_dict);
+
+        let session = call_function!(
+            create_class!("NSURLSession"),
+            "sessionWithConfiguration:",
+            config
+        );
+
+        client.value = SessionWrapper::new(session).into_void();
+
+        Ok(())
     }
 
-    fn create_request(client: &mut super::Client, path: String, rt: super::RequestType) -> Result<super::ClientResponse, String> {
-        todo!()
+    fn create_request(
+        client: &mut super::Client,
+        path: String,
+        rt: super::RequestType,
+    ) -> Result<super::ClientResponse, String> {
+        if client.value.is_null() {
+            return pxs_error!("Client.apple.value is null.");
+        }
+
+        let mut cstring = CStringSafe::new();
+
+        let wrapper = unsafe { SessionWrapper::from_borrow_void(client.value) };
+        if wrapper.session.is_null() {
+            return pxs_error!("Client.apple.session is null.");
+        }
+
+        // HTTP scheme
+        let scheme = if client.https { "https://" } else { "http://" };
+
+        let mut full_url = format!("{scheme}/{}", client.data.domain_name);
+
+        if !path.is_empty() && path.chars().nth(0).unwrap() != '/' {
+            full_url.push('/');
+        }
+        full_url.push_str(&path);
+
+        // Create ns url
+        let ns_url_str = call_function!(
+            create_class!("NSString"),
+            "stringWithUTF8String:",
+            cstring.new_string(&full_url)
+        );
+        let ns_url = call_function!(create_class!("NSURL"), "URLWithString:", ns_url_str);
+
+        // Check nullable
+        if ns_url.is_null() {
+            return pxs_error!("Invalid URL construction: {full_url}");
+        }
+
+        // Create request
+        let request = call_function!(
+            create_class!("NSMutableURLRequest"),
+            "requestWithURL:",
+            ns_url
+        );
+        let timeout_sec = (client.data.timeout as f64) / 1000.0;
+        call_function!(request, "setTimeoutInterval:", timeout_sec);
+
+        // Method setup
+        let http_method = match rt {
+            crate::pxs_core::http::RequestType::GET => "GET",
+            crate::pxs_core::http::RequestType::POST => "POST",
+            crate::pxs_core::http::RequestType::PUT => "PATCH",
+            crate::pxs_core::http::RequestType::PATCH => "DELETE",
+            crate::pxs_core::http::RequestType::DELETE => "PUT",
+        };
+
+        let ns_string_http_method = call_function!(
+            create_class!("NSString"),
+            "stringWithUTF8String:",
+            cstring.new_string(&http_method)
+        );
+        call_function!(request, "setHTTPMethod:", ns_string_http_method);
+
+        // headers string
+        let mut cheaders = CStringSafe::new();
+        // Headers
+        let headers = get_header_parts(&client.data.headers);
+        for h in headers {
+            // Split at ':'
+            let split = h.split(':').collect::<Vec<&str>>();
+            if split.len() < 2 {
+                continue;
+            }
+
+            let key = split[0];
+            let value = split[1].trim_start();
+
+            let ns_key = call_function!(
+                create_class!("NSString"),
+                "stringWithUTF8String:",
+                cheaders.new_string(&key)
+            );
+            let ns_value = call_function!(
+                create_class!("NSString"),
+                "stringWithUTF8String:",
+                cheaders.new_string(&value)
+            );
+
+            if !ns_key.is_null() && !ns_value.is_null() {
+                call_function!(request, "setValue:forHTTPHeaderField:", ns_value, ns_key);
+            }
+        }
+        drop(cheaders);
+
+        // Data setup if NOT GET.
+        if rt != RequestType::GET && !client.data.body.is_empty() {
+            let body_size = client.data.body.len();
+            let body_ptr = client.data.body.clone().as_mut_ptr();
+            let body_data = call_function!(
+                create_class!("NSData"),
+                "dataWithBytes:length:",
+                body_ptr,
+                body_size
+            );
+            call_function!(request, "setHTTPBody:", body_data);
+        }
+
+        // Setup for response.
+        #[allow(unused_mut)]
+        let mut response_data = null_mut();
+        #[allow(unused_mut)]
+        let mut http_response = null_mut();
+        #[allow(unused_mut)]
+        let mut execution_error = null_mut();
+        let semaphore = unsafe { dispatch_semaphore_create(0) };
+
+        #[allow(unused_mut)]
+        let mut block = HttpCompletionBlock {
+            isa: null_mut(),
+            flags: 0,
+            reserved: 0,
+            invoke: http_completion_invoke,
+            response_data_ptr: response_data,
+            http_response_ptr: http_response,
+            execution_error_ptr: execution_error,
+            semaphore,
+        };
+        let block_ptr = block.into_void();
+        let task = call_function!(
+            wrapper.session,
+            "dataTaskWithRequest:completionHandler:",
+            request,
+            block_ptr
+        );
+        call_function!(task, "resume");
+        unsafe {
+            dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+            dispatch_release(semaphore);
+        }
+
+        // Automatically get dropped when leaving scope.
+        let _response_wrapper = SessionWrapper::new(response_data);
+        let _http_wrapper = SessionWrapper::new(http_response);
+        let _execution_error_wrapper = SessionWrapper::new(execution_error);
+
+        // Check errors
+        if !execution_error.is_null() {
+            let localized_description = call_function!(execution_error, "localizedDescription");
+            let c_string = call_function!(localized_description, "UTF8String");
+            if c_string.is_null() {
+                return pxs_error!("Client.execution_error is null.");
+            }
+            let msg = borrow_string!(c_string as *const std::ffi::c_char);
+            let owned_string = msg.to_string();
+
+            return pxs_error!("{owned_string}");
+        }
+
+        // Get response body.
+        let response_body = if !response_data.is_null() {
+            let bytes_ptr = call_function!(response_data, "bytes");
+            if bytes_ptr.is_null() {
+                return pxs_error!("Client.response_data.bytes is null");
+            }
+            let bytes_length = call_function!(response_data, "length");
+            if bytes_length.is_null() {
+                return pxs_error!("Client.response_data.lenght is null.");
+            }
+
+            // Convert from C to rust.
+            let bytes = unsafe {
+                slice::from_raw_parts(bytes_ptr as *mut std::ffi::c_char, bytes_length as usize)
+            };
+            let str = String::from_utf8(bytes.iter().map(|v| *v as u8).collect());
+            if str.is_err() {
+                return pxs_error!("Client.str = {}", str.unwrap_err().to_string());
+            }
+            str.unwrap()
+        } else {
+            String::new()
+        };
+
+        // status code
+        let status_code = if !http_response.is_null() {
+            let res = call_function!(http_response, "statusCode");
+            if res.is_null() {
+                return pxs_error!("Client.status_code is null");
+            }
+            unsafe { *(res as *mut i32) }
+        } else {
+            0
+        };
+
+        let mut client_response = ClientResponse::new();
+        client_response.fill(&client.data);
+        client_response.status = status_code;
+        client_response.data.body = response_body;
+
+        Ok(client_response)
     }
 
-    fn free(v:crate::shared::pxs_Opaque) {
-        todo!()
+    fn free(v: crate::shared::pxs_Opaque) {
+        if v.is_null() {
+            return;
+        }
+
+        let _ = unsafe { SessionWrapper::from_raw_void(v) };
     }
 }
-// pub(super) struct WindowsHTTP {}
-
-
-// void Client::setup() {
-//     // Already exists?
-//     if (this->internal != nullptr) {
-//         return;
-//     }
-
-//     NSURLSessionConfiguration* config = [NSURLSessionConfiguration defaultSessionConfiguration];
-//     config.HTTPAdditionalHeaders = @{
-//         @"User-Agent": [NSString stringWithUTF8String:user_agent.c_str()]
-//     };
-//     NSURLSession* session = [NSURLSession sessionWithConfiguration:config];
-//     auto wrapper = new SessionWrapper(session);
-
-//     this->internal = static_cast<void*>(wrapper);
-// }
-
-// ClientResponse* Client::create_request(const std::string &path, const RequestType &rt) {
-//     if (this->internal == nullptr) {
-//         throw std::runtime_error("Client.apple.internal is null.");
-//     }
-
-//     SessionWrapper* wrapper = static_cast<SessionWrapper*>(this->internal);
-//     if (wrapper->session == nil) {
-//         throw std::runtime_error("Client.apple.session is null.");
-//     }
-
-//     // A little simpler than WinHTTP.
-//     std::string scheme = this->use_https ? "https://" : "http://";
-//     std::string full_url_str = scheme + this->data.domain_name;
-
-//     // TODO(jc) is this necessary?
-//     if (!path.empty() && path[0] != '/') {
-//         full_url_str += "/";
-//     }
-//     full_url_str += path;
-
-//     NSString* ns_url_str = [NSString stringWithUTF8String:full_url_str.c_str()];
-//     NSURL* url = [NSURL URLWithString:ns_url_str];
-
-//     // TODO(jc) yeah again is this necessary?
-//     if (!url) {
-//         throw std::runtime_error("Invalid URL construction: " + full_url_str);
-//     }
-//     NSMutableURLRequest* request = [NSMutableURLRequest requestWithURL:url];
-//     NSTimeInterval timeout_sec = static_cast<NSTimeInterval>(this->data.timeout) / 1000.0;
-//     [request setTimeoutInterval:timeout_sec];
-
-//     switch (rt) {
-//         case RequestType::GET:
-//             [request setHTTPMethod:@"GET"];
-//             break;
-//         case RequestType::POST:
-//             [request setHTTPMethod:@"POST"];
-//             break;
-//         case RequestType::PATCH:
-//             [request setHTTPMethod:@"PATCH"];
-//             break;
-//         case RequestType::DELETE:
-//             [request setHTTPMethod:@"DELETE"];
-//             break;
-//         case RequestType::PUT:
-//             [request setHTTPMethod:@"PUT"];
-//             break;
-//     }
-
-//     // header setup.
-//     std::vector<std::string> header_parts = get_header_parts();
-//     for (const std::string& header : header_parts) {
-//         // Check for key:value
-//         size_t colon_pos = header.find(":");
-//         if (colon_pos == std::string::npos) {
-//             continue; // skip it.
-//         }
-//         std::string key = header.substr(0, colon_pos);
-//         std::string value = utils::trim_left(header.substr(colon_pos + 1));
-
-//         NSString* ns_key = [NSString stringWithUTF8String:key.c_str()];
-//         NSString* ns_value = [NSString stringWithUTF8String:value.c_str()];
-
-//         if (ns_key && ns_value) {
-//             [request setValue:ns_value forHTTPHeaderField:ns_key];
-//         }
-//     }
-
-//     // data setup if not GET.
-//     if (rt != RequestType::GET && !this->data.body.empty()) {
-//         size_t body_size = this->data.body.size();
-        
-//         NSData* body_data = [NSData dataWithBytes:this->data.body.data() length:body_size];
-//         [request setHTTPBody:body_data];
-//     }
-
-//     // setup for response!
-//     __block NSData* response_data = nil;
-//     __block NSHTTPURLResponse* http_response = nil;
-//     __block NSError* execution_error = nil;
-
-//     // To make it synchronous
-//     dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
-
-//     NSURLSessionDataTask* task = [wrapper->session dataTaskWithRequest:request
-//         completionHandler:^(NSData * _Nullable data, NSURLResponse * _Nullable response, NSError * _Nullable error) {
-//             // I use retain because I dont use ARC.
-//             if (data) {
-//                 response_data = [data retain];
-//             }
-//             if (response && [response isKindOfClass:[NSHTTPURLResponse class]]) {
-//                 http_response = [(NSHTTPURLResponse*)response retain];
-//             }
-//             if (error) {
-//                 execution_error = [error retain];
-//             }
-//             dispatch_semaphore_signal(semaphore);
-//         }
-//     ];
-//     [task resume];
-//     // TODO(jc) do I really want forever here?
-//     dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
-//     // We don't use ARC.
-//     dispatch_release(semaphore);
-//     // Error checking
-//     if (execution_error != nil) {
-//         std::string msg = [[execution_error localizedDescription] UTF8String];
-//         [execution_error release];
-//         throw std::runtime_error(msg);
-//     }
-
-//     // Body
-//     std::string response_body_str;
-//     if (response_data != nil && [response_data length] > 0) {
-//         response_body_str.assign(static_cast<const char*>([response_data bytes]), [response_data length]);
-//         [response_data release];
-//     }
-
-//     NSInteger status_code = 0;
-//     if (http_response != nil) {
-//         status_code = [http_response statusCode];
-//         [http_response release];
-//     }
-
-//     // Client response fr fr.
-//     ClientResponse* cr = new ClientResponse();
-//     cr->fill(this->data);
-//     cr->data.body = response_body_str;
-//     cr->status = status_code;
-
-//     return cr;
-// }
-
-// Client::~Client() {
-//     if (!this->internal) {
-//         return;
-//     }
-
-//     delete static_cast<SessionWrapper*>(this->internal);
-// }

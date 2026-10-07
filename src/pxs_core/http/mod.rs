@@ -20,7 +20,7 @@ pub mod wasm;
 #[cfg(target_os = "windows")]
 pub mod windows;
 
-// #[cfg(target_vendor = "apple")]
+#[cfg(target_vendor = "apple")]
 pub mod apple;
 
 #[cfg(target_os = "linux")]
@@ -313,6 +313,10 @@ impl Drop for Client {
         {
             linux::LinuxHTTP::free(self.value);
         }
+        #[cfg(target_vendor = "apple")]
+        {
+            apple::MacOSHttp::free(self.value);
+        }
     }
 }
 
@@ -346,6 +350,10 @@ impl Client {
         {
             let _ = linux::LinuxHTTP::setup(&mut client);
         }
+        #[cfg(target_vendor = "apple")]
+        {
+            let _ = apple::MacOSHttp::setup(&mut client);
+        }
         client
     }
 
@@ -356,15 +364,16 @@ impl Client {
         path: String,
         request_type: RequestType,
     ) -> Result<ClientResponse, String> {
-        // TODO: Call the correct platform function here.
         #[cfg(target_os = "windows")]
         return windows::WindowsHTTP::create_request(self, path, request_type);
-
-        // #[cfg(target_vendor="apple")]
-        // pub mod apple;
-
+    
         #[cfg(target_os="linux")]
         return linux::LinuxHTTP::create_request(self, path, request_type);
+
+        #[cfg(target_vendor = "apple")]
+        return apple::MacOSHttp::create_request(self, path, request_type);
+
+        // TODO: WASM
 
         return Err("HTTP not supported".to_string());
     }
