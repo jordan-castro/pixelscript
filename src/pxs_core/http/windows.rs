@@ -47,7 +47,6 @@ const WINHTTP_QUERY_FLAG_NUMBER: DWORD = 0x20000000;
 const WINHTTP_HEADER_NAME_BY_INDEX: LPCWSTR = null_mut();
 const WINHTTP_NO_HEADER_INDEX: LPDWORD = null_mut();
 
-
 const INTERNET_DEFAULT_HTTP_PORT: i32 = 80;          //    "     "  HTTP   "
 const INTERNET_DEFAULT_HTTPS_PORT: i32 = 443;         //    "     "  HTTPS  "
 

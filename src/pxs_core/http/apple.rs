@@ -24,11 +24,23 @@ type Id = *mut std::ffi::c_void;
 const DISPATCH_TIME_FOREVER: u64 = !0;
 
 #[repr(C)]
+struct BlockDescriptor {
+    reserved: usize,
+    size: usize,
+}
+
+static BLOCK_DESC: BlockDescriptor = BlockDescriptor {
+    reserved: 0,
+    size: std::mem::size_of::<HttpCompletionBlock>(),
+};
+
+#[repr(C)]
 struct HttpCompletionBlock {
     isa: Class,
     flags: i32,
     reserved: i32,
     invoke: extern "C" fn(Class, Class, Class, Class),
+    descriptor: *mut BlockDescriptor,
     response_data_ptr: Class,
     http_response_ptr: Class,
     execution_error_ptr: Class,
@@ -53,6 +65,10 @@ unsafe extern "C" {
     fn dispatch_semaphore_wait(dsema: Id, timeout: u64) -> std::ffi::c_long;
     fn dispatch_semaphore_signal(dsema: Id) -> std::ffi::c_long;
     fn dispatch_release(object: Id);
+}
+
+unsafe extern "C" {
+    static _NSConcreteStackBlock: std::ffi::c_void;
 }
 
 macro_rules! create_class {
@@ -101,28 +117,30 @@ pub(super) struct MacOSHttp {}
 
 extern "C" fn http_completion_invoke(block_ptr: Class, data: Class, response: Class, error: Class) {
     let block = unsafe { HttpCompletionBlock::from_borrow_void(block_ptr) };
-
+    println!("Call");
     if !data.is_null() {
-        block.response_data_ptr = call_function!(data, "retain");
+        (*block).response_data_ptr = call_function!(data, "retain");
     }
-
+    println!("response is null in completion: {}", response.is_null());
     if !response.is_null() {
         let is_http = call_function!(
             response,
             "isKindOfClass:",
             create_class!("NSHTTPURLResponse")
         );
+        println!("is_http: {}", is_http.is_null());
         if !is_http.is_null() {
-            block.http_response_ptr = call_function!(response, "retain");
+            println!("setting pointr.");
+            (*block).http_response_ptr = call_function!(response, "retain");
         }
     }
 
     if !error.is_null() {
-        block.execution_error_ptr = call_function!(error, "retain");
+        (*block).execution_error_ptr = call_function!(error, "retain");
     }
 
     unsafe {
-        dispatch_semaphore_signal(block.semaphore);
+        dispatch_semaphore_signal((*block).semaphore);
     }
 }
 
@@ -182,6 +200,8 @@ impl ClientCallbacks for MacOSHttp {
             return pxs_error!("Client.apple.value is null.");
         }
 
+        println!("CR 1");
+
         let mut cstring = CStringSafe::new();
 
         let wrapper = unsafe { SessionWrapper::from_borrow_void(client.value) };
@@ -192,13 +212,14 @@ impl ClientCallbacks for MacOSHttp {
         // HTTP scheme
         let scheme = if client.https { "https://" } else { "http://" };
 
-        let mut full_url = format!("{scheme}/{}", client.data.domain_name);
+        let mut full_url = format!("{scheme}{}", client.data.domain_name);
 
         if !path.is_empty() && path.chars().nth(0).unwrap() != '/' {
             full_url.push('/');
         }
         full_url.push_str(&path);
 
+        println!("URl: {full_url}");
         // Create ns url
         let ns_url_str = call_function!(
             create_class!("NSString"),
@@ -206,6 +227,7 @@ impl ClientCallbacks for MacOSHttp {
             cstring.new_string(&full_url)
         );
         let ns_url = call_function!(create_class!("NSURL"), "URLWithString:", ns_url_str);
+        println!("CR 2");
 
         // Check nullable
         if ns_url.is_null() {
@@ -220,6 +242,7 @@ impl ClientCallbacks for MacOSHttp {
         );
         let timeout_sec = (client.data.timeout as f64) / 1000.0;
         call_function!(request, "setTimeoutInterval:", timeout_sec);
+        println!("CR 3");
 
         // Method setup
         let http_method = match rt {
@@ -236,6 +259,7 @@ impl ClientCallbacks for MacOSHttp {
             cstring.new_string(&http_method)
         );
         call_function!(request, "setHTTPMethod:", ns_string_http_method);
+        println!("CR 4");
 
         // headers string
         let mut cheaders = CStringSafe::new();
@@ -267,6 +291,8 @@ impl ClientCallbacks for MacOSHttp {
             }
         }
         drop(cheaders);
+        println!("CR 5");
+
 
         // Data setup if NOT GET.
         if rt != RequestType::GET && !client.data.body.is_empty() {
@@ -280,6 +306,7 @@ impl ClientCallbacks for MacOSHttp {
             );
             call_function!(request, "setHTTPBody:", body_data);
         }
+        println!("CR 6");
 
         // Setup for response.
         #[allow(unused_mut)]
@@ -290,17 +317,20 @@ impl ClientCallbacks for MacOSHttp {
         let mut execution_error = null_mut();
         let semaphore = unsafe { dispatch_semaphore_create(0) };
 
+        println!("CR 6.1");
+
         #[allow(unused_mut)]
-        let mut block = HttpCompletionBlock {
-            isa: null_mut(),
-            flags: 0,
+        let mut block = unsafe {HttpCompletionBlock {
+            isa: &_NSConcreteStackBlock as *const _ as *mut std::ffi::c_void,
+            flags: (1 << 29),
             reserved: 0,
             invoke: http_completion_invoke,
+            descriptor: &BLOCK_DESC as *const _ as *mut BlockDescriptor,
             response_data_ptr: response_data,
             http_response_ptr: http_response,
             execution_error_ptr: execution_error,
             semaphore,
-        };
+        }};
         let block_ptr = block.into_void();
         let task = call_function!(
             wrapper.session,
@@ -308,11 +338,14 @@ impl ClientCallbacks for MacOSHttp {
             request,
             block_ptr
         );
+        println!("CR 6.2");
         call_function!(task, "resume");
         unsafe {
             dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
             dispatch_release(semaphore);
         }
+        println!("CR 7");
+        let block = unsafe { HttpCompletionBlock::from_raw_void(block_ptr) };
 
         // Automatically get dropped when leaving scope.
         let _response_wrapper = SessionWrapper::new(response_data);
@@ -332,6 +365,9 @@ impl ClientCallbacks for MacOSHttp {
             return pxs_error!("{owned_string}");
         }
 
+        println!("response data is null: {}", response_data.is_null());
+        println!("block response is null: {}", block.response_data_ptr.is_null());
+
         // Get response body.
         let response_body = if !response_data.is_null() {
             let bytes_ptr = call_function!(response_data, "bytes");
@@ -342,6 +378,8 @@ impl ClientCallbacks for MacOSHttp {
             if bytes_length.is_null() {
                 return pxs_error!("Client.response_data.lenght is null.");
             }
+
+            println!("bytes length: {}", bytes_length as usize);
 
             // Convert from C to rust.
             let bytes = unsafe {
