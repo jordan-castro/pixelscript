@@ -149,7 +149,7 @@ int main() {
     const char* python_script = "import main\n"
                                 "main.println('Hello World from Python')\n";
 
-    pxs_VarT error = pxs_exec(pxs_Python, python_script, "<ctest>");
+    error = pxs_exec(pxs_Python, python_script, "<ctest>");
     // Check error
     if (pxs_isexception(error)) {
         char* msg = pxs_getstring(error);
@@ -161,7 +161,7 @@ int main() {
     // JavaScript
     const char* js_script = "import * as main from 'main';\n"
                             "main.println('Hello World from JavaScript!');";
-    pxs_VarT error = pxs_exec(pxs_JavaScript, js_script, "<ctest>");
+    error = pxs_exec(pxs_JavaScript, js_script, "<ctest>");
     // Check error
     if (pxs_isexception(error)) {
         char* msg = pxs_getstring(error);

@@ -13,6 +13,8 @@ CRATE_NAME = "pixelscript"
 LIB_CRATES = [CRATE_NAME]
 SOURCE = "pxsb"
 VALID_EXTENSIONS = ["lib", "a", "so", "dylib", "wasm", "dll", "js"]
+VALID_LANGS = ["python", "lua", "js"]
+VALID_CORES = ["http", "zip", "mem", "json", "fs", "os", "shell", "api", "pxs"]
 full_lib_size = 0
 
 
@@ -51,13 +53,17 @@ if len(sys.argv) > 0:
 
 target = ""
 rtarget = ""
-features = ""
+features = []
 defaults = True
 debug = False
 run_clear = False
 use_zig = False
 two_wasm = False
 binary = False
+langs = []
+cores = []
+android_target = ""
+android_api = '36'
 
 for arg in argv:
     if "target" in arg:
@@ -66,10 +72,22 @@ for arg in argv:
         target =  "--target=" + rtarget
     elif "features" in arg:
         # Split features
-        features = arg.split("=")[-1]
+        features = arg.split("=")[-1].split(",")
     elif "defaults" in arg:
         if arg.split("=")[-1].lower() == 'n':
             defaults = False
+    elif "langs=" in arg:
+        langs = arg.split("=")[-1].split(",")
+        for l in langs:
+            if l not in VALID_LANGS:
+                print(f"{l} is not a valid lang.")
+                exit(1)
+    elif "cores=" in arg:
+        cores = arg.split("=")[-1].split(",")
+        for c in cores:
+            if c not in VALID_CORES:
+                print(f"{c} is not a valid core.")
+                exit(1)
     elif "debug" in arg:
         debug = True
     elif arg == "clear":
@@ -80,12 +98,20 @@ for arg in argv:
         two_wasm = True
     elif arg == 'bin':
         binary = True
+    elif "android=" in arg:
+        android_target = arg.split("=")[-1].strip()
+    elif "android_api=" in arg:
+        android_api = arg.split("=")[-1].strip()
     elif arg == "help":
         print("""PixelScript script/build.py usage
 Arguments:
 - target=<valid rust targets>
 - features=<valid pxs feature comma delimited>
+- langs=<valid pxs backends comma delimited>
+- cores=<valid pxs cores, comma delimited>
 - defaults=<n/y>
+- android=<valid rust android target>
+- android_api=<valid android api level>
 - debug; a debug build
 - clear; clear the cache
 - help; print this message
@@ -98,7 +124,13 @@ Arguments:
 build_mode = "release" if not debug else "debug"
 build_flag = "--release" if not debug else ""
 # Build in release mode
-cmd = ["cargo", "zigbuild" if use_zig else "build", build_flag, "--lib" if not binary else "--bin pxs"]
+cmd = [
+    "cargo", 
+    "ndk" if len(android_target) > 0 else "",
+    "zigbuild" if use_zig else "build", 
+    build_flag, 
+    "--lib" if not binary else "--bin pxs"
+]
 
 # override target when wasm is passed. 
 if two_wasm:
@@ -108,15 +140,46 @@ if two_wasm:
     if use_zig:
         print("Can not compile WASM using zig.")
         exit(1)
+    if len(android_target) > 0:
+        print("Can not compile WASM and Android at same time.")
+        exit(1)
     target = "--target=wasm32-unknown-emscripten"
     rtarget = "wasm32-unknown-emscripten"
+
+# Override target when android is passed
+if len(android_target) > 0:
+    if binary:
+        print("Can not compile Android with `bin` enabled.")
+        exit(1)
+
+    target = f"--target={android_target}"
+    rtarget = android_target
+
+    # Lets make sure that the ENV are set.
+    if not 'ANDROID_NDK_HOME' in os.environ:
+        print("ANDROID_NDK_HOME is required in env.")
+        exit(1)
+
+    os.environ['CARGO_NDK_ANDROID_PLATFORM'] = android_api
+    os.environ['ANDROID_PLATFORM'] = android_api
+
 # Grab target and features if passed
 if target:
     cmd += [target]
 if not defaults:
     cmd += ["--no-default-features"]
+if len(langs) > 0:
+    if defaults:
+        print("Defaults need to be disabled to use language features. Disable using defaults=n")
+        exit(1)
+    features += langs
+if len(cores) > 0:
+    if defaults:
+        print("Defaults need to be disabled to use core features. Disable using defaults=n")
+    features += list(map(lambda c: f"pxs_{c}", cores))
+
 if len(features) > 0:
-    cmd += ["--features", f'"{features}"']
+    cmd += ["--features", f'"{','.join(features)}"']
 
 if run_clear:
     # Run cargo clean before building

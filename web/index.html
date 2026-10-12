@@ -6,13 +6,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PixelScript</title>
     <script src="pxswrap.js"></script>
-    <link rel="stylesheet" href="https://unpkg.com/codejar-linenumbers/js/codejar-linenumbers.css" />
-
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet">
     <script src="components/bootstrap.js"></script>
+    <script src="components/buttons.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/codejar-linenumbers/js/codejar-linenumbers.css" />
+    <link rel="stylesheet" href="https://unpkg.com/dracula-prism/dist/css/dracula-prism.css">
+    <link rel="stylesheet" href="/styles/terminal_line.css">
 
     <style>
         .language-btns {
-            /* background-color: #58a5f5; */
             border-top-left-radius: 10px;
             border-top-right-radius: 10px;
             cursor: pointer;
@@ -23,7 +26,7 @@
             border-right: 1px solid white;
             border-top-left-radius: 10px;
             border-top-right-radius: 10px;
-            background-color: #2087f2;
+            background-color: #333333 !important;
             color: white;
         }
 
@@ -32,12 +35,19 @@
             border-right: 1px solid white;
             border-top-left-radius: 10px;
             border-top-right-radius: 10px;
-            background-color: #2087f2;
+            background-color: #333333 !important;
             color: white !important;
         }
 
         .language-btn {
-            color: black;
+            color: #cac8c8;
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+            background-color: #222222;
+            margin-left: 2px;
+            margin-right: 2px;
+            cursor: pointer;
+            padding: 5px 10px;
         }
 
         .codejar-linenumber {
@@ -46,9 +56,11 @@
 
         #header-top {
             display: flex;
-            background-color: #ABD2FA;
+            background-color: #222222;
             border-top-left-radius: 10px;
             border-top-right-radius: 10px;
+            border: 1px solid #444444;
+            align-items: center;
         }
 
         .circles-row {
@@ -64,8 +76,34 @@
         }
 
         body {
-            background-color: black;
-            color: white;
+            background-color: #111111;
+            color: #cac8c8;
+            font-family: 'Roboto', sans-serif, system-ui, -apple-system;
+        }
+
+        hr {
+            border-color: #333333;
+        }
+
+        a {
+            color: #cac8c8;
+            text-decoration: underline;
+        }
+
+        a:hover {
+            color: #cccccc;
+        }
+
+        .table-dark {
+            background-color: #000000;
+            color: #cac8c8;
+            border: 1px solid #333333;
+        }
+
+        .table-dark th, .table-dark td {
+            background-color: #000000;
+            color: #cac8c8;
+            border-color: #333333;
         }
 
         .operator {
@@ -78,30 +116,227 @@
         }
 
         #run-btn {
-            padding-right: 10px;
-            background-color: #2A7C13;
-            color: white;
-            padding-left: 10px;
-            border-radius: 10px;
+            padding: 5px 15px;
+            background-color: #ffffff;
+            color: #000000;
+            border-radius: 4px;
             cursor: pointer;
-        }
-
-        .code-result-text {
-            color: white;
-            padding-left: 10px;
+            font-weight: 500;
         }
     </style>
 
-    <link rel="stylesheet" href="styles/terminal_line.css">
+    <script>
+        const og_log = console.log;
+
+        const LUA_CODE = `local print = require('pxs').print
+local browser = require('browser')
+
+print('Hello World from lua!')
+
+browser.dom.title = "PixelScript, the new fronteir for software!"
+
+browser.alert("We got a alert open from LUA!")
+`;
+        const PYTHON_CODE = `from pxs import print
+import browser
+
+
+print('Hello world from Python!')
+
+browser.dom.title = "PixelScript, the new fronteir for software!"
+
+browser.alert("We got a alert open from Python!")
+`;
+        const JS_CODE = `import { print } from 'pxs';
+import * as browser from 'browser';
+
+print('Hello world from JS!');
+
+browser.dom.title = "PixelScript, the new fronteir for software!";
+
+browser.alert("We got a alert open from JS!");
+`;
+
+        function clear_output() {
+            const output = document.getElementById("output");
+            if (!output) {
+                console.error("Can not clear null output.");
+            }
+            output.replaceChildren();
+        }
+
+        function write_output(...args) {
+            let output = document.querySelector("#output");
+            for (let arg of args) {
+                let div = document.createElement("div");
+                div.className = "code-result-text";
+                div.innerHTML = arg;
+                output.appendChild(div);
+            }
+        }
+
+        // Hook into console.log
+        console.log = (...args) => {
+            og_log(...args);
+            write_output(args);
+        };
+
+        var LANGUAGE = localStorage.getItem('LANGUAGE') ?? 'lua';
+        var READY = false;
+
+        function create_code_name(name) {
+            let code_name = `${name}_code`;
+            return code_name;
+        }
+
+        function read_code(name) {
+            return localStorage.getItem(create_code_name(name));
+        }
+
+        function store_code(name, code) {
+            localStorage.setItem(create_code_name(name), code);
+        }
+
+        function hide_terminal(lang) {
+            const terminal = document.getElementById(lang + "-editor");
+            const btn = document.getElementById(lang + "-btn");
+            if (btn) {
+                btn.className = "col language-btn";
+            }
+            terminal.hidden = true;
+        }
+
+        function show_terminal(lang) {
+            const terminal = document.getElementById(lang + "-editor");
+            const btn = document.getElementById(lang + "-btn");
+            if (btn) {
+                btn.className = "col language-btn language-btn-active";
+            }
+            terminal.hidden = false;
+        }
+
+        function setLanguage(lang) {
+            LANGUAGE = lang;
+            localStorage.setItem('LANGUAGE', lang);
+
+            if (lang == 'lua') {
+                hide_terminal('js');
+                hide_terminal('py');
+                show_terminal('lua');
+            } else if (lang == 'python') {
+                hide_terminal('js');
+                show_terminal('py');
+                hide_terminal('lua');
+            } else if (lang == 'js') {
+                show_terminal('js');
+                hide_terminal('py');
+                hide_terminal('lua');
+            }
+        }
+
+        function run_program() {
+            clear_output();
+            if (!READY) {
+                return;
+            }
+
+            let code = read_code(LANGUAGE);
+
+            let runtime = null;
+            if (LANGUAGE == 'lua') {
+                runtime = pxs_Runtime.pxs_Lua;
+            } else if (LANGUAGE == 'python') {
+                runtime = pxs_Runtime.pxs_Python;
+            } else if (LANGUAGE == 'js') {
+                runtime = pxs_Runtime.pxs_JavaScript;
+            }
+
+            if (runtime == null) {
+                return;
+            }
+            let val = pxs_exec(runtime, code, "<web>");
+
+            if (pxs_isexception(val)) {
+                let error = pxs_getstring(val);
+                console.log(error);
+            }
+
+            pxs_freevar(val);
+        }
+
+        if (!read_code("python")) {
+            store_code("python", PYTHON_CODE);
+        }
+        if (!read_code("js")) {
+            store_code("js", JS_CODE);
+        }
+        if (!read_code("lua")) {
+            store_code("lua", LUA_CODE);
+        }
+    </script>
+    <script src="browser.js"></script>
 </head>
 
 <body>
-    <div class="container" style=" border-radius: 20px;">
+    <div class="container py-4" style="border-radius: 20px;">
         <div id="pxs-navbar"></div>
         <div>
             <h1>PixelScript</h1>
-            <p><strong><a href="/playground.html">Try it live on WASM</a></strong></p>
         </div>
+
+        <!-- Playground Section -->
+        <div class="">
+            <div class="code-container">
+                <div class="row p-0 m-0" id="header-top">
+                    <div class="col">
+                        <div class="row row-cols-auto align-items-center">
+                            <div class="col px-0">
+                                <div class="circles-row">
+                                    <div class="little-circle" style="background-color: red; width: 10px; height: 10px;"></div>
+                                    <div class="little-circle" style="background-color: yellow; width: 10px; height: 10px;"></div>
+                                    <div class="little-circle" style="background-color: green; width: 10px; height: 10px;"></div>
+                                </div>
+                            </div>
+                            <div class="col">
+                                <div class="language-btns row row-cols-auto">
+                                    <div id="lua-btn" class="col language-btn" onclick="setLanguage('lua')">main.lua</div>
+                                    <div id="py-btn" class="col language-btn" onclick="setLanguage('python')">main.py</div>
+                                    <div id="js-btn" class="col language-btn" onclick="setLanguage('js')">main.js</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col px-0 m-0 text-end">
+                        <div id="run-btn" class="d-inline-block" onclick="run_program()">Run</div>
+                    </div>
+                </div>
+                <!-- Editor -->
+                <div id="lua-editor" class="language-lua"></div>
+                <div id="py-editor" class="code-editor language-python" hidden></div>
+                <div id="js-editor" class="code-editor language-javascript" hidden></div>
+            </div>
+            <div id="output" class="code-container" style="margin-top: 10px;"></div>
+        </div>
+
+        <!-- Modal -->
+        <div id="myModal" class="modal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content bg-dark text-white border-secondary">
+                    <div class="modal-header border-secondary">
+                        <h5 id="pxs-modal-title" class="modal-title">Modal title</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div id="pxs-modal-body" class="modal-body">
+                        <p>Modal body text goes here.</p>
+                    </div>
+                    <div class="modal-footer border-secondary">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <hr>
         <p>A multi language scripting runtime.</p>
         <p>PixelScript lets you expose the same API to multiple different languages in your program. Because it compiles
             to a C library, you can use it anywhere.</p>
@@ -202,12 +437,62 @@
             </tbody>
         </table>
         <p>To read more about the CoreLib, <a href="/docs/corelib">Read the docs</a>.</p>
-        <hr>
+        <!-- <hr>
         <h4>Example</h4>
-        <p>To see an example, try out the <a href="playground.html">playground</a>.</p>
+        <p>To see an example, try out the <a href="playground.html">playground</a>.</p> -->
     </div>
 
+    <script>
+        setLanguage(LANGUAGE);
+        var Module = {
+            onRuntimeInitialized: function () {
+                console.log("PXS is ready.");
+                pxs_wrap(Module);
+                READY = true;
+
+                pxs_core_initall();
+                setup_browser_apis();
+            }
+        };
+    </script>
+
+    <script type="module">
+        import { CodeJar } from 'https://cdn.jsdelivr.net/npm/codejar@4.3.0/dist/codejar.js';
+        import { withLineNumbers } from 'https://unpkg.com/codejar-linenumbers/es/index.js';
+
+        let editors = [
+            ['lua-editor', 'lua'],
+            ['py-editor', 'python'],
+            ['js-editor', 'js']
+        ];
+
+        let jars = [];
+
+        for (const e of editors) {
+            let editor = document.querySelector(`#${e[0]}`);
+            let highlight = editor => {
+                editor.innerHTML = Prism.highlight(editor.textContent, Prism.languages[e[1]], e[1])
+            };
+
+            const jar = CodeJar(editor, withLineNumbers(highlight), {
+                tab: '    ',
+            });
+
+            jar.updateCode(read_code(e[1]));
+            jar.onUpdate(code => {
+                store_code(e[1], code);
+            });
+
+            jars.push(jar);
+        }
+    </script>
     <script src="components/navbar.js"></script>
+    <script src="pixelscript.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-lua.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/codejar@4.3.0/dist/cursor.js"></script>
 </body>
 
 </html>

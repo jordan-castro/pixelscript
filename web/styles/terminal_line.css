@@ -1,9 +1,12 @@
 .terminal-line {
-    background-color: #091540;
-    padding: 5px;
-    border-radius: 20px;
-    padding-left: 10px;
+    background-color: #111111;
+    color: #cfcece;
+    border: 1px solid #333333;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-family: 'Roboto', sans-serif;
 }
+
 
 .code-editor {
     color: white;
@@ -11,9 +14,10 @@
 }
 
 .code-container {
-    background-color: #091540 !important;
+    background-color: #000000;
+    border: 1px solid #333333;
     border-radius: 10px;
-    padding-bottom: 10px;
+    padding: 10px;
 }
 
 code {
@@ -22,8 +26,9 @@ code {
     box-shadow: none !important;
 }
 
+
 .code-result-text {
-    color: white;
+    color: rgb(199, 195, 195);
     padding-left: 10px;
 }
 

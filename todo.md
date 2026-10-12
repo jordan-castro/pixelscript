@@ -56,7 +56,7 @@ already have their own benchmarks in the own repos. Please look at their documen
     - ~~add `pxs_http`~~ (Converted to Rust.)
     - ~~Important caveat with core modules: THEY MUST NOT USE ANY CRATES! So zip and http are written in C++.~~ (This is wrong now, I actually need to convert
     those modules into rust but without adding crates. So they will be using extern c callbacks. For zip I will either write a library or remove it from core.).
-    - add `pxs_internal` which will be for using the pxs api WITHIN pxs.
+    - add `pxs_api` which will be for using the pxs api WITHIN pxs.
 
 - Add android build support in `build.py`
 - ~~Add `zigbuild` support in `build.py`~~ **DONE**
@@ -75,7 +75,7 @@ already have their own benchmarks in the own repos. Please look at their documen
     - ~~pocketpy~~
     - ~~lua~~
     - ~~quickjsng~~
-    This is to support WASM, better cross platform control, and remove (bindgen, cbindgen) from build dependencies.
+    This is to support WASM, better cross platform control, and remove (bindgen) from build dependencies.
 - ~~Make pxs_Var a opaque type.~~ There is no longer any need for C level control. Use the api.
 
 ## v0.7 Wasm and Docs ~~and Dynamic Language support~~ (Dynamic support will not be supported. If you want to add a custom language create a fork.)
