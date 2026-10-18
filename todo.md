@@ -58,7 +58,7 @@ already have their own benchmarks in the own repos. Please look at their documen
     those modules into rust but without adding crates. So they will be using extern c callbacks. For zip I will either write a library or remove it from core.).
     - add `pxs_api` which will be for using the pxs api WITHIN pxs.
 
-- Add android build support in `build.py`
+- ~~Add android build support in `build.py`~~ **DONE**
 - ~~Add `zigbuild` support in `build.py`~~ **DONE**
 - ~~Fix child modules naming.~~ **DONE**
     - ~~Should be renamed when adding module to another module type thingy.~~

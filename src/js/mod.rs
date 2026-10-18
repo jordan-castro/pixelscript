@@ -290,7 +290,7 @@ fn add_main_js() {
     );
 }
 
-/// Import all modules to initialize the app
+/// Import all modules to finalize the clean up.
 fn import_all_modules() {
     let state = get_js_state();
     // let modules = state.modules.borrow();

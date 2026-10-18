@@ -12,7 +12,7 @@
 #[allow(unused)]
 mod tests {
     use pixelscript::{
-        pxs_arg, pxs_finalize, pxs_freearena, pxs_getstring, pxs_initialize, pxs_isexception, pxs_newarena, pxs_newcopy, pxs_newexception, pxs_newmod, pxs_newnull, shared::{module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT},
+        pxs_arg, pxs_debugvar, pxs_finalize, pxs_freearena, pxs_getstring, pxs_initialize, pxs_isexception, pxs_newarena, pxs_newcopy, pxs_newexception, pxs_newmod, pxs_newnull, shared::{module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT},
     };
     use etffi::{cstring::CStringSafe, borrow_string, create_raw_string, free_raw_string, own_string, ptr_magic::PtrMagic};
 
@@ -27,10 +27,35 @@ from pxs import *
 raise ValueError("test")
 "#;
         let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_Python).into_raw();
-        assert!(pxs_isexception(res), "Python error is not error: {:#?}", res);
+        assert!(pxs_isexception(res), "Python error is not error: {:#?}", own_string!(pxs_debugvar(res)));
 
         let msg = own_string!(pxs_getstring(res));
-        assert!(msg.contains("test"), "Msg not contains 'test': {msg}");
+        assert!(msg.contains("test"), "Py Msg not contains 'test': {msg}");
+    }
+
+    fn test_lua() {
+        let script = r#"
+pxs = require("pxs")
+
+error("test")
+"#;
+        let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_Lua).into_raw();
+        assert!(pxs_isexception(res), "Lua error is not error: {:#?}", own_string!(pxs_debugvar(res)));
+
+        let msg = own_string!(pxs_getstring(res));
+        assert!(msg.contains("test"), "Lua Msg not contains 'test': {msg}");
+    }
+
+    fn test_js() {
+        let script = r#"
+import * as pxs from 'pxs';
+throw new Error("test");
+"#;
+        let res = utils::execute_code(script, "<test>", pxs_Runtime::pxs_JavaScript).into_raw();
+        assert!(pxs_isexception(res), "JS error is not error: {:#?}", own_string!(pxs_debugvar(res)));
+
+        let msg = own_string!(pxs_getstring(res));
+        assert!(msg.contains("test"), "JS Msg not contains 'test': {msg}");
     }
 
     #[test]
@@ -41,6 +66,10 @@ raise ValueError("test")
 
         print_helper("PYTHON");
         test_python();
+        print_helper("LUA");
+        test_lua();
+        print_helper("JS");
+        test_js();
 
         pxs_finalize();
     }

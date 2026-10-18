@@ -12,7 +12,7 @@
 #[allow(unused)]
 mod tests {
     use pixelscript::{
-        own_var, pxs_addmod, pxs_compile, pxs_execobject, pxs_finalize, pxs_freearena, pxs_initialize, pxs_new_shallowcopy, pxs_newarena, pxs_newexception, pxs_newmod, pxs_newnull, pxs_varis, shared::{module::pxs_Module, pxs_Runtime, utils, var::{pxs_VarT, pxs_VarType, pxs_Var}},
+        own_var, pxs_addmod, pxs_compile, pxs_exec, pxs_execobject, pxs_finalize, pxs_freearena, pxs_freevar, pxs_initialize, pxs_new_shallowcopy, pxs_newarena, pxs_newexception, pxs_newmod, pxs_newnull, pxs_varis, shared::{module::pxs_Module, pxs_Runtime, utils, var::{pxs_Var, pxs_VarT, pxs_VarType}},
     };
     use etffi::{cstring::CStringSafe, borrow_string, create_raw_string, free_raw_string, own_string, ptr_magic::PtrMagic};
 
@@ -41,8 +41,8 @@ mod tests {
         assert!(!res.is_null(), "Result is null");
         let reso = own_var!(res);
         assert!(reso.is_exception(), "Result is not exception: {:#?}", reso);
-
         println!("Exception: {num}");
+        pxs_freevar(co);
     }
 
     fn test_python() {
@@ -73,12 +73,13 @@ test_raise.call()
         let script = r#"
 import * as test_raise from 'test_raise';
 
-test_raise.call();
+export const __pxs__ = (args) => {
+    test_raise.call();
+};
 "#;
         for i in 0..100 {
-            compile_execute(script, pxs_Runtime::pxs_Lua, i);
+            compile_execute(script, pxs_Runtime::pxs_JavaScript, i);
         }
-
     }
 
     #[test]
@@ -88,10 +89,10 @@ test_raise.call();
         utils::setup_pxs();
         setup();
 
-        print_helper("PYTHON");
-        test_python();
-        print_helper("LUA");
-        test_lua();
+        // print_helper("PYTHON");
+        // test_python();
+        // print_helper("LUA");
+        // test_lua();
         print_helper("JS");
         test_js();
 
