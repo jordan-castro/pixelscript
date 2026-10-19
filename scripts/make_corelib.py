@@ -150,6 +150,30 @@ STARTING_CODE = """
             </tbody>
         </table>
         <hr>
+        <h4>What the circles mean</h4>
+        <div class="row">
+            <div class="col">
+                <div class="pxs-enum"></div>
+                <p>Enum</p>
+            </div>
+            <div class="col">
+                <div class="pxs-self"></div>
+                <p>Requires a instance of <span class="terminal-line">self</span>.</p>
+            </div>
+            <div class="col">
+                <div class="pxs-excepts"></div>
+                <p>This function can return a Exception and should be caught.</p>
+            </div>
+            <div class="col">
+                <div class="pxs-property-get"></div>
+                <p>This is a Getter.</p>
+            </div>
+            <div class="col">
+                <div class="pxs-property-set"></div>
+                <p>This is a Setter.</p>
+            </div>
+        </div>
+
         {$CORE_LIB_PLACEMENT$}
     </div>
     <script>
@@ -164,6 +188,7 @@ STARTING_CODE = """
     </script>
 
     <script src="/components/navbar.js"></script>
+    <script src="/components/tables.js"></script>
     <script src="/pixelscript.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
@@ -338,6 +363,12 @@ codes = ""
 def clean_anchor(contents):
     return contents.replace(",", "").replace("-", "").replace("`", "").replace(".", "").strip()
 
+
+def make_anchor(*args):
+    string = "-".join(args)
+    return "a" + clean_anchor(string)
+
+
 for f in corelib:
     writer = CoreLibWriter()
     writer.parse(corelib[f])
@@ -356,9 +387,9 @@ for f in corelib:
             if not value['parent'] in classes:
                 classes.append(value['parent'])
                 final_contents += f"""
-                <section>
-                    <a class="clean-anchor" href="#{clean_anchor(
-                        f + value['parent'].split('-')[1]
+                <section id="{make_anchor(f, value['parent'])}">
+                    <a class="clean-anchor" href="#{make_anchor(
+                        f, value['parent']
                     )}">
                         <h6>{value['parent'].split('-')[1]}</h6>
                     </a>
@@ -366,11 +397,12 @@ for f in corelib:
                 """
         if value.get('property', None):
             prop = value['property']
+            anchor = make_anchor(value['parent'], prop['name'])
             final_contents += f"""
             <div class="row row-cols-auto"> 
             <div class="col">
-            <section>
-            <a class="clean-anchor" href="#{value['parent'].strip()}{prop['name'].strip()}"><h7>{prop['name']}</h7></a>
+            <section id="{anchor}">
+            <a class="clean-anchor" href="#{anchor}"><h7>{prop['name']}</h7></a>
             </section>
             </div>
             <div class="col"></div>
@@ -380,11 +412,12 @@ for f in corelib:
             for type in prop['types']:
                 color_orbs += f'<div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="{type}." class="pxs-property-{type}"></div>'
         else:
+            anchor = make_anchor(value['parent'] if 'parent' in value else '', value['name'])
             final_contents += f"""
             <div class="row row-cols-auto">
             <div class="col">
-            <section>
-            <a class="clean-anchor" href="#{value['parent'] if 'parent' in value else ''}{value['name']}"><h7>{value['name']}</h7></a>
+            <section id="{anchor}">
+            <a class="clean-anchor" href="#{anchor}"><h7>{value['name']}</h7></a>
             </section>
             </div>
             <div class="col">

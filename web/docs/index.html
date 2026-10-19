@@ -12,8 +12,22 @@
     
     <style>
         body {
-            background-color: black;
-            color: white;
+            background-color: #111111;
+            color: #cac8c8;
+            font-family: 'Roboto', sans-serif, system-ui, -apple-system;
+        }
+
+        hr {
+            border-color: #333333;
+        }
+
+        a {
+            color: #cac8c8;
+            text-decoration: underline;
+        }
+
+        a:hover {
+            color: #cccccc;
         }
 
         html {
@@ -29,6 +43,8 @@
     <div class="container">
         <div id="pxs-navbar"></div>
         <h2>PXS Docs</h2>
+        <p><a class="clean-anchor" href="/docs/corelib.html">CoreLib here!</a></p>
+        <p><a class="clean-anchor" href="/docs/clib.html">CLib here!</a></p>
         <hr>
         <h3>Getting Started</h3>
         <p>Beginning with pixelscript is meant to be easy, quick, and fun!</p>
@@ -137,6 +153,7 @@ int main() {
         </p>
     </div>
 
+    <script src="/components/tables.js"></script>
     <script src="/components/navbar.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>

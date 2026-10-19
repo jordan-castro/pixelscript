@@ -533,13 +533,12 @@ impl SmartJSValue {
 
         if self.is_exception() {
             let exception = Self::current_exception(self.context);
-            return Some(exception.force_as_string().unwrap());
+            let stack_val = exception.get_prop("stack");
+            return Some(format!("{}{}", exception.force_as_string().unwrap(), stack_val.to_string()));
         }
         
         None
     }
-
-    /// ToCString
 
     #[allow(unused)]
     /// ToStringDirect (no checks)

@@ -40,6 +40,7 @@ mod tests {
         let res = pxs_execobject(pxs_new_shallowcopy(co), pxs_newnull());
         assert!(!res.is_null(), "Result is null");
         let reso = own_var!(res);
+        // println!("{:#?}", reso);
         assert!(reso.is_exception(), "Result is not exception: {:#?}", reso);
         println!("Exception: {num}");
         pxs_freevar(co);
@@ -74,7 +75,7 @@ test_raise.call()
 import * as test_raise from 'test_raise';
 
 export const __pxs__ = (args) => {
-    test_raise.call();
+    test_raise.call(); 
 };
 "#;
         for i in 0..100 {
@@ -89,10 +90,10 @@ export const __pxs__ = (args) => {
         utils::setup_pxs();
         setup();
 
-        // print_helper("PYTHON");
-        // test_python();
-        // print_helper("LUA");
-        // test_lua();
+        print_helper("PYTHON");
+        test_python();
+        print_helper("LUA");
+        test_lua();
         print_helper("JS");
         test_js();
 

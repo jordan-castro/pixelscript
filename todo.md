@@ -53,7 +53,7 @@ already have their own benchmarks in the own repos. Please look at their documen
         - `csv`
         - the parser library is going to be different than `pxs_json` because `pxs_json` is mainly just a way of adding JSON support to the host via the library.
             but that will be deprecated in favor of the new parser library.
-    - ~~add `pxs_http`~~ (Converted to Rust.)
+    - ~~add `pxs_http`~~ (Converted to Rust. except for apple)
     - ~~Important caveat with core modules: THEY MUST NOT USE ANY CRATES! So zip and http are written in C++.~~ (This is wrong now, I actually need to convert
     those modules into rust but without adding crates. So they will be using extern c callbacks. For zip I will either write a library or remove it from core.).
     - add `pxs_api` which will be for using the pxs api WITHIN pxs.
@@ -69,7 +69,7 @@ already have their own benchmarks in the own repos. Please look at their documen
     - ~~in JS (do the same thing...)~~
 - ~~update pocketpy version.~~ **DONE**
 - ~~Fix the python memory leak of locals not being removed from globals.~~ (Not doing this anymore.)
-- Add stack errors. This is just a regular pxs_Exception that is programmed to also save a stack msg.
+- ~~Add stack errors. This is just a regular pxs_Exception that is programmed to also save a stack msg.~~ (Was not necessary, only JS had issues )
 - Update python backend to not write raw strings for object creation.
 - ~~Add custom bindings:~~
     - ~~pocketpy~~

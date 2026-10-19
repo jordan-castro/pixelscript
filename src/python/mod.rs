@@ -157,7 +157,7 @@ fn run_py(
     }
 }
 
-/// Concumes the current py-error/exception and returns it as a string.
+/// Consumes the current py-error/exception and returns it as a string.
 pub(self) fn consume_error() -> String {
     unsafe {
         let err = pocketpy::py_formatexc();
