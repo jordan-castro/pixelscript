@@ -272,7 +272,7 @@ impl File {
     }
 
     /// @pxs
-    /// @classmetdho #`fs-File`
+    /// @classmethod #`fs-File`
     /// @except
     /// Close the file.
     /// @example(begin)

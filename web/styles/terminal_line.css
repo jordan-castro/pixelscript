@@ -72,3 +72,6 @@ code {
     height: 10px;
 }
 
+.operator {
+    background-color: transparent !important;
+}

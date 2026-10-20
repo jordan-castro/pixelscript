@@ -1,8 +1,11 @@
 const NAVBAR = `
-<div style="width: 100%; border-top: 1px solid #444444; padding-top: 8px; margin-bottom: 1rem;">
+<div class="row" style="width: 100%; border-top: 1px solid #444444; padding-top: 8px; margin-bottom: 1rem;">
   <div class="d-flex justify-content-between align-items-center">
     <div></div>
-    <div class="d-flex align-items-center gap-3">
+    <div class="col-9">
+      <a href="/"><h2>Pixelscript</h2></a>
+    </div>
+    <div class="col-3 d-flex align-items-center gap-3">
       <a class="nav-link text-white text-decoration-underline" href="/docs" style="font-size: 0.9rem; font-family: 'Courier New', Courier, monospace;">see the docs</a>
       <a class="github-btn" href="https://github.com/jordan-castro/pixelscript">
         <!-- Inline GitHub SVG -->
@@ -11,7 +14,7 @@ const NAVBAR = `
         </svg>
         View on GitHub
       </a>
-      </div>
+    </div>
   </div>
 </div>
 `;

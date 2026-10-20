@@ -21,7 +21,7 @@
 - ~~Promises in JS.~~ (Decided to not support them.)
 - ~~Why (globals, locals) are null sometimes?~~ (because sometimes they are literally not passed.)
 
-## v0.6 STD, Tests, Errors
+## v0.6 STD, Tests, Errors, Wasm and Docs ~~and Dynamic Language support~~ (Dynamic support will not be supported. If you want to add a custom language create a fork.)
 - ~~Use libs/lua-5.5.0/* src instead of mlua.~~ **DONE**
 - ~~Remove lua hacks (io, os, what else?)~~ **DONE**
 - ~~Add file_name to `pxs_eval`.~~ **DONE**
@@ -77,21 +77,19 @@ already have their own benchmarks in the own repos. Please look at their documen
     - ~~quickjsng~~
     This is to support WASM, better cross platform control, and remove (bindgen) from build dependencies.
 - ~~Make pxs_Var a opaque type.~~ There is no longer any need for C level control. Use the api.
-
-## v0.7 Wasm and Docs ~~and Dynamic Language support~~ (Dynamic support will not be supported. If you want to add a custom language create a fork.)
 - ~~Add `dynamic` language support meaning a host language can add its own bindings backend that interops perfectly with Pxs.~~ (Developers should add fork and add their own backend following the docs. If they want to add it to pixelscript they will need to do a PR.)
     ~~- This will be useful when a developer wants to create a custom DSL.~~
 - ~~WASM support~~ + ~~Wasm web page similar to pocketpy live playground.~~ (at pixelscript.epochtech.us/playground)
 - ~~Write documentation at (pixelscript.epochtech.us)~~
 
-## v0.8 Cross language, Binary (pxs), Wren backend
+## v0.7 Cross language, Binary (pxs), Wren backend
 - Cross language support. Calling JS from Python, Lua from JS, Python from JS, etc.
 - Add a pxs binary for:
     - Compiling PXS programs.
     - Using pixelscript as a full runtime.
 - Add Wren support
 
-## v0.9 API, Backends
+## v0.8 API, Backends
 - ~~Add `pxs_addmod2(module:pxs_Module, runtimes:pxs_List[pxs_Int])` which would take a module and a runtime so that you add a specific module to specific runtimes.~~
 - Add C python api support.
 - Add Node JS api support.

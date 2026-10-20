@@ -18,3 +18,7 @@
 .clean-anchor {
     text-decoration: none;
 }
+
+.color-anchor-bold {
+    font-weight: bold;
+}

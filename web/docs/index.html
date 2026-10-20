@@ -11,24 +11,6 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet">
     
     <style>
-        body {
-            background-color: #111111;
-            color: #cac8c8;
-            font-family: 'Roboto', sans-serif, system-ui, -apple-system;
-        }
-
-        hr {
-            border-color: #333333;
-        }
-
-        a {
-            color: #cac8c8;
-            text-decoration: underline;
-        }
-
-        a:hover {
-            color: #cccccc;
-        }
 
         html {
             scroll-behavior: smooth;
@@ -40,11 +22,11 @@
 </head>
 
 <body>
-    <div class="container">
+    <div class="container py-4" style="border-radius: 20px;">
         <div id="pxs-navbar"></div>
-        <h2>PXS Docs</h2>
-        <p><a class="clean-anchor" href="/docs/corelib.html">CoreLib here!</a></p>
-        <p><a class="clean-anchor" href="/docs/clib.html">CLib here!</a></p>
+        <h2>Docs</h2>
+        <p><a href="/docs/corelib.html">CoreLib here!</a></p>
+        <p><a href="/docs/clib.html">CLib here!</a></p>
         <hr>
         <h3>Getting Started</h3>
         <p>Beginning with pixelscript is meant to be easy, quick, and fun!</p>
@@ -155,6 +137,7 @@ int main() {
 
     <script src="/components/tables.js"></script>
     <script src="/components/navbar.js"></script>
+    <script src="/components/body.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-c.min.js"></script>
 

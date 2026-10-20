@@ -86,9 +86,8 @@ STARTING_CODE = """
 </head>
 
 <body>
-    <div class="container">
+    <div class="container py-4" style="border-radius: 20px;">
         <div id="pxs-navbar"></div>
-        <h2>PXS Docs</h2>
         <hr>
         <h3>CoreLib</h3>
         <p>Pixelscript comes with an optional core library modules. They sit behind the <span
@@ -189,6 +188,7 @@ STARTING_CODE = """
 
     <script src="/components/navbar.js"></script>
     <script src="/components/tables.js"></script>
+    <script src="/components/body.js"></script>
     <script src="/pixelscript.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
@@ -375,7 +375,7 @@ for f in corelib:
     final_contents += f"""
         <hr>
         <section id="{f}">
-            <a class="clean-anchor" href="#{f}">
+            <a class="clean-anchor color-anchor-bold" href="#{f}">
                 <h5>{f}</h5>
             </a>
         </section>
@@ -388,7 +388,7 @@ for f in corelib:
                 classes.append(value['parent'])
                 final_contents += f"""
                 <section id="{make_anchor(f, value['parent'])}">
-                    <a class="clean-anchor" href="#{make_anchor(
+                    <a class="clean-anchor color-anchor-bold" href="#{make_anchor(
                         f, value['parent']
                     )}">
                         <h6>{value['parent'].split('-')[1]}</h6>
@@ -402,7 +402,7 @@ for f in corelib:
             <div class="row row-cols-auto"> 
             <div class="col">
             <section id="{anchor}">
-            <a class="clean-anchor" href="#{anchor}"><h7>{prop['name']}</h7></a>
+            <a class="clean-anchor color-anchor-bold" href="#{anchor}"><h7>{prop['name']}</h7></a>
             </section>
             </div>
             <div class="col"></div>
@@ -417,7 +417,7 @@ for f in corelib:
             <div class="row row-cols-auto">
             <div class="col">
             <section id="{anchor}">
-            <a class="clean-anchor" href="#{anchor}"><h7>{value['name']}</h7></a>
+            <a class="clean-anchor color-anchor-bold" href="#{anchor}"><h7>{value['name']}</h7></a>
             </section>
             </div>
             <div class="col">
