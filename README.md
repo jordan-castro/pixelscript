@@ -59,6 +59,7 @@ To include the PixelScript core API, add the `include-core` feature. Or include 
 | `pxs_zip`   | Work with zip files.                                    |
 | `pxs_shell` | Direct shell acces.                                     |
 | `pxs_http`  | HTTP/S support.                                         |
+| `pxs_cross` | Cross language support.                                 |
 
 To read more about the CoreLib, [Read the docs](https://pixelscript.epochtech.us/docs).
 

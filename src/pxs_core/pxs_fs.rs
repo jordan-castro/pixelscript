@@ -523,7 +523,7 @@ extern "C" fn create_dir(args: pxs_VarT) -> pxs_VarT {
 /// Create a directory recursively
 /// @example(begin)
 /// from pxs import fs
-/// fs.create_dir("test/test2/test3")
+/// fs.create_dirs("test/test2/test3")
 /// @example(end)
 extern "C" fn create_dirs(args: pxs_VarT) -> pxs_VarT {
     _internal_runner(args, std::fs::create_dir_all)

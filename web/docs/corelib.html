@@ -91,7 +91,7 @@ print(fs.read_file("test.txt"))
 fs.remove_file("test.txt")
 print(fs.exists("test.txt"))`,create_dir: `from pxs import fs
 fs.create_dir("test")`,create_dirs: `from pxs import fs
-fs.create_dir("test/test2/test3")`,remove_empty_dir: `from pxs import fs
+fs.create_dirs("test/test2/test3")`,remove_empty_dir: `from pxs import fs
 fs.remove_empty_dir("test/test2/test3")`,remove_dir: `from pxs import fs
 fs.remove_dir("test")`,read_dir: `from pxs import fs
 from pxs import print
@@ -105,7 +105,45 @@ os.chdir("example")
 print(os.get_cwd())`,read_env: `from pxs import os, print
 print(os.read_env('name'))`,set_env: `from pxs import os, print
 os.set_env('name', 'Evelyn chan')
-print(os.read_env('name'))`,};
+print(os.read_env('name'))`,_call: `from pxs import print
+from pxs.cross import access
+
+lua = access(0)
+lua._exec("function add(n1, n2) return n1 + n2 end")
+add = lua._get('add')
+print(add._call([1,2]))`,_get: `from pxs import print
+from pxs.cross import access
+js = access(2)
+js._exec("""
+    globalThis.Me = {
+        name: "Jordan"
+    };
+""")
+
+js_me = js._get('Me')
+print(js_me._get('name'))`,_set: `from pxs import print
+from pxs.cross import access
+js = access(2)
+js._exec("""
+    globalThis.Me = {
+        name: "Jordan"
+    };
+""")
+
+js_me = js._get('Me')
+js_me._set('name', 'Jordan Castro')
+print(js_me._get('name'))`,_exec: `from pxs import print
+from pxs.cross import access
+py = access(1)
+py._exec("print('hello!')")`,_eval: `from pxs import print
+from pxs.cross import access
+js = access(2)
+result = js._eval('1 + 1')
+print(result)`,access: `from pxs.cross import access
+from pxs import print
+lua = access(0)
+lua._exec(" function add(n1,n2) return n1 + n2 end ")
+print(lua._call('add', [1,2]))`,};
         function runblock(cid) {
             clear_output();
             CURRENT_ID = cid;
@@ -182,6 +220,11 @@ print(os.read_env('name'))`,};
                     <th>pxs_ModuleFlag::pxs_HTTP</th>
                     <th>128</th>
                 </tr>
+                <tr>
+                    <th scope="row">pxs.cross</th>
+                    <th>pxs_ModuleFlag::pxs_CROSS</th>
+                    <th>128</th>
+                </tr>
             </tbody>
         </table>
         <hr>
@@ -230,7 +273,7 @@ print(os.read_env('name'))`,};
             <p> HTTP Version</p><p>HTTP_VERSION_1_1  =  0<p><p> HTTP_VERSION_2  =  1<p><p> HTTP_VERSION_3  =  2<p>
                 <section id="apxshttphttpClientResponse">
                     <a class="clean-anchor color-anchor-bold" href="#apxshttphttpClientResponse">
-                        <h6>ClientResponse</h6>
+                        <h6>http-ClientResponse</h6>
                     </a>
                 </section>
                 
@@ -277,7 +320,7 @@ print(os.read_env('name'))`,};
             <p>Returns: <span class="terminal-line">http-Client</span> </p><p> Create a new #`http-Client`</p><p></p>
                 <section id="apxshttphttpClient">
                     <a class="clean-anchor color-anchor-bold" href="#apxshttphttpClient">
-                        <h6>Client</h6>
+                        <h6>http-Client</h6>
                     </a>
                 </section>
                 
@@ -525,7 +568,7 @@ f.close() # remember to close your files.
 
                 <section id="apxsfsfsFile">
                     <a class="clean-anchor color-anchor-bold" href="#apxsfsfsFile">
-                        <h6>File</h6>
+                        <h6>fs-File</h6>
                     </a>
                 </section>
                 
@@ -873,7 +916,7 @@ fs.create_dir("test")
             <pre class="language-python code-container">
                 <code class="code-editor">
 from pxs import fs
-fs.create_dir("test/test2/test3")
+fs.create_dirs("test/test2/test3")
                 </code>
             </pre>          
             </div>
@@ -1088,9 +1131,9 @@ print(os.read_env('name'))
             </div>  
 
         <hr>
-        <section id="pxs_shell">
-            <a class="clean-anchor color-anchor-bold" href="#pxs_shell">
-                <h5>pxs_shell</h5>
+        <section id="pxs.shell">
+            <a class="clean-anchor color-anchor-bold" href="#pxs.shell">
+                <h5>pxs.shell</h5>
             </a>
         </section>
     
@@ -1105,16 +1148,16 @@ print(os.read_env('name'))
             </div>
             </div>
             <p> Just a wrapper around Output</p>
-                <section id="apxs_shellshellShellOutput">
-                    <a class="clean-anchor color-anchor-bold" href="#apxs_shellshellShellOutput">
+                <section id="apxsshellShellOutput">
+                    <a class="clean-anchor color-anchor-bold" href="#apxsshellShellOutput">
                         <h6>ShellOutput</h6>
                     </a>
                 </section>
                 
             <div class="row row-cols-auto"> 
             <div class="col">
-            <section id="ashellShellOutput stdout">
-            <a class="clean-anchor color-anchor-bold" href="#ashellShellOutput stdout"><h7> stdout</h7></a>
+            <section id="aShellOutput stdout">
+            <a class="clean-anchor color-anchor-bold" href="#aShellOutput stdout"><h7> stdout</h7></a>
             </section>
             </div>
             <div class="col"></div>
@@ -1123,8 +1166,8 @@ print(os.read_env('name'))
             <p>Returns: <span class="terminal-line">pxs_String</span> </p><p> Get stdout</p>
             <div class="row row-cols-auto"> 
             <div class="col">
-            <section id="ashellShellOutput stderr">
-            <a class="clean-anchor color-anchor-bold" href="#ashellShellOutput stderr"><h7> stderr</h7></a>
+            <section id="aShellOutput stderr">
+            <a class="clean-anchor color-anchor-bold" href="#aShellOutput stderr"><h7> stderr</h7></a>
             </section>
             </div>
             <div class="col"></div>
@@ -1133,8 +1176,8 @@ print(os.read_env('name'))
             <p>Returns: <span class="terminal-line">pxs_String</span> </p><p> Get stderr</p>
             <div class="row row-cols-auto"> 
             <div class="col">
-            <section id="ashellShellOutput status">
-            <a class="clean-anchor color-anchor-bold" href="#ashellShellOutput status"><h7> status</h7></a>
+            <section id="aShellOutput status">
+            <a class="clean-anchor color-anchor-bold" href="#aShellOutput status"><h7> status</h7></a>
             </section>
             </div>
             <div class="col"></div>
@@ -1162,7 +1205,7 @@ print(os.read_env('name'))
             
             </div>
             </div>
-            <p>Returns: <span class="terminal-line">shell-Shell</span> </p><p> Create a new platform shell.</p>
+            <p>Returns: <span class="terminal-line">Shell</span> </p><p> Create a new platform shell.</p>
             <div class="row row-cols-auto">
             <div class="col">
             <section id="aShell">
@@ -1173,17 +1216,17 @@ print(os.read_env('name'))
             <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
             </div>
             </div>
-            <p>Paramaters are: </p><ol><li>program: <span class="terminal-line">pxs_String</span> the starting program))</li> </ol><p>Returns: <span class="terminal-line">shell-Shell</span> </p><p> Create a new shell.</p>
-                <section id="apxs_shellshellShell">
-                    <a class="clean-anchor color-anchor-bold" href="#apxs_shellshellShell">
+            <p>Paramaters are: </p><ol><li>program: <span class="terminal-line">pxs_String</span> the starting program))</li> </ol><p>Returns: <span class="terminal-line">Shell</span> </p><p> Create a new shell.</p>
+                <section id="apxsshellShell">
+                    <a class="clean-anchor color-anchor-bold" href="#apxsshellShell">
                         <h6>Shell</h6>
                     </a>
                 </section>
                 
             <div class="row row-cols-auto">
             <div class="col">
-            <section id="ashellShellcommand">
-            <a class="clean-anchor color-anchor-bold" href="#ashellShellcommand"><h7>command</h7></a>
+            <section id="aShellcommand">
+            <a class="clean-anchor color-anchor-bold" href="#aShellcommand"><h7>command</h7></a>
             </section>
             </div>
             <div class="col">
@@ -1193,8 +1236,8 @@ print(os.read_env('name'))
             <p> Define this as a command. Only call this once before adding any args after program.</p>
             <div class="row row-cols-auto">
             <div class="col">
-            <section id="ashellShellarg">
-            <a class="clean-anchor color-anchor-bold" href="#ashellShellarg"><h7>arg</h7></a>
+            <section id="aShellarg">
+            <a class="clean-anchor color-anchor-bold" href="#aShellarg"><h7>arg</h7></a>
             </section>
             </div>
             <div class="col">
@@ -1204,8 +1247,8 @@ print(os.read_env('name'))
             <p>Paramaters are: </p><ol><li>argument: <span class="terminal-line">pxs_String</span> the argument))</li> </ol><p> Add a argument to the command.</p>
             <div class="row row-cols-auto">
             <div class="col">
-            <section id="ashellShellstatus">
-            <a class="clean-anchor color-anchor-bold" href="#ashellShellstatus"><h7>status</h7></a>
+            <section id="aShellstatus">
+            <a class="clean-anchor color-anchor-bold" href="#aShellstatus"><h7>status</h7></a>
             </section>
             </div>
             <div class="col">
@@ -1215,8 +1258,8 @@ print(os.read_env('name'))
             <p>Returns: <span class="terminal-line">pxs_Int64</span> </p><p> Run and get status code.</p>
             <div class="row row-cols-auto">
             <div class="col">
-            <section id="ashellShellspawn">
-            <a class="clean-anchor color-anchor-bold" href="#ashellShellspawn"><h7>spawn</h7></a>
+            <section id="aShellspawn">
+            <a class="clean-anchor color-anchor-bold" href="#aShellspawn"><h7>spawn</h7></a>
             </section>
             </div>
             <div class="col">
@@ -1226,15 +1269,15 @@ print(os.read_env('name'))
             <p> Spawn a process.</p>
             <div class="row row-cols-auto">
             <div class="col">
-            <section id="ashellShelloutput">
-            <a class="clean-anchor color-anchor-bold" href="#ashellShelloutput"><h7>output</h7></a>
+            <section id="aShelloutput">
+            <a class="clean-anchor color-anchor-bold" href="#aShelloutput"><h7>output</h7></a>
             </section>
             </div>
             <div class="col">
             <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
             </div>
             </div>
-            <p>Returns: <span class="terminal-line">shell-ShellOutput</span> </p><p> Run and get output as a `Output`.</p>
+            <p>Returns: <span class="terminal-line">ShellOutput</span> </p><p> Run and get output as a `Output`.</p>
             <div class="row row-cols-auto">
             <div class="col">
             <section id="asystem">
@@ -1246,6 +1289,235 @@ print(os.read_env('name'))
             </div>
             </div>
             <p>Paramaters are: </p><ol><li>command: <span class="terminal-line">pxs_String</span> the command to run.))</li> </ol><p>Returns: <span class="terminal-line">pxs_Int64</span>  the status code.</p><p> Run a command. Prints to terminal by default.</p>
+        <hr>
+        <section id="pxs.cross">
+            <a class="clean-anchor color-anchor-bold" href="#pxs.cross">
+                <h5>pxs.cross</h5>
+            </a>
+        </section>
+    
+            <div class="row row-cols-auto">
+            <div class="col">
+            <section id="aRuntimeObjectType">
+            <a class="clean-anchor color-anchor-bold" href="#aRuntimeObjectType"><h7>RuntimeObjectType</h7></a>
+            </section>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Enum." class="pxs-enum"></div>
+            </div>
+            </div>
+            <p> Determines what the #`RuntimeObject` can and can not do.</p><p></p><p> Runtime = [_call, _exec, _eval, _get, _set].</p><p> Function = [_call]</p><p> Object = [_call, _get, _set]</p><p>Runtime  =  0<p><p> Function  =  1<p><p> Object  =  2<p>
+            <div class="row row-cols-auto">
+            <div class="col">
+            <section id="aRuntimeObject">
+            <a class="clean-anchor color-anchor-bold" href="#aRuntimeObject"><h7>RuntimeObject</h7></a>
+            </section>
+            </div>
+            <div class="col">
+            
+            </div>
+            </div>
+            <p> A value from another runtime. Each `RuntimeObject` operates differently. See #`RuntimeObjectType` for more details.</p>
+                <section id="apxscrossRuntimeObject">
+                    <a class="clean-anchor color-anchor-bold" href="#apxscrossRuntimeObject">
+                        <h6>RuntimeObject</h6>
+                    </a>
+                </section>
+                
+            <div class="row row-cols-auto">
+            <div class="col">
+            <section id="aRuntimeObject_call">
+            <a class="clean-anchor color-anchor-bold" href="#aRuntimeObject_call"><h7>_call</h7></a>
+            </section>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>name: <span class="terminal-line">pxs_String|pxs_List</span> Can be either the name or args if calling itself.)</li> <li> args: <span class="terminal-line">pxs_List?</span> arguments of the function. Is only null when passing args as name.))</li> </ol><p>Returns: <span class="terminal-line">RuntimeObject|pxs_Va</span> </p><p> Depending on the `type`, it will either call a function or call itself.</p><p> If `type` is Runtime, it will call a function.</p><p> If `type` is Function, it will call itself.</p><p> If `type` is Object, it will call a property of itself.</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import print
+from pxs.cross import access
+
+lua = access(0)
+lua._exec("function add(n1, n2) return n1 + n2 end")
+add = lua._get('add')
+print(add._call([1,2]))
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('_call')">Try it out</button>
+                <div class="code-container" id="_call">
+                </div>
+            </div>
+            </div>  
+
+            <div class="row row-cols-auto">
+            <div class="col">
+            <section id="a_get">
+            <a class="clean-anchor color-anchor-bold" href="#a_get"><h7>_get</h7></a>
+            </section>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>name: <span class="terminal-line">pxs_String</span> the name of the variable.))</li> </ol><p>Returns: <span class="terminal-line">RuntimeObject|pxs_Va</span>  The result of the get.</p><p> Get a variable/object/function.</p><p> If `type` is Runtime, it will get from global scope.</p><p> If `type` is Object, it will get a property of itself.</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import print
+from pxs.cross import access
+js = access(2)
+js._exec("""
+    globalThis.Me = {
+        name: "Jordan"
+    };
+""")
+
+js_me = js._get('Me')
+print(js_me._get('name'))
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('_get')">Try it out</button>
+                <div class="code-container" id="_get">
+                </div>
+            </div>
+            </div>  
+
+            <div class="row row-cols-auto">
+            <div class="col">
+            <section id="a_set">
+            <a class="clean-anchor color-anchor-bold" href="#a_set"><h7>_set</h7></a>
+            </section>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>key: <span class="terminal-line">pxs_String</span> the name of the variable.)</li> <li> value: <span class="terminal-line">pxs_Var</span> a value.))</li> </ol><p> Get a variable/object/function.</p><p> Only on `type` Object.</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import print
+from pxs.cross import access
+js = access(2)
+js._exec("""
+    globalThis.Me = {
+        name: "Jordan"
+    };
+""")
+
+js_me = js._get('Me')
+js_me._set('name', 'Jordan Castro')
+print(js_me._get('name'))
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('_set')">Try it out</button>
+                <div class="code-container" id="_set">
+                </div>
+            </div>
+            </div>  
+
+            <div class="row row-cols-auto">
+            <div class="col">
+            <section id="a_exec">
+            <a class="clean-anchor color-anchor-bold" href="#a_exec"><h7>_exec</h7></a>
+            </section>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>code: <span class="terminal-line">pxs_String</span> the code to execute.)</li> <li> file_name: <span class="terminal-line">pxs_String</span> optional name for debugging.))</li> </ol><p>Returns: <span class="terminal-line">pxs_String</span>  string if a exception occured.</p><p> Execute arbitrary code in the runtime.</p><p> Only on `type` Runtime.</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import print
+from pxs.cross import access
+py = access(1)
+py._exec("print('hello!')")
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('_exec')">Try it out</button>
+                <div class="code-container" id="_exec">
+                </div>
+            </div>
+            </div>  
+
+            <div class="row row-cols-auto">
+            <div class="col">
+            <section id="a_eval">
+            <a class="clean-anchor color-anchor-bold" href="#a_eval"><h7>_eval</h7></a>
+            </section>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Requires self" class="pxs-self"></div><div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>code: <span class="terminal-line">pxs_String</span> the code to evaluate.)</li> <li> file_name: <span class="terminal-line">pxs_String</span> optional name for debugging.))</li> </ol><p>Returns: <span class="terminal-line">pxs_Var</span>  The result of the evaluation. If a exception is thrown in the evaluation, it is also thrown in the current runtime and it must be caught.</p><p> Evaluate arbitrary code in the runtime.</p><p> Only on `type` Runtime.</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs import print
+from pxs.cross import access
+js = access(2)
+result = js._eval('1 + 1')
+print(result)
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('_eval')">Try it out</button>
+                <div class="code-container" id="_eval">
+                </div>
+            </div>
+            </div>  
+
+            <div class="row row-cols-auto">
+            <div class="col">
+            <section id="aaccess">
+            <a class="clean-anchor color-anchor-bold" href="#aaccess"><h7>access</h7></a>
+            </section>
+            </div>
+            <div class="col">
+            <div data-bs-toggle="tooltip" data-bs-placement="top" data-bs-title="Throws Exception." class="pxs-excepts"></div>
+            </div>
+            </div>
+            <p>Paramaters are: </p><ol><li>rt: <span class="terminal-line">pxs_Int64</span> the runtime value.))</li> </ol><p>Returns: <span class="terminal-line">RuntimeObject</span>  access to the runtime.</p><p> Access a pxs runtime via scripting.</p>
+            <div class="row">
+            <div class="col">
+            <pre class="language-python code-container">
+                <code class="code-editor">
+from pxs.cross import access
+from pxs import print
+lua = access(0)
+lua._exec(" function add(n1,n2) return n1 + n2 end ")
+print(lua._call('add', [1,2]))
+                </code>
+            </pre>          
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-success" onclick="runblock('access')">Try it out</button>
+                <div class="code-container" id="access">
+                </div>
+            </div>
+            </div>  
+
     </div>
     <script>
         var Module = {

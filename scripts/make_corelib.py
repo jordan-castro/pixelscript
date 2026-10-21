@@ -9,7 +9,8 @@ corelib = {
     "pxs.mem": "src/pxs_core/pxs_mem.rs",
     "pxs.fs": "src/pxs_core/pxs_fs.rs",
     "pxs.os": "src/pxs_core/pxs_os.rs",
-    "pxs_shell": "src/pxs_core/pxs_shell.rs"
+    "pxs.shell": "src/pxs_core/pxs_shell.rs",
+    "pxs.cross": "src/pxs_core/pxs_cross.rs"
 }
 
 STARTING_CODE = """
@@ -144,6 +145,11 @@ STARTING_CODE = """
                 <tr>
                     <th scope="row">pxs.http</th>
                     <th>pxs_ModuleFlag::pxs_HTTP</th>
+                    <th>128</th>
+                </tr>
+                <tr>
+                    <th scope="row">pxs.cross</th>
+                    <th>pxs_ModuleFlag::pxs_CROSS</th>
                     <th>128</th>
                 </tr>
             </tbody>
@@ -391,7 +397,7 @@ for f in corelib:
                     <a class="clean-anchor color-anchor-bold" href="#{make_anchor(
                         f, value['parent']
                     )}">
-                        <h6>{value['parent'].split('-')[1]}</h6>
+                        <h6>{value['parent']}</h6>
                     </a>
                 </section>
                 """

@@ -23,11 +23,11 @@ mod tests {
     fn test_python() {
         let script = r#"
 from pxs import *
-from pxs import cross
+from pxs.cross import access
 
 
 print('========== js ==========')
-js = cross.access(2)
+js = access(2)
 js._exec("""
 import {print} from 'pxs';
 
@@ -59,7 +59,7 @@ js_me._set('name', "Jordan Castro")
 passert(js_me._get('name') == "Jordan Castro", "Name aint naming!")
 
 print('========== lua =========')
-lua = cross.access(0)
+lua = access(0)
 lua._exec("""
 local pxs = require('pxs')
 pxs.print('From Lua!')

@@ -1,6 +1,6 @@
-const pxs_VarType ={ pxs_Int64 : 0,pxs_UInt64 : 1,pxs_String : 2,pxs_Bool : 3,pxs_Float64 : 4,pxs_Null : 5,pxs_Object : 6,pxs_HostObject : 7,pxs_List : 8,pxs_Function : 9,pxs_Factory : 10,pxs_Exception : 11,pxs_Map : 12,pxs_Byte : 13 };
 const pxs_Runtime ={ pxs_Lua : 0,pxs_Python : 1,pxs_JavaScript : 2,pxs_Wren : 3 };
-const pxs_ModuleFlag ={ pxs_NONE : 0,pxs_JSON : 1,pxs_MEM : 2,pxs_OS : 4,pxs_PXS : 8,pxs_FS : 16,pxs_SHELL : 32,pxs_ZIP : 64,pxs_HTTP : 128 };let pxs_version;
+const pxs_VarType ={ pxs_Int64 : 0,pxs_UInt64 : 1,pxs_String : 2,pxs_Bool : 3,pxs_Float64 : 4,pxs_Null : 5,pxs_Object : 6,pxs_HostObject : 7,pxs_List : 8,pxs_Function : 9,pxs_Factory : 10,pxs_Exception : 11,pxs_Map : 12,pxs_Byte : 13 };
+const pxs_ModuleFlag ={ pxs_JSON : 0,pxs_MEM : 1,pxs_OS : 2,pxs_PXS : 4,pxs_FS : 8,pxs_SHELL : 16,pxs_ZIP : 32,pxs_HTTP : 64,pxs_CROSS : 128 };let pxs_version;
 let pxs_initialize;
 let pxs_finalize;
 let pxs_exec;
@@ -327,7 +327,7 @@ pxs_addmod2 = module.cwrap("pxs_addmod2","",["number","number"] );
 pxs_json_encode = module.cwrap("pxs_json_encode","number",["number","number"] );
 pxs_json_decode = module.cwrap("pxs_json_decode","number",["number","number"] );
 pxs_core_init = module.cwrap("pxs_core_init","",["number"] );
-pxs_core_initall = module.cwrap("pxs_core_initall" )
+pxs_core_initall = module.cwrap("pxs_core_initall" );
         if (start) {
             pxs_initialize();
         }
