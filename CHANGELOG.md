@@ -109,4 +109,4 @@
 - `pxs_ModuleFlag` is no longer a bit flag. **BREAKING**
 
 ## 0.7.0
-- 
+- Added `pxs_cross` cross language support.
