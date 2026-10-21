@@ -81,24 +81,24 @@ typedef enum pxs_VarType {
  */
 enum pxs_ModuleFlag
 #if defined(__cplusplus) || __STDC_VERSION__ >= 202311L
-  : uint8_t
+  : uint16_t
 #endif // defined(__cplusplus) || __STDC_VERSION__ >= 202311L
  {
-  pxs_NONE = 0,
-  pxs_JSON = (1 << 0),
-  pxs_MEM = (1 << 1),
-  pxs_OS = (1 << 2),
-  pxs_PXS = (1 << 3),
-  pxs_FS = (1 << 4),
-  pxs_SHELL = (1 << 5),
-  pxs_ZIP = (1 << 6),
-  pxs_HTTP = (1 << 7),
+  pxs_JSON = 0,
+  pxs_MEM = (1 << 0),
+  pxs_OS = (1 << 1),
+  pxs_PXS = (1 << 2),
+  pxs_FS = (1 << 3),
+  pxs_SHELL = (1 << 4),
+  pxs_ZIP = (1 << 5),
+  pxs_HTTP = (1 << 6),
+  pxs_CROSS = (1 << 7),
 };
 #ifndef __cplusplus
 #if __STDC_VERSION__ >= 202311L
 typedef enum pxs_ModuleFlag pxs_ModuleFlag;
 #else
-typedef uint8_t pxs_ModuleFlag;
+typedef uint16_t pxs_ModuleFlag;
 #endif // __STDC_VERSION__ >= 202311L
 #endif // __cplusplus
 
@@ -286,7 +286,7 @@ typedef struct pxs_PixelArena *pxs_PixelArenaT;
 /**
  * This is just to expose `pxs_ModuleFlag` enum.
  */
-#define PXS_MODULE_FLAG_NONE pxs_NONE
+#define PXS_MODULE_FLAG_NONE pxs_JSON
 
 #ifdef __cplusplus
 extern "C" {
@@ -519,16 +519,9 @@ pxs_VarT pxs_object_callrt(enum pxs_Runtime runtime,
 /**
  * Object call.
  *
- * All memory is borrowed except for args. But the var returned need to be freed on host side if not returned by a function.
+ * All memory is borrowed except for args. But the var returned needs to be freed on the host side if it's not returned by a function.
  *
- * You can get the runtime from the first Var in any callback.
- *
- * Example
- * ```C
- *     // Inside a Var* method
- *     Var* obj = pxs_listget(args, 1);
- *     Var name = pxs_object_call()
- * ```
+ * You can get the runtime from the first pxs_VarT in any callback.
  *
  * runtime:BORROW
  * var:BORROW
@@ -1298,7 +1291,7 @@ bool pxs_isbyte(pxs_VarT var);
  *
  * You must free the `module` using `pxs_freemod`
  */
-void pxs_addmod2(pxs_ModuleT module, uint8_t language);
+void pxs_addmod2(pxs_ModuleT module, enum pxs_Runtime language);
 
 /**
  * Encode a `pxs_Var` into a JSON string. Will return a `pxs_Var` of type string.
@@ -1330,10 +1323,10 @@ pxs_VarT pxs_json_decode(pxs_VarT rt,
 
 /**
  * Initalize core modules
- *
+ * 
  * THREAD_LOCAL
  */
-void pxs_core_init(uint8_t modules);
+void pxs_core_init(uint16_t modules);
 
 /**
  * Initialize all the `pxs_core` modules.

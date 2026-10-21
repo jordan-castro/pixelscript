@@ -69,7 +69,7 @@ impl ShellOutput {
     }
 
     /// @pxs
-    /// @classmethod(#`shell-ShellOutput`)
+    /// @classmethod(#`ShellOutput`)
     /// @self
     /// @prop(get) stdout
     /// Get stdout
@@ -79,7 +79,7 @@ impl ShellOutput {
     }
 
     /// @pxs
-    /// @classmethod(#`shell-ShellOutput`)
+    /// @classmethod(#`ShellOutput`)
     /// @self
     /// @prop(get) stderr
     /// Get stderr
@@ -89,7 +89,7 @@ impl ShellOutput {
     }
 
     /// @pxs
-    /// @classmethod(#`shell-ShellOutput`)
+    /// @classmethod(#`ShellOutput`)
     /// @self
     /// @prop(get) status
     /// Get status
@@ -125,7 +125,7 @@ impl Shell {
 
     /// @pxs(PlatformShell)
     /// Create a new platform shell.
-    /// @return(#`shell-Shell`)
+    /// @return(#`Shell`)
     extern "C" fn platform(args: pxs_VarT) -> pxs_VarT {
         let nargs = pxs_newlist();
         pxs_listadd(nargs, pxs_new_shallowcopy(pxs_getrt(args)));
@@ -145,7 +145,7 @@ impl Shell {
     /// Create a new shell.
     /// @args(program:pxs_String(the starting program))
     /// @except
-    /// @return(#`shell-Shell`)
+    /// @return(#`Shell`)
     extern "C" fn new(args: pxs_VarT) -> pxs_VarT {
         let program_arg = pxs_arg(args, 0);
         if !pxs_isstring(program_arg) {
@@ -174,7 +174,7 @@ impl Shell {
     }
 
     /// @pxs
-    /// @classmethod(#`shell-Shell`)
+    /// @classmethod(#`Shell`)
     /// @except
     /// @self
     /// Define this as a command. Only call this once before adding any args after program.
@@ -201,7 +201,7 @@ impl Shell {
     }
 
     /// @pxs
-    /// @classmethod(#`shell-Shell`)
+    /// @classmethod(#`Shell`)
     /// @self
     /// @except
     /// @args(argument:pxs_String(the argument))
@@ -225,7 +225,7 @@ impl Shell {
     }
 
     /// @pxs
-    /// @classmethod(#`shell-Shell`)
+    /// @classmethod(#`Shell`)
     /// @self
     /// @except
     /// Run and get status code.
@@ -244,7 +244,7 @@ impl Shell {
     }
 
     /// @pxs
-    /// @classmethod(#`shell-Shell`)
+    /// @classmethod(#`Shell`)
     /// @self
     /// @except
     /// Spawn a process.
@@ -262,11 +262,11 @@ impl Shell {
     }
 
     /// @pxs
-    /// @classmethod(#`shell-Shell`)
+    /// @classmethod(#`Shell`)
     /// @self
     /// @except
     /// Run and get output as a `Output`.
-    /// @return(#`shell-ShellOutput`)
+    /// @return(#`ShellOutput`)
     extern "C" fn output(args: pxs_VarT) -> pxs_VarT {
         let thisp = pxs_gettype(pxs_getrt(args), pxs_arg(args, 0), PxsCoreType::Shell as i32);
         if thisp.is_null() {

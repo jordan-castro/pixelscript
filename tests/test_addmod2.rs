@@ -104,9 +104,9 @@ all.add();
         pxs_addfunc(js_module, c"add".as_ptr(), js_add);
         pxs_addfunc(all_module, c"add".as_ptr(), all_add);
 
-        pxs_addmod2(lua_module, pxs_Runtime::pxs_Lua as u8);
-        pxs_addmod2(py_module, pxs_Runtime::pxs_Python as u8);
-        pxs_addmod2(js_module, pxs_Runtime::pxs_JavaScript as u8);
+        pxs_addmod2(lua_module, pxs_Runtime::pxs_Lua);
+        pxs_addmod2(py_module, pxs_Runtime::pxs_Python);
+        pxs_addmod2(js_module, pxs_Runtime::pxs_JavaScript);
         pxs_addmod(all_module);
 
         pxs_freemod(lua_module);

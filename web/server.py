@@ -15,3 +15,5 @@ if __name__ == "__main__":
     httpd = HTTPServer(server_address, CORSRequestHandler)
     print("Serving with COOP/COEP headers on http://localhost:8000")
     httpd.serve_forever()
+
+

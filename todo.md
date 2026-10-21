@@ -83,7 +83,7 @@ already have their own benchmarks in the own repos. Please look at their documen
 - ~~Write documentation at (pixelscript.epochtech.us)~~
 
 ## v0.7 Cross language, Binary (pxs), Wren backend
-- Cross language support. Calling JS from Python, Lua from JS, Python from JS, etc.
+- ~~Cross language support. Calling JS from Python, Lua from JS, Python from JS, etc.~~
 - Add a pxs binary for:
     - Compiling PXS programs.
     - Using pixelscript as a full runtime.

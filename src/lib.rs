@@ -112,7 +112,7 @@ static mut IS_INIT: bool = false;
 static mut IS_KILLED: bool = false;
 
 /// This is just to expose `pxs_ModuleFlag` enum.
-pub const PXS_MODULE_FLAG_NONE: pxs_ModuleFlag = pxs_ModuleFlag::pxs_NONE;
+pub const PXS_MODULE_FLAG_NONE: pxs_ModuleFlag = pxs_ModuleFlag::pxs_JSON;
 
 /// Current pixelscript version.
 #[unsafe(no_mangle)]
@@ -675,16 +675,9 @@ pub extern "C" fn pxs_object_callrt(
 
 /// Object call.
 ///
-/// All memory is borrowed except for args. But the var returned need to be freed on host side if not returned by a function.
+/// All memory is borrowed except for args. But the var returned needs to be freed on the host side if it's not returned by a function.
 ///
-/// You can get the runtime from the first Var in any callback.
-///
-/// Example
-/// ```C
-///     // Inside a Var* method
-///     Var* obj = pxs_listget(args, 1);
-///     Var name = pxs_object_call()
-/// ```
+/// You can get the runtime from the first pxs_VarT in any callback.
 ///
 /// runtime:BORROW
 /// var:BORROW
@@ -2512,7 +2505,7 @@ pub extern "C" fn pxs_isbyte(var: pxs_VarT) -> bool {
 ///
 /// You must free the `module` using `pxs_freemod`
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_addmod2(module: pxs_ModuleT, language: u8) {
+pub extern "C" fn pxs_addmod2(module: pxs_ModuleT, language: pxs_Runtime) {
     pxs_debug!("pxs_addmod2");
     assert_initiated!();
 
@@ -2520,41 +2513,12 @@ pub extern "C" fn pxs_addmod2(module: pxs_ModuleT, language: u8) {
         return;
     }
 
-    // own module
+    // borrow module
     let bmodule = unsafe { pxs_Module::from_borrow(module) };
 
-    // LUA
-    if language == pxs_Runtime::pxs_Lua as u8 {
-        with_feature!(
-            "lua",
-            {
-                LuaScripting::add_module(bmodule);
-            },
-            { panic!("`lua` is not enabled.") }
-        );
-    }
-
-    // PYTHON
-    if language == pxs_Runtime::pxs_Python as u8 {
-        with_feature!(
-            "python",
-            {
-                PythonScripting::add_module(bmodule);
-            },
-            { panic!("`python` is not enabled.") }
-        );
-    }
-
-    // JS
-    if language == pxs_Runtime::pxs_JavaScript as u8 {
-        with_feature!(
-            "js",
-            {
-                JSScripting::add_module(bmodule);
-            },
-            { panic!("`js` is not enabled.") }
-        );
-    }
+    with_backend!(language, Backend => {
+        Backend::add_module(bmodule);
+    });
 }
 
 // ====================================== Core functions Start =======================================
@@ -2614,10 +2578,10 @@ pub extern "C" fn pxs_json_decode(rt: pxs_VarT, args: pxs_VarT) -> pxs_VarT {
 }
 
 /// Initalize core modules
-///
+/// 
 /// THREAD_LOCAL
 #[unsafe(no_mangle)]
-pub extern "C" fn pxs_core_init(modules: u8) {
+pub extern "C" fn pxs_core_init(modules: u16) {
     pxs_debug!("pxs_core_init");
     assert_initiated!();
     #[cfg(any(
@@ -2628,7 +2592,8 @@ pub extern "C" fn pxs_core_init(modules: u8) {
         feature = "pxs_fs",
         feature = "pxs_shell",
         feature = "pxs_http",
-        feature = "pxs_zip"
+        feature = "pxs_zip",
+        feature = "pxs_cross"
     ))]
     {
         unsafe {
@@ -2644,28 +2609,31 @@ pub extern "C" fn pxs_core_init(modules: u8) {
 pub extern "C" fn pxs_core_initall() {
     pxs_debug!("pxs_core_initall");
     assert_initiated!();
-    let mut modules: u8 = 0;
+    let mut modules: u16 = 0;
 
     with_feature!("pxs_os", {
-        modules |= pxs_core::pxs_ModuleFlag::pxs_OS as u8;
+        modules |= pxs_core::pxs_ModuleFlag::pxs_OS as u16;
     });
     with_feature!("pxs_mem", {
-        modules |= pxs_core::pxs_ModuleFlag::pxs_MEM as u8;
+        modules |= pxs_core::pxs_ModuleFlag::pxs_MEM as u16;
     });
     with_feature!("pxs_pxs", {
-        modules |= pxs_core::pxs_ModuleFlag::pxs_PXS as u8;
+        modules |= pxs_core::pxs_ModuleFlag::pxs_PXS as u16;
     });
     with_feature!("pxs_fs", {
-        modules |= pxs_core::pxs_ModuleFlag::pxs_FS as u8;
+        modules |= pxs_core::pxs_ModuleFlag::pxs_FS as u16;
     });
     with_feature!("pxs_shell", {
-        modules |= pxs_core::pxs_ModuleFlag::pxs_SHELL as u8;
+        modules |= pxs_core::pxs_ModuleFlag::pxs_SHELL as u16;
     });
     with_feature!("pxs_zip", {
-        modules |= pxs_core::pxs_ModuleFlag::pxs_ZIP as u8;
+        modules |= pxs_core::pxs_ModuleFlag::pxs_ZIP as u16;
     });
     with_feature!("pxs_http", {
-        modules |= pxs_core::pxs_ModuleFlag::pxs_HTTP as u8;
+        modules |= pxs_core::pxs_ModuleFlag::pxs_HTTP as u16;
+    });
+    with_feature!("pxs_cross", {
+        modules |= pxs_core::pxs_ModuleFlag::pxs_CROSS as u16;
     });
 
     pxs_core_init(modules);

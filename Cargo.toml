@@ -1,6 +1,6 @@
 [package]
 name = "pixelscript"
-version = "0.6.6"
+version = "0.7.0"
 edition = "2024"
 license = "Apache-2.0"
 authors = ["Jordan Castro jordan@grupojvm.com"]
@@ -45,7 +45,8 @@ include-core = [
     "pxs_fs",
     "pxs_shell",
     "pxs_http",
-    "pxs_zip"
+    "pxs_zip",
+    "pxs_cross"
 ]
 pxs_json = []
 pxs_mem = []
@@ -62,6 +63,7 @@ pxs_fs = []
 pxs_shell = []
 pxs_http = []
 pxs_zip = []
+pxs_cross = []
 
 [profile.release]
 opt-level = "z"

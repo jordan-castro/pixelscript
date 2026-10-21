@@ -38,6 +38,21 @@ mod pxs_zip;
 #[cfg(feature="pxs_http")]
 /// cbindgen:ignore
 mod http;
+#[cfg(feature="pxs_cross")]
+/// cbindgen:ignore
+mod pxs_cross;
+
+#[macro_export]
+macro_rules! get_self {
+    ($args:expr, $_type:expr) => {{
+        let thisp = crate::pxs_gettype(crate::pxs_getrt($args), crate::pxs_arg($args, 0), $_type);
+        if thisp.is_null() {
+            return crate::pxs_newexception(c"Expected self".as_ptr());
+        }
+        let this = unsafe { Self::from_borrow_void(thisp) };
+        this
+    }};
+}
 
 /// cbindgen:no-export
 #[repr(i32)]
@@ -49,28 +64,29 @@ pub(self) enum PxsCoreType {
     Shell = 4,
     ShellOutput = 5,
     ClientResponse = 6,
-    Client = 7
+    Client = 7,
+    RuntimeObject = 8
 }
 
-#[repr(u8)]
+#[repr(u16)]
 /// Bitflags for modules.
 pub enum pxs_ModuleFlag {
-    pxs_NONE = 0,
-    pxs_JSON = 1 << 0,
-    pxs_MEM = 1 << 1,
-    pxs_OS = 1 << 2,
-    pxs_PXS = 1 << 3,
-    pxs_FS = 1 << 4,
-    pxs_SHELL = 1 << 5,
-    pxs_ZIP = 1 << 6,
-    pxs_HTTP = 1 << 7
+    pxs_JSON = 0,
+    pxs_MEM = 1 << 0,
+    pxs_OS = 1 << 1,
+    pxs_PXS = 1 << 2,
+    pxs_FS = 1 << 3,
+    pxs_SHELL = 1 << 4,
+    pxs_ZIP = 1 << 5,
+    pxs_HTTP = 1 << 6,
+    pxs_CROSS = 1 << 7
 }
 
 impl BitAnd for pxs_ModuleFlag {
-    type Output = u8;
+    type Output = u16;
 
     fn bitand(self, rhs: Self) -> Self::Output {
-        (self as u8) & (rhs as u8)
+        (self as u16) & (rhs as u16)
     }
 }
 
@@ -92,42 +108,42 @@ pub(crate) unsafe fn is_valid_pxs_function(rt: pxs_VarT, args: pxs_VarT) -> bool
 }
 
 /// Setup core modules.
-pub(crate) unsafe fn setup_core_modules(modules: u8) {
+pub(crate) unsafe fn setup_core_modules(modules: u16) {
     let pxs_mod_name = create_raw_string!("pxs");
     let pxs_module = pxs_newmod(pxs_mod_name);
     unsafe {
         free_raw_string!(pxs_mod_name);
     }
 
-    if modules & pxs_ModuleFlag::pxs_MEM as u8 != 0 {
+    if modules & pxs_ModuleFlag::pxs_MEM as u16 != 0 {
         with_feature!("pxs_mem", {
             pxs_mem::init(pxs_module);
         }, {
             panic!("pxs_mem is not enabled.");
         });
     }
-    if modules & pxs_ModuleFlag::pxs_OS as u8 != 0 {
+    if modules & pxs_ModuleFlag::pxs_OS as u16 != 0 {
         with_feature!("pxs_os", {
             pxs_os::init(pxs_module);
         }, {
             panic!("pxs_os is not enabled.");
         });
     }
-    if modules & pxs_ModuleFlag::pxs_PXS as u8 != 0 {
+    if modules & pxs_ModuleFlag::pxs_PXS as u16 != 0 {
         with_feature!("pxs_pxs", {
             pxs_pxs::init(pxs_module);
         }, {
             panic!("pxs_pxs is not enabled");
         });
     }
-    if modules & pxs_ModuleFlag::pxs_FS as u8 != 0 {
+    if modules & pxs_ModuleFlag::pxs_FS as u16 != 0 {
         with_feature!("pxs_fs", {
             pxs_fs::init(pxs_module);
         }, {
             panic!("pxs_fs is not enabled");
         });
     }
-    if modules & pxs_ModuleFlag::pxs_SHELL as u8 != 0 {
+    if modules & pxs_ModuleFlag::pxs_SHELL as u16 != 0 {
         with_feature!("pxs_shell", {
             pxs_shell::init(pxs_module);
         }, {
@@ -141,12 +157,20 @@ pub(crate) unsafe fn setup_core_modules(modules: u8) {
     //         panic!("pxs_zip is not enabled");
     //     });
     // }
-    if modules & pxs_ModuleFlag::pxs_HTTP as u8 != 0 {
+    if modules & pxs_ModuleFlag::pxs_HTTP as u16 != 0 {
         with_feature!("pxs_http", {
             http::init(pxs_module);
         }, {
             panic!("pxs_http is not enabled.");
         });
+    }
+
+    if modules & pxs_ModuleFlag::pxs_CROSS as u16 != 0 {
+        with_feature!("pxs_cross", {
+            pxs_cross::init(pxs_module);
+        }, {
+            panic!("pxs_cross is not enabled.");
+        })
     }
 
     pxs_addmod(pxs_module);

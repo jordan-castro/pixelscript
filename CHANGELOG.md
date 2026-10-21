@@ -105,3 +105,8 @@
 - Added `srcipts/make_js_bindings.py` to generate JS bindings
 - Added `scripts/make_corelib.py` to generate `web/docs/corelib.html`.
 - Made pxs_Var opaque.
+- `pxs_core_init` takes a `pxs_ModuleFlag`. **BREAKING**
+- `pxs_ModuleFlag` is no longer a bit flag. **BREAKING**
+
+## 0.7.0
+- 
