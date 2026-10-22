@@ -129,6 +129,22 @@ pub(self) fn exec_py(code: &str, name: &str, module: &str) -> String {
     )
 }
 
+/// Get the current module or __main__
+pub(self) fn get_module_or_main() -> pocketpy::py_Ref {
+    unsafe {
+        let cmod = pocketpy::py_inspect_currentmodule();
+        if !cmod.is_null() {
+            cmod
+        } else {
+            let name = create_raw_string!("__main__");
+            let cmod = pocketpy::py_getmodule(name);
+            free_raw_string!(name);
+
+            cmod
+        }
+    }
+}
+
 /// Run python code as eval or exec on a optinal module.
 /// If no module is chosen, it defaults to __main__ via pocketpy internals.
 fn run_py(
@@ -759,7 +775,7 @@ impl ObjectMethods for PythonScripting {
                     global
                 } else {
                     // Look for in current module
-                    let cmod = pocketpy::py_inspect_currentmodule();
+                    let cmod = get_module_or_main();
                     // Then look for a method in current module
                     let found = pocketpy::py_getattr(cmod, pymethod_name);
                     if !found {
@@ -898,7 +914,7 @@ impl ObjectMethods for PythonScripting {
                     global
                 } else {
                     // Look for in current module
-                    let cmod = pocketpy::py_inspect_currentmodule();
+                    let cmod = get_module_or_main();
                     // Then look for a ref in current module
                     let found = pocketpy::py_getattr(cmod, pyname);
                     if !found {

@@ -52,15 +52,7 @@
 use etffi::{cstring::CStringSafe, own_string, ptr_magic::PtrMagic};
 
 use crate::{
-    get_self, pxs_add_submod, pxs_addfunc, pxs_arena_putstr, pxs_arenaput, pxs_arg,
-    pxs_argc, pxs_call,
-    pxs_core::PxsCoreType,
-    pxs_evalnamed, pxs_exec, pxs_freearena, pxs_freevar, pxs_getstring, pxs_isexception,
-    pxs_isfunction, pxs_isint, pxs_islist, pxs_isobject, pxs_isstring, pxs_new_shallowcopy,
-    pxs_newarena, pxs_newexception, pxs_newhost, pxs_newmod,
-    pxs_newnull, pxs_newstring, pxs_newtype, pxs_object_addfunc, pxs_object_callrt, pxs_objectget,
-    pxs_objectset, pxs_var_fromname, pxs_varcall,
-    shared::{module::pxs_ModuleT, pxs_Opaque, pxs_Runtime, var::pxs_VarT},
+    get_self, pxs_add_submod, pxs_addfunc, pxs_arena_putstr, pxs_arenaput, pxs_arg, pxs_argc, pxs_call, pxs_core::PxsCoreType, pxs_evalnamed, pxs_exec, pxs_freearena, pxs_freevar, pxs_getstring, pxs_isexception, pxs_isfunction, pxs_isint, pxs_islist, pxs_isobject, pxs_isstring, pxs_new_shallowcopy, pxs_newarena, pxs_newexception, pxs_newhost, pxs_newint, pxs_newmod, pxs_newnull, pxs_newstring, pxs_newtype, pxs_object_addfunc, pxs_object_addprop, pxs_object_callrt, pxs_objectget, pxs_objectset, pxs_var_fromname, pxs_varcall, shared::{module::pxs_ModuleT, pxs_Opaque, pxs_Runtime, var::pxs_VarT},
 };
 
 /// Parse the return value of a _call or _get
@@ -84,6 +76,7 @@ fn parse_return_value(rt: pxs_Runtime, value: pxs_VarT) -> pxs_VarT {
 /// Function = [_call]
 /// Object = [_call, _get, _set]
 #[derive(PartialEq, Clone)]
+#[repr(u8)]
 enum RuntimeObjectType {
     /// Can do: _call, _exec, _eval, _get.
     Runtime = 0,
@@ -122,10 +115,16 @@ impl RuntimeObject {
             runtime: rt,
         };
 
+        let obj_name = match _type {
+            RuntimeObjectType::Runtime => c"RuntimeObjectRuntime".as_ptr(),
+            RuntimeObjectType::Function => c"RuntimeObjectFunction".as_ptr(),
+            RuntimeObjectType::Object => c"RuntimeObjectObject".as_ptr(),
+        };
+
         let obj = pxs_newtype(
             rtobj.into_void(),
             Self::free,
-            c"RuntimeObject".as_ptr(),
+            obj_name,
             super::PxsCoreType::RuntimeObject as i32,
         );
 
@@ -142,7 +141,22 @@ impl RuntimeObject {
             pxs_object_addfunc(obj, c"_exec".as_ptr(), Self::_exec);
             pxs_object_addfunc(obj, c"_eval".as_ptr(), Self::_eval);
         }
+
+        // PROPERTIES
+        pxs_object_addprop(obj, c"_type".as_ptr(), Self::_type);
+
         pxs_newhost(obj)
+    }
+
+    /// @pxs
+    /// @classmethod(#`RuntimeObject`)
+    /// @prop(get) the internal type.
+    /// @return(pxs_Int64) the type as a integer.
+    /// Get the type value.
+    extern "C" fn _type(args: pxs_VarT) -> pxs_VarT {
+        let this = get_self!(args, PxsCoreType::RuntimeObject as i32);
+
+        return pxs_newint(this._type.clone() as i64);
     }
 
     /// @pxs
@@ -321,7 +335,7 @@ impl RuntimeObject {
         let name_arg = pxs_arg(args, 2);
         let name: String;
         if !pxs_isstring(name_arg) {
-            name = "<exec>".to_string();
+            name = "<pxs_cross_exec>".to_string();
         } else {
             name = own_string!(pxs_getstring(name_arg));
         }
@@ -365,7 +379,7 @@ impl RuntimeObject {
         let name_arg = pxs_arg(args, 2);
         let name: String;
         if !pxs_isstring(name_arg) {
-            name = "<eval>".to_string();
+            name = "<pxs_cross_eval>".to_string();
         } else {
             name = own_string!(pxs_getstring(name_arg));
         }

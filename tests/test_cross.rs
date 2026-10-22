@@ -11,10 +11,14 @@
 #[cfg(test)]
 #[allow(unused)]
 mod tests {
-    use pixelscript::{
-        pxs_core_initall, pxs_finalize, pxs_freearena, pxs_initialize, pxs_newarena, pxs_newmod, shared::{module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT},
+    use etffi::{
+        borrow_string, create_raw_string, cstring::CStringSafe, free_raw_string, own_string,
+        ptr_magic::PtrMagic,
     };
-    use etffi::{cstring::CStringSafe, borrow_string, create_raw_string, free_raw_string, own_string, ptr_magic::PtrMagic};
+    use pixelscript::{
+        pxs_core_initall, pxs_finalize, pxs_freearena, pxs_initialize, pxs_newarena, pxs_newmod,
+        shared::{module::pxs_Module, pxs_Runtime, utils, var::pxs_VarT},
+    };
 
     fn print_helper(lang: &str) {
         println!("====================== {lang} ===================");
@@ -25,7 +29,6 @@ mod tests {
 from pxs import *
 from pxs.cross import access
 
-
 print('========== js ==========')
 js = access(2)
 js._exec("""
@@ -33,25 +36,21 @@ import {print} from 'pxs';
 
 print('from JS!');
 
-// define a function that we are gonna call in a sec.
 globalThis.add = (n1, n2) => {
     return n1 + n2;
 }
 
-// define a object we are gonna use in a sec
 globalThis.Me = {
     name: "Jordan",
     greet(name) {
         print(`Hello ${name}, I am ${this.name}`);
     }
 };
-
 """)
 
-js_result = js._call('add', [0,1])
+js_result = js._call('add', [0, 1])
 passert(js_result == 1, "Math is not mathing!")
 
-# get Me
 js_me = js._get('Me')
 print(js_me)
 js_me._call('greet', ['Evelyn'])
@@ -63,7 +62,23 @@ lua = access(0)
 lua._exec("""
 local pxs = require('pxs')
 pxs.print('From Lua!')
+
+function add(n1, n2)
+    return n1 + n2
+end
+
+Me = {
+    name = "Jordan"
+}
 """)
+
+lua_result = lua._call('add', [0, 1])
+passert(lua_result == 1, "LUA Math is not mathing!")
+
+lua_me = lua._get('Me')
+passert(lua_me._get('name') == 'Jordan', 'Lua name bad')
+lua_me._set('name', 'Jordan Castro')
+passert(lua_me._get('name') == 'Jordan Castro', 'lUA new name bad')
 
 print('Working Python')
 "#;
@@ -74,6 +89,45 @@ print('Working Python')
     fn test_lua() {
         let script = r#"
 local pxs = require('pxs')
+local passert = pxs.passert
+local access = require('pxs.cross').access
+
+local py = access(1)
+local js = access(2)
+
+pxs.print("====== Python via Lua ======")
+py:_exec([[
+def add(n1, n2):
+    return n1 + n2
+
+class MeObj:
+    def __init__(self):
+        self.name = "Jordan"
+
+Me = MeObj()
+]])
+
+local py_result = py:_call('add', {0, 1})
+passert(py_result == 1, "Python math from Lua failed!")
+
+local py_me = py:_get('Me')
+passert(py_me:_get('name') == 'Jordan', 'Python name from Lua failed')
+py_me:_set('name', 'Jordan Castro')
+passert(py_me:_get('name') == 'Jordan Castro', 'Python new name from Lua failed')
+
+pxs.print("====== JS via Lua ======")
+js:_exec([[
+globalThis.add = (n1, n2) => n1 + n2;
+globalThis.Me = { name: "Jordan" };
+]])
+
+local js_result = js:_call('add', {0, 1})
+passert(js_result == 1, "JS math from Lua failed!")
+
+local js_me = js:_get('Me')
+passert(js_me:_get('name') == 'Jordan', 'JS name from Lua failed')
+js_me:_set('name', 'Jordan Castro')
+passert(js_me:_get('name') == 'Jordan Castro', 'JS new name from Lua failed')
 
 pxs.print('Working Lua')
 "#;
@@ -84,6 +138,49 @@ pxs.print('Working Lua')
     fn test_js() {
         let script = r#"
 import * as pxs from 'pxs';
+import { access } from 'pxs.cross';
+
+const passert = pxs.passert;
+
+const lua = access(0);
+const py = access(1);
+
+pxs.print('========== Lua via JS ==========');
+lua._exec(`
+local pxs = require('pxs')
+function add(n1, n2)
+    return n1 + n2
+end
+Me = { name = "Jordan" }
+`);
+
+const lua_result = lua._call('add', [0, 1]);
+passert(lua_result === 1, 'Lua math from JS failed!');
+
+const lua_me = lua._get('Me');
+passert(lua_me._get('name') === 'Jordan', 'Lua name from JS failed');
+lua_me._set('name', 'Jordan Castro');
+passert(lua_me._get('name') === 'Jordan Castro', 'Lua new name from JS failed');
+
+pxs.print('========== Python via JS ==========');
+py._exec(`
+def add(n1, n2):
+    return n1 + n2
+
+class MeObj:
+    def __init__(self):
+        self.name = "Jordan"
+
+Me = MeObj()
+`);
+
+const py_result = py._call('add', [0, 1]);
+passert(py_result === 1, 'Python math from JS failed!');
+
+const py_me = py._get('Me');
+passert(py_me._get('name') === 'Jordan', 'Python name from JS failed');
+py_me._set('name', 'Jordan Castro');
+passert(py_me._get('name') === 'Jordan Castro', 'Python new name from JS failed');
 
 pxs.print('Working JS');
 "#;

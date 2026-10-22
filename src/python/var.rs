@@ -15,7 +15,7 @@ use etffi::{borrow_string, create_raw_string, free_raw_string, ptr_magic::PtrMag
 
 use crate::{
     pxs_debug, python::{
-        consume_error, func::{get_string_from_obj, py_assign}, object::create_object, pocketpy::{self}, python_pxs_get_register, python_pxs_new_register, python_pxs_remove_ref
+        consume_error, func::{get_string_from_obj, py_assign}, get_module_or_main, object::create_object, pocketpy::{self}, python_pxs_get_register, python_pxs_new_register, python_pxs_remove_ref
     }, shared::{
         object::get_object, pxs_Runtime, var::{pxs_Var, pxs_VarObject, pxs_VarType}
     }
@@ -200,7 +200,7 @@ pub(super) fn var_to_pocketpyref(out: pocketpy::py_Ref, var: &pxs_Var, module_na
                     let obj_module_name = if let Some(module_name) = module_name {
                         module_name.to_string()
                     } else {
-                        let cmod = pocketpy::py_inspect_currentmodule();
+                        let cmod = get_module_or_main();
                         // Default to main if null.
                         if cmod.is_null() {
                             "__main__".to_string()
