@@ -7,6 +7,4 @@ fn main() {}
 
 // Main for none wasm, do lots of stuff.
 #[cfg(not(target_arch = "wasm32"))]
-fn main() {
-    
-}
+fn main() {}
