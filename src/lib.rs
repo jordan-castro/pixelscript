@@ -119,8 +119,8 @@ pub const PXS_MODULE_FLAG_NONE: pxs_ModuleFlag = pxs_ModuleFlag::pxs_JSON;
 pub extern "C" fn pxs_version() -> u32 {
     pxs_debug!("pxs_version");
     let major = 0;
-    let minor = 6;
-    let patch = 6;
+    let minor = 7;
+    let patch = 1;
     (major << 16) | (minor << 8) | patch
 }
 

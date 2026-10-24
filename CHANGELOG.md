@@ -106,5 +106,5 @@
 - Added `scripts/make_corelib.py` to generate `web/docs/corelib.html`.
 - Made pxs_Var opaque.
 
-## 0.7.0
+## 0.7.1
 - Added `pxs_cross` cross language support.
